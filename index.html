@@ -70,6 +70,16 @@ h1,h2,h3,p{margin:0}
 .brand-s{font-size:11.5px;color:var(--muted);line-height:1.25;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:62vw}
 .tbtn{display:inline-flex;align-items:center;gap:5px;height:36px;padding:0 12px;border-radius:10px;border:1px solid var(--brand-line);background:var(--brand-soft);font-size:13px;font-weight:800;color:var(--brand-dark)}
 .tbtn:active{transform:scale(.97)}
+.syncbar{position:sticky;top:56px;z-index:29;background:var(--surface);border-bottom:1px solid var(--line)}
+.syncbar-in{max-width:860px;margin:0 auto;padding:0 14px;height:32px;display:flex;align-items:center;gap:7px;font-size:11.5px;font-weight:700;color:var(--muted)}
+.syncbar .dot{width:7px;height:7px;border-radius:50%;background:#9aa59e;flex:0 0 auto}
+.syncbar.ok .dot{background:#2f9e6f}
+.syncbar.syncing .dot{background:#c9a227;animation:syncpulse 1.1s infinite}
+.syncbar.error .dot{background:#b23a32}
+.syncbar .synctxt{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.syncbar button{height:24px;padding:0 9px;border-radius:8px;border:1px solid var(--line);background:var(--surface2);font-size:11px;font-weight:800;color:var(--ink2);flex:0 0 auto}
+.syncbar button:active{transform:scale(.97)}
+@keyframes syncpulse{0%,100%{opacity:1}50%{opacity:.3}}
 .top-actions{margin-left:auto;display:flex;gap:6px;flex:0 0 auto}
 
 /* ============================================================
@@ -339,7 +349,7 @@ textarea.inp{height:auto;min-height:64px;padding:10px 12px;line-height:1.5;resiz
   :root{--ink:#000;--muted:#444;--line:#999;--line2:#ccc}
   html,body{background:#fff !important}
   body{font-size:10.5pt;line-height:1.45}
-  .topbar,.tabbar,.no-print,.sheet-wrap,.modal,.toast,.quick,.filters{display:none !important}
+  .topbar,.tabbar,.no-print,.sheet-wrap,.modal,.toast,.quick,.filters,.syncbar{display:none !important}
   main{max-width:none;padding:0;margin:0}
   .view{display:none !important}
   .view.active{display:block !important}
@@ -433,6 +443,14 @@ textarea.inp{height:auto;min-height:64px;padding:10px 12px;line-height:1.5;resiz
     </div>
   </div>
 </header>
+
+<div class="syncbar init" id="syncBar" aria-live="polite">
+  <div class="syncbar-in">
+    <span class="dot" aria-hidden="true"></span>
+    <span class="synctxt" id="syncTxt">공유 데이터 연결을 확인하고 있습니다…</span>
+    <button type="button" id="btnSync">🔄 새로고침</button>
+  </div>
+</div>
 
 <main>
   <!-- ===================== 1. 장부 ===================== -->
@@ -581,6 +599,15 @@ textarea.inp{height:auto;min-height:64px;padding:10px 12px;line-height:1.5;resiz
 
   <!-- ===================== 4. 설정 ===================== -->
   <section class="view" id="view-settings" aria-label="설정과 관리">
+    <div class="card no-print">
+      <div class="card-head"><h2>공유 데이터</h2><span class="count" id="shareState">확인 중</span></div>
+      <p class="hint" id="shareHint">모든 기기·사람이 같은 장부를 함께 쓰고 있습니다. 입력하면 바로 구글 시트에 저장됩니다.</p>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn sm line" type="button" id="btnSyncNow">지금 새로고침</button>
+        <a class="btn sm line" id="linkSheet" href="#" target="_blank" rel="noopener">구글 시트 열기</a>
+      </div>
+    </div>
+
     <div class="card">
       <div class="card-head"><h2>기본 정보</h2></div>
       <div class="frow">
@@ -624,7 +651,7 @@ textarea.inp{height:auto;min-height:64px;padding:10px 12px;line-height:1.5;resiz
       <div class="kv"><span>영수증 사진</span><b id="stReceipts">0장</b></div>
       <div class="kv"><span>저장 공간 사용</span><b id="stSize">0 KB</b></div>
       <div class="meter" id="stMeter"><i style="width:0%"></i></div>
-      <p class="hint" style="margin-top:6px" id="stHint">이 기기 브라우저에만 저장됩니다. 다른 기기와 함께 쓰려면 백업 파일을 주고받으세요.</p>
+      <p class="hint" style="margin-top:6px" id="stHint">기록은 구글 시트에 공유되어 여러 기기에서 함께 볼 수 있습니다.</p>
       <div class="btnrow" style="margin-top:12px">
         <button class="btn sm line" type="button" id="btnSample">샘플 데이터 채우기</button>
         <button class="btn sm danger" type="button" id="btnReset">전체 초기화</button>
@@ -798,7 +825,8 @@ textarea.inp{height:auto;min-height:64px;padding:10px 12px;line-height:1.5;resiz
       v: 1,
       settings: { org: "", author: "", base: 0 },
       accounts: { income: DEFAULT_ACCOUNTS.income.slice(), expense: DEFAULT_ACCOUNTS.expense.slice() },
-      entries: []
+      entries: [],
+      tombstones: {}
     };
   }
 
@@ -823,9 +851,16 @@ textarea.inp{height:auto;min-height:64px;padding:10px 12px;line-height:1.5;resiz
         method: isStr(e.method) ? e.method : "",
         amount: Math.max(0, Math.round(Number(e.amount) || 0)),
         receipt: (e.receipt && isStr(e.receipt.d)) ? { d: e.receipt.d, n: isStr(e.receipt.n)?e.receipt.n:"receipt.jpg", w: Number(e.receipt.w)||0, h: Number(e.receipt.h)||0 } : null,
-        created: Number(e.created) || Date.parse(e.date) || Date.now()
+        created: Number(e.created) || Date.parse(e.date) || Date.now(),
+        updatedAt: Number(e.updatedAt) || Number(e.created) || Date.parse(e.date) || 0
       };
     }).filter(function(e){ return e.amount > 0; });
+    var tb = s.tombstones;
+    if (tb && typeof tb === "object"){
+      Object.keys(tb).forEach(function(id){
+        f.tombstones[String(id)] = Number(tb[id]) || Date.now();
+      });
+    }
     return f;
   }
 
@@ -851,6 +886,7 @@ textarea.inp{height:auto;min-height:64px;padding:10px 12px;line-height:1.5;resiz
     try{
       localStorage.setItem(LS_KEY, raw);
       persisted = raw;
+      schedulePush();
       return true;
     }catch(e){
       state = load();               // 메모리 상태를 마지막 저장본으로 되돌림
@@ -1309,7 +1345,7 @@ textarea.inp{height:auto;min-height:64px;padding:10px 12px;line-height:1.5;resiz
     meter.firstElementChild.style.width = Math.max(1, pct) + "%";
     $("stHint").textContent = pct > 65
       ? "저장 공간이 " + pct.toFixed(0) + "% 찼습니다. 백업(JSON) 후 오래된 영수증을 정리하는 것을 권합니다."
-      : "이 기기 브라우저에만 저장됩니다. 다른 기기와 함께 쓰려면 백업 파일을 주고받으세요.";
+      : "기록은 구글 시트에 공유되어 여러 기기에서 함께 볼 수 있습니다.";
     $("stHint").style.color = pct > 85 ? "#b23a32" : "";
   }
 
@@ -1398,7 +1434,7 @@ textarea.inp{height:auto;min-height:64px;padding:10px 12px;line-height:1.5;resiz
     samples.forEach(function(r, idx){
       state.entries.push({
         id: uid() + idx, date: r[0], type: r[1], account: r[2], amount: r[3],
-        memo: r[4], method: r[5], receipt: null, created: Date.now() + idx
+        memo: r[4], method: r[5], receipt: null, created: Date.now() + idx, updatedAt: Date.now() + idx
       });
     });
     if (!state.settings.org) state.settings.org = "○○교회 ○○부 (○○모임)";
@@ -1420,6 +1456,7 @@ textarea.inp{height:auto;min-height:64px;padding:10px 12px;line-height:1.5;resiz
     if (save()){
       current.my = new Date().getFullYear(); current.mm = new Date().getMonth()+1; current.yy = new Date().getFullYear();
       renderLedger(); renderSettings(); showTab("ledger");
+      syncRemoteReset();
       toast("초기화했습니다");
     }
   });
@@ -1537,6 +1574,29 @@ textarea.inp{height:auto;min-height:64px;padding:10px 12px;line-height:1.5;resiz
     });
   });
 
+  function encodeImage(img, maxLen){
+    var w0 = img.naturalWidth || img.width, h0 = img.naturalHeight || img.height;
+    if (!w0 || !h0) return null;
+    var sizes = [960, 840, 720, 620, 540, 460, 380];
+    var quals = [0.72, 0.62, 0.52, 0.44, 0.36];
+    var best = null;
+    for (var s = 0; s < sizes.length; s++){
+      var max = Math.min(sizes[s], Math.max(w0, h0));
+      var k = max / Math.max(w0, h0);
+      var w = Math.max(1, Math.round(w0 * k)), h = Math.max(1, Math.round(h0 * k));
+      var cv = document.createElement("canvas");
+      cv.width = w; cv.height = h;
+      var ctx = cv.getContext("2d");
+      ctx.fillStyle = "#ffffff"; ctx.fillRect(0, 0, w, h);
+      ctx.drawImage(img, 0, 0, w, h);
+      for (var q = 0; q < quals.length; q++){
+        var url = cv.toDataURL("image/jpeg", quals[q]);
+        if (!best || url.length < best.d.length) best = { d: url, w: w, h: h };
+        if (url.length <= maxLen) return { d: url, w: w, h: h };
+      }
+    }
+    return best;
+  }
   function compressImage(file, cb){
     var reader = new FileReader();
     reader.onerror = function(){ cb(null); };
@@ -1544,29 +1604,42 @@ textarea.inp{height:auto;min-height:64px;padding:10px 12px;line-height:1.5;resiz
       var img = new Image();
       img.onerror = function(){ cb(null); };
       img.onload = function(){
-        var max = 1280;
-        var w = img.naturalWidth || img.width, h = img.naturalHeight || img.height;
-        if (!w || !h){ cb(null); return; }
-        if (Math.max(w,h) > max){
-          var k = max / Math.max(w,h);
-          w = Math.round(w*k); h = Math.round(h*k);
-        }
-        var cv = document.createElement("canvas");
-        cv.width = w; cv.height = h;
-        var ctx = cv.getContext("2d");
-        ctx.fillStyle = "#ffffff";
-        ctx.fillRect(0,0,w,h);
-        ctx.drawImage(img,0,0,w,h);
-        var q = 0.74, url = cv.toDataURL("image/jpeg", q);
-        while (url.length > 300000 && q > 0.4){
-          q -= 0.1;
-          url = cv.toDataURL("image/jpeg", q);
-        }
-        cb({ d:url, n:(file.name || "receipt.jpg"), w:w, h:h });
+        var res = encodeImage(img, RECEIPT_MAX);
+        if (!res){ cb(null); return; }
+        res.n = file.name || "receipt.jpg";
+        cb(res);
       };
       img.src = reader.result;
     };
     reader.readAsDataURL(file);
+  }
+  function compressDataUrl(d, cb){
+    var img = new Image();
+    img.onerror = function(){ cb(null); };
+    img.onload = function(){ cb(encodeImage(img, RECEIPT_MAX)); };
+    img.src = d;
+  }
+  function shrinkReceipts(list){
+    return new Promise(function(resolve){
+      var out = list.slice(), i = 0;
+      (function next(){
+        if (i >= out.length) return resolve(out);
+        var e = out[i];
+        if (!e.receipt || !e.receipt.d || e.receipt.d.length <= RECEIPT_MAX){ i++; return next(); }
+        compressDataUrl(e.receipt.d, function(res){
+          if (res){
+            var copy = {}, k;
+            for (k in e){ if (Object.prototype.hasOwnProperty.call(e, k)) copy[k] = e[k]; }
+            copy.receipt = { d: res.d, n: e.receipt.n || "영수증.jpg", w: res.w, h: res.h };
+            out[i] = copy;
+            for (var j = 0; j < state.entries.length; j++){
+              if (state.entries[j].id === e.id){ state.entries[j].receipt = copy.receipt; break; }
+            }
+          }
+          i++; next();
+        });
+      })();
+    });
   }
 
   $("btnSave").addEventListener("click", function(){
@@ -1590,11 +1663,12 @@ textarea.inp{height:auto;min-height:64px;padding:10px 12px;line-height:1.5;resiz
       e.date = date; e.type = type; e.account = account; e.amount = amount;
       e.memo = $("fMemo").value.trim(); e.method = $("fMethod").value;
       e.receipt = rec;
+      e.updatedAt = Date.now();
     }else{
       state.entries.push({
         id: uid(), date: date, type: type, account: account, amount: amount,
         memo: $("fMemo").value.trim(), method: $("fMethod").value,
-        receipt: rec, created: Date.now()
+        receipt: rec, created: Date.now(), updatedAt: Date.now()
       });
     }
     if (!save()){ return; }   // save() 안에서 안내 + 상태 복구
@@ -1620,11 +1694,13 @@ textarea.inp{height:auto;min-height:64px;padding:10px 12px;line-height:1.5;resiz
     if (!confirm("이 기록을 지울까요?\n" + e.date + " · " + e.account + " · " + wonW(e.amount))) return;
     var idx = state.entries.indexOf(e);
     var backup = state.entries.slice();
+    state.tombstones[e.id] = Date.now();
     state.entries.splice(idx,1);
     if (save()){
       closeSheet(); renderLedger(); toast("삭제했습니다");
     }else{
       state.entries = backup;
+      delete state.tombstones[e.id];
     }
   });
 
@@ -1787,10 +1863,246 @@ textarea.inp{height:auto;min-height:64px;padding:10px 12px;line-height:1.5;resiz
   });
 
   /* =========================================================
+     공유 동기화 (Google Sheets · Apps Script 웹앱)
+     ========================================================= */
+  var SYNC_URL = "https://script.google.com/macros/s/AKfycbwyS5AWgCcTvLmvIHcpI_r_AoBE8Xx_mSvz_q_KJyg0nuyqHBP_xBJdhS1V1-F2kaHR/exec";
+  var SHEET_URL = "https://docs.google.com/spreadsheets/d/1PLtsH2E1CkALiP8xHLs73hfpouqL01iCrrqO-uqz8lg/edit";
+  var RECEIPT_MAX = 42000;      // 시트 한 셀 50,000자 한도 안전선
+  var SYNC_EVERY = 20000;       // 20초마다 자동 새로고침
+  var SYNC = { busy:false, applying:false, knownIds:{}, lastAt:0, pushTimer:null, settingsSig:"", state:"init", again:false };
+
+  function jsonOf(o){ try { return JSON.stringify(o); } catch(e){ return ""; } }
+  function settingsSnapshot(){
+    return jsonOf({ o: state.settings.org, a: state.settings.author, b: state.settings.base,
+      i: state.accounts.income, e: state.accounts.expense });
+  }
+  function agoText(t){
+    if (!t) return "방금";
+    var s = Math.round((Date.now() - t) / 1000);
+    if (s < 8) return "방금";
+    if (s < 60) return s + "초 전";
+    if (s < 3600) return Math.round(s/60) + "분 전";
+    return Math.round(s/3600) + "시간 전";
+  }
+  function setSyncState(s){
+    SYNC.state = s;
+    var bar = $("syncBar");
+    if (bar) bar.className = "syncbar " + s;
+    var txt = $("syncTxt");
+    if (txt){
+      if (s === "syncing") txt.textContent = "☁️ 동기화 중…";
+      else if (s === "ok") txt.textContent = "☁️ 동기화 완료 (" + agoText(SYNC.lastAt) + ")";
+      else if (s === "error") txt.textContent = "⚠️ 공유 서버에 연결하지 못했습니다 · 이 기기에 저장됨";
+      else txt.textContent = "공유 데이터 연결을 확인하고 있습니다…";
+    }
+    var sh = $("shareState"), hint = $("shareHint");
+    if (sh) sh.textContent = s === "ok" ? "연결됨" : (s === "error" ? "연결 끊김" : "확인 중");
+    if (hint){
+      hint.textContent = s === "error"
+        ? "지금은 이 기기에만 저장됩니다. 연결되면 자동으로 구글 시트에 올려집니다."
+        : "모든 기기·사람이 같은 장부를 함께 씁니다. 입력하면 바로 구글 시트에 저장됩니다.";
+    }
+  }
+
+  function syncFetch(qs, body){
+    var url = SYNC_URL, opt = { cache: "no-store" };
+    if (body){
+      opt.method = "POST";
+      opt.headers = { "Content-Type": "text/plain;charset=utf-8" };
+      opt.body = JSON.stringify(body);
+    } else {
+      url += "?" + (qs || "action=sync_all") + "&_t=" + Date.now();
+    }
+    return fetch(url, opt).then(function(res){
+      if (!res.ok) throw new Error("HTTP " + res.status);
+      return res.text();
+    }).then(function(t){
+      try { return JSON.parse(t); }
+      catch(e){ throw new Error("서버 응답을 해석하지 못했습니다"); }
+    });
+  }
+
+  function entryToRow(e){
+    return {
+      id: e.id, date: e.date, type: e.type, cat: e.account || "", memo: e.memo || "",
+      pay: e.method || "", amount: e.amount || 0, author: state.settings.author || "",
+      receiptData: (e.receipt && e.receipt.d) || "",
+      updatedAt: Number(e.updatedAt) || 0, deleted: false
+    };
+  }
+  function entryFromRow(r){
+    return {
+      id: String(r.id),
+      date: isDateStr(r.date) ? r.date : todayStr(),
+      type: r.type === "expense" ? "expense" : "income",
+      account: String(r.cat || ""),
+      memo: String(r.memo || ""),
+      method: String(r.pay || ""),
+      amount: Math.max(0, Math.round(Number(r.amount) || 0)),
+      receipt: r.receiptData ? { d: String(r.receiptData), n: "영수증.jpg", w: 0, h: 0 } : null,
+      created: Number(r.updatedAt) || Date.parse(r.date) || Date.now(),
+      updatedAt: Number(r.updatedAt) || 0
+    };
+  }
+
+  function applyServerData(d, localSigBefore){
+    var list = (d && Array.isArray(d.entries)) ? d.entries : [];
+    var serverById = {}, live = [];
+    list.forEach(function(r){
+      if (!r || !r.id) return;
+      serverById[r.id] = r;
+      if (r.deleted !== true) live.push(r);
+    });
+    var localById = {};
+    state.entries.forEach(function(e){ localById[e.id] = e; });
+    var out = [], used = {}, changed = false;
+    live.forEach(function(r){
+      if (state.tombstones[r.id]){ used[r.id] = true; changed = true; return; }   // 이 기기에서 지운 기록
+      used[r.id] = true;
+      var local = localById[r.id];
+      if (!local){ out.push(entryFromRow(r)); changed = true; return; }
+      if ((Number(r.updatedAt) || 0) > (Number(local.updatedAt) || 0)){ out.push(entryFromRow(r)); changed = true; return; }
+      out.push(local);
+    });
+    state.entries.forEach(function(e){
+      if (used[e.id]) return;
+      if (serverById[e.id]){ changed = true; return; }   // 다른 기기에서 지운 기록
+      out.push(e);                                        // 이 기기에만 있는 기록
+    });
+    if (changed){ state.entries = out; save(); renderAll(); }
+
+    var ss = (d && d.settings) || {};
+    var acc = ss.accounts || {};
+    var serverHas = !!(String(ss.org || "").trim() || String(ss.author || "").trim() || Number(ss.base) ||
+      (acc.income && acc.income.length) || (acc.expense && acc.expense.length));
+    if (serverHas && (SYNC.settingsSig === "" || localSigBefore === SYNC.settingsSig)){
+      var next = { org: String(ss.org || ""), author: String(ss.author || ""), base: Math.round(Number(ss.base) || 0) };
+      var nextAcc = {
+        income: (acc.income && acc.income.length) ? acc.income.map(String) : state.accounts.income.slice(),
+        expense: (acc.expense && acc.expense.length) ? acc.expense.map(String) : state.accounts.expense.slice()
+      };
+      if (jsonOf(next) !== jsonOf(state.settings) || jsonOf(nextAcc) !== jsonOf(state.accounts)){
+        state.settings = next; state.accounts = nextAcc;
+        save(); renderAll();
+      }
+      SYNC.settingsSig = settingsSnapshot();   // 서버와 같아짐
+    }
+    return changed;
+  }
+
+  function syncNow(){
+    if (!SYNC_URL) return;
+    if (SYNC.busy){ SYNC.again = true; return; }
+    SYNC.busy = true;
+    var removed = [];
+    setSyncState("syncing");
+    syncFetch("action=sync_all").then(function(d){
+      if (!d || d.ok !== true) throw new Error((d && d.error) || "서버 응답 오류");
+      var localSigBefore = settingsSnapshot();
+      SYNC.applying = true;
+      try { applyServerData(d, localSigBefore); } finally { SYNC.applying = false; }
+
+      var serverById = {};
+      (d.entries || []).forEach(function(r){ if (r && r.id) serverById[r.id] = r; });
+
+      var push = state.entries.filter(function(e){
+        var r = serverById[e.id];
+        if (!r) return true;
+        if (r.deleted === true) return true;
+        return (Number(r.updatedAt) || 0) < (Number(e.updatedAt) || 0);
+      });
+      Object.keys(state.tombstones).forEach(function(id){
+        var r = serverById[id];
+        if (r && r.deleted === true) return;   // 이미 서버에 삭제 표시됨
+        removed.push(id);
+      });
+      var needsSettings = settingsSnapshot() !== SYNC.settingsSig;
+
+      var chain = Promise.resolve();
+      if (push.length){
+        chain = chain.then(function(){ return shrinkReceipts(push); }).then(function(list){
+          return syncFetch(null, { action: "bulk_import", entries: list.map(entryToRow) });
+        });
+      }
+      if (needsSettings){
+        chain = chain.then(function(){
+          return syncFetch(null, { action: "save_settings", settings: {
+            org: state.settings.org, author: state.settings.author,
+            base: state.settings.base, accounts: state.accounts } });
+        });
+      }
+      removed.forEach(function(id){
+        chain = chain.then(function(){
+          return syncFetch(null, { action: "save_entry", entry: { id: id, date: todayStr(), type: "income",
+            cat: "", memo: "", pay: "", amount: 0, author: "", receiptData: "",
+            updatedAt: Date.now(), deleted: true } });
+        });
+      });
+      return chain;
+    }).then(function(){
+      if (removed.length){
+        SYNC.applying = true;
+        removed.forEach(function(id){ delete state.tombstones[id]; });
+        save();
+        SYNC.applying = false;
+      }
+      SYNC.knownIds = {};
+      state.entries.forEach(function(e){ SYNC.knownIds[e.id] = true; });
+      SYNC.settingsSig = settingsSnapshot();
+      SYNC.lastAt = Date.now();
+      setSyncState("ok");
+    }).catch(function(err){
+      setSyncState("error", (err && err.message) || "");
+    }).then(function(){
+      SYNC.busy = false;
+      if (SYNC.again){ SYNC.again = false; setTimeout(syncNow, 200); }
+    });
+  }
+
+  function schedulePush(){
+    if (SYNC.applying || !SYNC_URL) return;
+    clearTimeout(SYNC.pushTimer);
+    SYNC.pushTimer = setTimeout(syncNow, 700);
+  }
+
+  function syncRemoteReset(){
+    if (!SYNC_URL) return;
+    SYNC.knownIds = {};
+    setSyncState("syncing");
+    syncFetch(null, { action: "reset_all" }).then(function(){
+      SYNC.settingsSig = settingsSnapshot();
+      SYNC.lastAt = Date.now();
+      setSyncState("ok");
+    }).catch(function(){ setSyncState("error"); });
+  }
+
+  function renderAll(){
+    renderHeader(); renderLedger();
+    if ($("view-month").classList.contains("active")) renderMonth();
+    if ($("view-year").classList.contains("active")) renderYear();
+    if ($("view-settings").classList.contains("active")) renderSettings();
+  }
+
+  /* =========================================================
      시작
      ========================================================= */
   renderHeader();
   renderLedger();
+
+  // 공유 데이터 연결
+  $("btnSync").addEventListener("click", function(){ toast("공유 데이터를 새로 받아옵니다"); syncNow(); });
+  $("btnSyncNow").addEventListener("click", function(){ toast("공유 데이터를 새로 받아옵니다"); syncNow(); });
+  $("linkSheet").href = SHEET_URL;
+  document.addEventListener("visibilitychange", function(){
+    if (!document.hidden && Date.now() - SYNC.lastAt > 10000) syncNow();
+  });
+  window.addEventListener("online", function(){ syncNow(); });
+  setInterval(function(){
+    if (document.hidden) return;
+    if (Date.now() - SYNC.lastAt >= SYNC_EVERY) syncNow();
+  }, 5000);
+  setInterval(function(){ if (SYNC.state === "ok") setSyncState("ok"); }, 15000);
+  syncNow();
   // 첫 실행 안내
   if (!state.entries.length && !state.settings.org){
     setTimeout(function(){
