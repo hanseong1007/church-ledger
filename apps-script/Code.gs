@@ -81,7 +81,10 @@ function handle(action, body, p) {
       } else if (action === "bulk_import") {
         out = bulkImport_(t, body, auth);
       } else if (action === "reset_all") {
-        out = resetAll_(t);
+        // 전체 초기화는 공유 장부를 통째로 지우므로 관리자만 할 수 있습니다.
+        out = (auth.role === "admin")
+          ? resetAll_(t)
+          : { ok: false, error: "forbidden", message: "전체 초기화는 관리자만 할 수 있습니다" };
       } else {
         out = syncAll_(t);
       }

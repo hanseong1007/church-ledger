@@ -716,10 +716,11 @@ textarea.inp{height:auto;min-height:64px;padding:10px 12px;line-height:1.5;resiz
       <div class="kv"><span>저장 공간 사용</span><b id="stSize">0 KB</b></div>
       <div class="meter" id="stMeter"><i style="width:0%"></i></div>
       <p class="hint" style="margin-top:6px" id="stHint">기록은 구글 시트에 공유되어 여러 기기에서 함께 볼 수 있습니다.</p>
-      <div class="btnrow" style="margin-top:12px">
+      <div class="btnrow" style="margin-top:12px" id="dataAdminRow">
         <button class="btn sm line" type="button" id="btnSample">샘플 데이터 채우기</button>
         <button class="btn sm danger" type="button" id="btnReset">전체 초기화</button>
       </div>
+      <p class="hint" id="dataAdminHint" hidden>샘플 채우기·전체 초기화는 관리자만 할 수 있습니다.</p>
     </div>
 
     <div class="card">
@@ -1441,6 +1442,9 @@ textarea.inp{height:auto;min-height:64px;padding:10px 12px;line-height:1.5;resiz
     renderAccounts("expense");
     renderStats();
     renderAccountCard();
+    var isAdmin = !!(CURRENT_USER && CURRENT_USER.role === "admin");
+    $("dataAdminRow").hidden = !isAdmin;
+    $("dataAdminHint").hidden = isAdmin;
     if (CURRENT_USER && CURRENT_USER.role === "admin") loadUsers(false);
     else $("adminCard").hidden = true;
   }
