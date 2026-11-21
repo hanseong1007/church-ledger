@@ -338,6 +338,41 @@ textarea.inp{height:auto;min-height:64px;padding:10px 12px;line-height:1.5;resiz
 .toast{position:fixed;left:50%;bottom:calc(var(--tabh) + 18px + var(--safe-b));transform:translate(-50%,14px);background:#1d2a24;color:#fff;font-size:13px;font-weight:700;padding:10px 16px;border-radius:12px;box-shadow:0 8px 24px rgba(0,0,0,.25);opacity:0;pointer-events:none;transition:all .22s;z-index:90;max-width:90vw;text-align:center;line-height:1.4}
 .toast.show{opacity:1;transform:translate(-50%,0)}
 
+/* ============================================================
+   로그인 화면
+   ============================================================ */
+.login-screen{position:fixed;inset:0;z-index:120;display:flex;align-items:center;justify-content:center;padding:22px 18px calc(22px + env(safe-area-inset-bottom,0px));background:linear-gradient(160deg,#1f7654 0%,#134b35 58%,#0f3c2a 100%);overflow-y:auto}
+.login-screen[hidden]{display:none !important}
+.login-card{width:100%;max-width:380px;background:var(--surface);border-radius:20px;padding:22px 20px 18px;box-shadow:0 18px 48px rgba(6,26,18,.36)}
+.login-mark{width:48px;height:48px;border-radius:14px;background:linear-gradient(155deg,var(--brand-mid),var(--brand-dark));display:grid;place-items:center;color:#fff;margin-bottom:12px;box-shadow:0 4px 12px rgba(18,75,52,.3)}
+.login-card h1{font-size:20px;font-weight:800;letter-spacing:-.02em}
+.login-sub{font-size:12.5px;color:var(--muted);margin-top:3px}
+.login-form{margin-top:14px}
+.login-form label{display:block;font-size:12px;font-weight:800;color:var(--ink2);margin:10px 0 5px}
+.login-form .inp{height:46px}
+.login-err{display:none;margin-top:10px;padding:9px 11px;border-radius:10px;background:#fdeceb;border:1px solid #f0cbc8;color:#8f2d26;font-size:12.5px;font-weight:700;line-height:1.45}
+.login-err.show{display:block}
+.login-form .btn{margin-top:14px;height:48px;font-size:15px}
+.login-hint{margin-top:13px;font-size:11.5px;color:var(--muted);line-height:1.6;background:var(--surface2);border:1px solid var(--line2);border-radius:10px;padding:9px 11px}
+.login-hint b{color:var(--ink);font-weight:800}
+.login-foot{margin-top:11px;text-align:center;font-size:11px;color:#98a29b}
+.whochip{display:inline-flex;align-items:center;gap:5px;height:36px;padding:0 9px;border-radius:10px;border:1px solid var(--line);background:var(--surface);font-size:12px;font-weight:800;color:var(--ink2);max-width:38vw}
+.whochip .nm{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.whochip .role{font-size:9.5px;color:var(--brand-dark);background:var(--brand-soft);border:1px solid var(--brand-line);border-radius:5px;padding:0 4px}
+.pwbox{margin-top:10px;padding-top:10px;border-top:1px dashed var(--line2)}
+.pwbox .frow{margin-bottom:9px}
+.user-row{display:flex;align-items:center;gap:7px;padding:8px 9px 8px 11px;border:1px solid var(--line2);border-radius:10px;background:var(--surface2);font-size:13px;margin-bottom:6px;flex-wrap:wrap}
+.user-row .u-nm{font-weight:700;color:var(--ink)}
+.user-row .u-id{font-size:11px;color:var(--muted);font-variant-numeric:tabular-nums}
+.user-row .u-tag{font-size:9.5px;font-weight:800;padding:1px 5px;border-radius:5px;background:var(--brand-soft);color:var(--brand-dark);border:1px solid var(--brand-line)}
+.user-row .u-tag.off{background:#f2efe6;color:#8a938d;border-color:var(--line)}
+.user-row .u-btns{margin-left:auto;display:flex;gap:4px;flex-wrap:wrap}
+.user-row .u-btns .btn{height:30px;padding:0 8px;font-size:11.5px;border-radius:8px}
+.user-row.me{border-color:var(--brand-line);background:#f4faf6}
+.adduser{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:8px}
+.adduser .inp{height:40px;font-size:14px}
+.adduser .btn{grid-column:1 / -1;height:40px}
+
 /* 인쇄 전용 */
 .print-only{display:none}
 
@@ -346,6 +381,7 @@ textarea.inp{height:auto;min-height:64px;padding:10px 12px;line-height:1.5;resiz
    ============================================================ */
 @page{size:A4;margin:13mm 11mm}
 @media print{
+  .login-screen,.whochip{display:none !important}
   :root{--ink:#000;--muted:#444;--line:#999;--line2:#ccc}
   html,body{background:#fff !important}
   body{font-size:10.5pt;line-height:1.45}
@@ -425,6 +461,30 @@ textarea.inp{height:auto;min-height:64px;padding:10px 12px;line-height:1.5;resiz
 </head>
 <body>
 
+<!-- ===================== 로그인 화면 (로그인 전에는 장부가 보이지 않습니다) ===================== -->
+<div class="login-screen" id="loginScreen">
+  <div class="login-card">
+    <div class="login-mark">
+      <svg class="svg" width="26" height="26" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5.5h7a3 3 0 0 1 3 3V20a2.6 2.6 0 0 0-2.6-2.6H4z"/><path d="M20 5.5h-6a3 3 0 0 0-3 3V20a2.6 2.6 0 0 1 2.6-2.6H20z"/></svg>
+    </div>
+    <h1>금전출납부</h1>
+    <p class="login-sub" id="loginSub">교회·모임 수입·지출 장부 · 로그인 후 사용</p>
+    <form class="login-form" id="loginForm" autocomplete="on">
+      <label for="loginId">아이디</label>
+      <input class="inp" id="loginId" name="username" type="text" autocomplete="username" autocapitalize="none" spellcheck="false" placeholder="아이디">
+      <label for="loginPw">비밀번호</label>
+      <input class="inp" id="loginPw" name="password" type="password" autocomplete="current-password" placeholder="비밀번호">
+      <div class="login-err" id="loginErr" role="alert"></div>
+      <button class="btn primary full" type="submit" id="loginBtn">
+        <svg class="svg" viewBox="0 0 24 24"><rect x="4.5" y="10.5" width="15" height="9.5" rx="2"/><path d="M8 10.5V8a4 4 0 0 1 8 0v2.5"/></svg>로그인
+      </button>
+    </form>
+    <p class="login-hint">처음이면 <b>admin</b> / <b>admin1234</b> 로 들어온 뒤,<br>설정 → 내 비밀번호 변경에서 꼭 바꿔 주세요.</p>
+    <p class="login-foot">아이디·비밀번호는 관리자에게 받으세요.</p>
+  </div>
+</div>
+
+<div id="appRoot" hidden>
 <header class="topbar">
   <div class="topbar-in">
     <div class="brand">
@@ -437,6 +497,10 @@ textarea.inp{height:auto;min-height:64px;padding:10px 12px;line-height:1.5;resiz
       </div>
     </div>
     <div class="top-actions">
+      <button class="whochip" id="whoChip" type="button" title="내 계정 · 설정">
+        <svg class="svg" width="14" height="14" viewBox="0 0 24 24"><circle cx="12" cy="8.5" r="3.6"/><path d="M4.5 20c1.2-3.6 4.1-5.4 7.5-5.4S18.3 16.4 19.5 20"/></svg>
+        <span class="nm" id="whoName">—</span><span class="role" id="whoRole">—</span>
+      </button>
       <button class="tbtn" id="btnTopAdd" type="button">
         <svg class="svg" width="15" height="15" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>기록
       </button>
@@ -659,6 +723,38 @@ textarea.inp{height:auto;min-height:64px;padding:10px 12px;line-height:1.5;resiz
     </div>
 
     <div class="card">
+      <div class="card-head"><h2>내 계정</h2><span class="count" id="accRoleTag">—</span></div>
+      <div class="kv"><span>아이디</span><b id="accId">—</b></div>
+      <div class="kv"><span>이름</span><b id="accName">—</b></div>
+      <p class="hint" id="accHint">기록을 저장하면 작성자에 이 이름이 들어갑니다.</p>
+      <button class="btn sm line full" type="button" id="btnChangePw" style="margin-top:10px">내 비밀번호 변경</button>
+      <div class="pwbox" id="pwBox" hidden>
+        <div class="frow"><label for="pwOld">지금 쓰는 비밀번호</label><input class="inp" id="pwOld" type="password" autocomplete="current-password"></div>
+        <div class="frow"><label for="pwNew">새 비밀번호 (6자 이상)</label><input class="inp" id="pwNew" type="password" autocomplete="new-password"></div>
+        <div class="frow"><label for="pwNew2">새 비밀번호 확인</label><input class="inp" id="pwNew2" type="password" autocomplete="new-password"></div>
+        <div class="btnrow" style="gap:8px">
+          <button class="btn sm primary" type="button" id="btnPwSave">비밀번호 저장</button>
+          <button class="btn sm" type="button" id="btnPwCancel">취소</button>
+        </div>
+        <p class="hint" style="margin-top:7px">바꾸면 다른 기기에서는 다시 로그인해야 합니다.</p>
+      </div>
+      <button class="btn sm danger full" type="button" id="btnLogout" style="margin-top:10px">로그아웃</button>
+    </div>
+
+    <div class="card" id="adminCard" hidden>
+      <div class="card-head"><h2>사용자 관리</h2><span class="count" id="userCnt"></span></div>
+      <p class="hint">관리자는 계정을 추가하고 비밀번호를 초기화할 수 있습니다. 로그인한 계정만 장부를 열 수 있습니다.</p>
+      <div id="userList" style="margin-top:9px"></div>
+      <div class="adduser">
+        <input class="inp" id="nuId" type="text" placeholder="아이디 (공백 없이)" autocapitalize="none" maxlength="24">
+        <input class="inp" id="nuName" type="text" placeholder="이름 (예: 홍길동)" maxlength="30">
+        <select class="inp" id="nuRole"><option value="member">일반 사용자</option><option value="admin">관리자</option></select>
+        <input class="inp" id="nuPw" type="password" placeholder="비밀번호 (6자 이상)" autocomplete="new-password">
+        <button class="btn line" type="button" id="btnAddUser">계정 추가</button>
+      </div>
+    </div>
+
+    <div class="card">
       <div class="card-head"><h2>사용 안내</h2></div>
       <p class="hint" style="line-height:1.65">
         ① <b>장부</b> 탭에서 수입·지출을 기록하고 영수증 사진을 붙입니다.<br>
@@ -804,6 +900,7 @@ textarea.inp{height:auto;min-height:64px;padding:10px 12px;line-height:1.5;resiz
 </div>
 
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
+</div><!-- /appRoot -->
 
 <script>
 (function(){
@@ -893,6 +990,37 @@ textarea.inp{height:auto;min-height:64px;padding:10px 12px;line-height:1.5;resiz
       toast("저장 공간이 부족해 저장하지 못했어요. 사진을 줄이거나 백업 후 정리해 주세요.");
       return false;
     }
+  }
+
+  /* =========================================================
+     로그인 세션
+     ========================================================= */
+  var AUTH_KEY = "church-ledger-auth-v1";
+  var AUTH = loadAuth();
+  var CURRENT_USER = AUTH ? { id: AUTH.id, name: AUTH.name, role: AUTH.role } : null;
+
+  function loadAuth(){
+    try{
+      var raw = localStorage.getItem(AUTH_KEY);
+      if (!raw) return null;
+      var a = JSON.parse(raw);
+      if (!a || !a.id || !a.token) return null;
+      return a;
+    }catch(e){ return null; }
+  }
+  function storeAuth(a){
+    AUTH = a;
+    CURRENT_USER = a ? { id: a.id, name: a.name, role: a.role } : null;
+    try{
+      if (a) localStorage.setItem(AUTH_KEY, JSON.stringify(a));
+      else localStorage.removeItem(AUTH_KEY);
+    }catch(e){}
+  }
+  function displayName(){
+    return (CURRENT_USER && CURRENT_USER.name) || state.settings.author || "";
+  }
+  function roleLabel(u){
+    return (u && u.role === "admin") ? "관리자" : "사용자";
   }
 
   /* =========================================================
@@ -1312,7 +1440,173 @@ textarea.inp{height:auto;min-height:64px;padding:10px 12px;line-height:1.5;resiz
     renderAccounts("income");
     renderAccounts("expense");
     renderStats();
+    renderAccountCard();
+    if (CURRENT_USER && CURRENT_USER.role === "admin") loadUsers(false);
+    else $("adminCard").hidden = true;
   }
+
+  /* =========================================================
+     내 계정 · 사용자 관리
+     ========================================================= */
+  function renderAccountCard(){
+    var u = CURRENT_USER || { id:"—", name:"—", role:"member" };
+    $("accId").textContent = u.id;
+    $("accName").textContent = u.name;
+    $("accRoleTag").textContent = roleLabel(u);
+    $("accHint").textContent = u.role === "admin"
+      ? "관리자입니다. 기록의 작성자에는 이 이름이 들어가고, 아래에서 계정을 관리할 수 있습니다."
+      : "기록을 저장하면 작성자에 이 이름이 들어갑니다. 계정 관리는 관리자에게 부탁해 주세요.";
+    if ($("whoName")) $("whoName").textContent = u.name;
+    if ($("whoRole")){
+      $("whoRole").textContent = roleLabel(u);
+      $("whoRole").hidden = (u.name === roleLabel(u));
+    }
+  }
+
+  var USERS = null, usersAt = 0, usersBusy = false;
+
+  function loadUsers(force){
+    if (!CURRENT_USER || CURRENT_USER.role !== "admin") return;
+    $("adminCard").hidden = false;
+    if (!force && USERS && Date.now() - usersAt < 30000){ renderUsers(); return; }
+    if (usersBusy) return;
+    usersBusy = true;
+    if (!USERS) $("userList").innerHTML = '<p class="hint">사용자 목록을 불러오는 중…</p>';
+    apiCall({ action: "users_list" }).then(function(d){
+      usersBusy = false;
+      if (!d || d.ok !== true) throw new Error((d && (d.message || d.error)) || "불러오지 못했습니다");
+      USERS = d.users || [];
+      usersAt = Date.now();
+      renderUsers();
+    }).catch(function(err){
+      usersBusy = false;
+      $("userList").innerHTML = '<p class="hint" style="color:#b23a32">' + esc(err.message || "불러오지 못했습니다") + "</p>";
+    });
+  }
+
+  function renderUsers(){
+    var box = $("userList");
+    var list = (USERS || []).slice().sort(function(a, b){
+      if (a.role !== b.role) return a.role === "admin" ? -1 : 1;
+      return String(a.name || a.id).localeCompare(String(b.name || b.id), "ko");
+    });
+    $("userCnt").textContent = list.length + "명";
+    if (!list.length){ box.innerHTML = '<p class="hint">계정이 없습니다.</p>'; return; }
+    box.innerHTML = list.map(function(u){
+      var me = CURRENT_USER && u.id === CURRENT_USER.id;
+      return '<div class="user-row' + (me ? " me" : "") + '" data-uid="' + esc(u.id) + '">' +
+        '<span class="u-nm">' + esc(u.name) + (me ? " (나)" : "") + '</span>' +
+        '<span class="u-id">' + esc(u.id) + '</span>' +
+        '<span class="u-tag' + (u.active ? "" : " off") + '">' + (u.role === "admin" ? "관리자" : "사용자") + (u.active ? "" : " · 중지") + '</span>' +
+        '<span class="u-btns">' +
+          '<button class="btn sm line" type="button" data-uact="pw">비번 초기화</button>' +
+          (me ? "" : '<button class="btn sm" type="button" data-uact="toggle">' + (u.active ? "사용중지" : "다시 사용") + '</button>') +
+          (me ? "" : '<button class="btn sm danger" type="button" data-uact="del">삭제</button>') +
+        "</span></div>";
+    }).join("");
+  }
+
+  function userById(id){
+    var list = USERS || [];
+    for (var i = 0; i < list.length; i++){ if (list[i].id === id) return list[i]; }
+    return null;
+  }
+
+  function userAction(btn){
+    var row = btn.closest(".user-row");
+    if (!row) return;
+    var id = row.getAttribute("data-uid");
+    var u = userById(id);
+    if (!u) return;
+    var act = btn.getAttribute("data-uact");
+
+    if (act === "pw"){
+      var np = prompt(u.name + "(" + u.id + ") 계정의 새 비밀번호를 입력하세요.\n(6자 이상)", "");
+      if (np == null) return;
+      np = String(np).trim();
+      if (np.length < 6){ toast("비밀번호는 6자 이상으로 정해 주세요"); return; }
+      apiCall({ action: "user_save", user: { id: u.id, name: u.name, role: u.role, active: u.active, pw: np } }).then(function(d){
+        if (!d || d.ok !== true) throw new Error((d && (d.message || d.error)) || "바꾸지 못했습니다");
+        toast(u.name + " 계정의 비밀번호를 바꿨습니다");
+        loadUsers(true);
+      }).catch(function(err){ toast(err.message || "바꾸지 못했습니다"); });
+      return;
+    }
+
+    if (act === "toggle"){
+      var nextActive = !u.active;
+      if (!confirm(u.name + "(" + u.id + ") 계정을 " + (nextActive ? "다시 사용하도록" : "사용 중지") + " 할까요?" + (nextActive ? "" : "\n중지하면 그 계정으로는 로그인할 수 없습니다."))) return;
+      apiCall({ action: "user_save", user: { id: u.id, name: u.name, role: u.role, active: nextActive } }).then(function(d){
+        if (!d || d.ok !== true) throw new Error((d && (d.message || d.error)) || "바꾸지 못했습니다");
+        toast(nextActive ? "다시 사용할 수 있게 했습니다" : "사용을 중지했습니다");
+        loadUsers(true);
+      }).catch(function(err){ toast(err.message || "바꾸지 못했습니다"); });
+      return;
+    }
+
+    if (act === "del"){
+      if (!confirm(u.name + "(" + u.id + ") 계정을 지울까요?\n지운 계정은 되돌릴 수 없습니다.")) return;
+      apiCall({ action: "user_delete", id: u.id }).then(function(d){
+        if (!d || d.ok !== true) throw new Error((d && (d.message || d.error)) || "지우지 못했습니다");
+        toast("계정을 지웠습니다");
+        loadUsers(true);
+      }).catch(function(err){ toast(err.message || "지우지 못했습니다"); });
+    }
+  }
+
+  $("userList").addEventListener("click", function(ev){
+    var btn = ev.target.closest("[data-uact]");
+    if (btn) userAction(btn);
+  });
+
+  $("btnAddUser").addEventListener("click", function(){
+    var id = $("nuId").value.trim();
+    var name = $("nuName").value.trim();
+    var role = $("nuRole").value;
+    var pw = $("nuPw").value;
+    if (!id){ toast("아이디를 적어 주세요"); $("nuId").focus(); return; }
+    if (/\s/.test(id)){ toast("아이디에는 공백을 쓸 수 없습니다"); $("nuId").focus(); return; }
+    if (pw.length < 6){ toast("비밀번호는 6자 이상으로 정해 주세요"); $("nuPw").focus(); return; }
+    if (userById(id) && !confirm("이미 있는 아이디입니다. 이 계정의 이름·권한·비밀번호를 바꿀까요?")) return;
+    $("btnAddUser").disabled = true;
+    apiCall({ action: "user_save", user: { id: id, name: name || id, role: role, pw: pw } }).then(function(d){
+      if (!d || d.ok !== true) throw new Error((d && (d.message || d.error)) || "추가하지 못했습니다");
+      $("nuId").value = ""; $("nuName").value = ""; $("nuPw").value = ""; $("nuRole").value = "member";
+      toast(d.created ? (name || id) + " 계정을 만들었습니다" : (name || id) + " 계정을 바꿨습니다");
+      loadUsers(true);
+    }).catch(function(err){
+      toast(err.message || "추가하지 못했습니다");
+    }).then(function(){ $("btnAddUser").disabled = false; });
+  });
+
+  // 내 비밀번호 변경
+  $("btnChangePw").addEventListener("click", function(){
+    var box = $("pwBox");
+    box.hidden = !box.hidden;
+    if (!box.hidden){ $("pwOld").value = ""; $("pwNew").value = ""; $("pwNew2").value = ""; $("pwOld").focus(); }
+  });
+  $("btnPwCancel").addEventListener("click", function(){ $("pwBox").hidden = true; });
+  $("btnPwSave").addEventListener("click", function(){
+    var oldPw = $("pwOld").value;
+    var np = $("pwNew").value;
+    var np2 = $("pwNew2").value;
+    if (!oldPw){ toast("지금 쓰는 비밀번호를 입력해 주세요"); $("pwOld").focus(); return; }
+    if (np.length < 6){ toast("새 비밀번호는 6자 이상으로 정해 주세요"); $("pwNew").focus(); return; }
+    if (np !== np2){ toast("새 비밀번호가 서로 다릅니다"); $("pwNew2").focus(); return; }
+    $("btnPwSave").disabled = true;
+    apiCall({ action: "change_password", oldPw: oldPw, newPw: np }).then(function(d){
+      if (!d || d.ok !== true) throw new Error((d && (d.message || d.error)) || "바꾸지 못했습니다");
+      storeAuth({ id: d.user.id, name: d.user.name, role: d.user.role, token: d.token, authKey: d.authKey, expiresAt: d.expiresAt });
+      $("pwBox").hidden = true;
+      $("pwOld").value = ""; $("pwNew").value = ""; $("pwNew2").value = "";
+      renderAccountCard();
+      toast(d.message || "비밀번호를 바꿨습니다");
+    }).catch(function(err){
+      toast(err.message || "바꾸지 못했습니다");
+    }).then(function(){ $("btnPwSave").disabled = false; });
+  });
+
+  $("btnLogout").addEventListener("click", doLogout);
 
   function usageCount(type, name){
     return state.entries.filter(function(e){ return e.type===type && e.account===name; }).length;
@@ -1558,15 +1852,39 @@ textarea.inp{height:auto;min-height:64px;padding:10px 12px;line-height:1.5;resiz
     pendingReceipt = null;
     renderReceiptSlot();
   });
+  var IMAGE_EXT = /\.(jpe?g|png|webp|gif|bmp|heic|heif|avif)$/i;
+  function isImageFile(f){
+    if (!f) return false;
+    var t = String(f.type || "").toLowerCase();
+    if (t.indexOf("image/") === 0) return true;
+    // 안드로이드 파일 선택기는 type을 비워서 주기도 합니다 → 확장자로 판단
+    if (!t || t === "application/octet-stream" || t === "application/file"){
+      return IMAGE_EXT.test(String(f.name || ""));
+    }
+    return false;
+  }
+  function looksHeic(f){
+    return /\.(heic|heif)$/i.test(String(f && f.name || "")) || /hei[cf]/i.test(String(f && f.type || ""));
+  }
+
   ["fileCamera","fileGallery"].forEach(function(id){
     $(id).addEventListener("change", function(){
-      var f = this.files && this.files[0];
-      this.value = "";
-      if (!f) return;
-      if (!/^image\//.test(f.type)){ toast("이미지 파일만 첨부할 수 있습니다"); return; }
+      var input = this;
+      var f = input.files && input.files[0];
+      if (!f){ try{ input.value = ""; }catch(e){} return; }
+      if (!isImageFile(f)){
+        try{ input.value = ""; }catch(e){}
+        toast("이미지 파일만 첨부할 수 있습니다");
+        return;
+      }
       toast("사진을 줄이는 중…");
-      compressImage(f, function(res){
-        if (!res){ toast("사진을 읽지 못했습니다. 다른 사진으로 해보세요."); return; }
+      compressImage(f, function(res, err){
+        // ★ 입력칸 비우기는 파일을 다 읽은 뒤에 (삼성 인터넷·안드로이드 WebView에서 File 핸들이 끊기지 않도록)
+        try{ input.value = ""; }catch(e){}
+        if (!res){
+          toast(err || "사진을 읽지 못했습니다. 다른 사진으로 해보세요.");
+          return;
+        }
         pendingReceipt = res;
         renderReceiptSlot();
         toast("영수증을 첨부했습니다 (" + Math.round(res.d.length*0.75/1024) + "KB)");
@@ -1574,8 +1892,8 @@ textarea.inp{height:auto;min-height:64px;padding:10px 12px;line-height:1.5;resiz
     });
   });
 
-  function encodeImage(img, maxLen){
-    var w0 = img.naturalWidth || img.width, h0 = img.naturalHeight || img.height;
+  // 캔버스에 그려 JPEG로 줄입니다. src 는 img/canvas/ImageBitmap 모두 가능.
+  function encodeFrom(src, w0, h0, maxLen){
     if (!w0 || !h0) return null;
     var sizes = [960, 840, 720, 620, 540, 460, 380];
     var quals = [0.72, 0.62, 0.52, 0.44, 0.36];
@@ -1587,31 +1905,107 @@ textarea.inp{height:auto;min-height:64px;padding:10px 12px;line-height:1.5;resiz
       var cv = document.createElement("canvas");
       cv.width = w; cv.height = h;
       var ctx = cv.getContext("2d");
+      if (!ctx) return null;
       ctx.fillStyle = "#ffffff"; ctx.fillRect(0, 0, w, h);
-      ctx.drawImage(img, 0, 0, w, h);
+      try{ ctx.drawImage(src, 0, 0, w, h); }catch(e){ return null; }
       for (var q = 0; q < quals.length; q++){
-        var url = cv.toDataURL("image/jpeg", quals[q]);
+        var url;
+        try{ url = cv.toDataURL("image/jpeg", quals[q]); }catch(e){ url = null; }
+        if (!url) return null;
         if (!best || url.length < best.d.length) best = { d: url, w: w, h: h };
         if (url.length <= maxLen) return { d: url, w: w, h: h };
       }
     }
     return best;
   }
+  function encodeImage(img, maxLen){
+    return encodeFrom(img, img.naturalWidth || img.width, img.naturalHeight || img.height, maxLen);
+  }
+
+  /* 사진 읽기 3단계 폴백
+     ① createImageBitmap (메모리 효율 최고, EXIF 회전·방향 자동 처리)
+     ② URL.createObjectURL + Image
+     ③ FileReader.readAsDataURL + Image  */
   function compressImage(file, cb){
-    var reader = new FileReader();
-    reader.onerror = function(){ cb(null); };
-    reader.onload = function(){
+    var done = false;
+    var name = file && file.name ? file.name : "영수증.jpg";
+    function finish(res, err){
+      if (done) return;
+      done = true;
+      if (res){ res.n = name; cb(res, ""); }
+      else cb(null, err || "");
+    }
+    function heicMsg(){
+      if (looksHeic(file)){
+        return "아이폰 HEIC 사진은 이 브라우저에서 열지 못했습니다. 사진 앱에서 공유 → 'JPEG로 복사'나 화면 캡처한 사진으로 올려 주세요.";
+      }
+      return "사진을 읽지 못했습니다. 다른 사진으로 해보세요. (계속 안 되면 갤러리에서 사진을 한 번 열었다가 '편집→저장'한 뒤 다시 시도해 주세요.)";
+    }
+
+    function stage2(){
+      if (done) return;
+      var url = null;
+      try{ url = URL.createObjectURL(file); }catch(e){ url = null; }
+      if (!url){ stage3(); return; }
       var img = new Image();
-      img.onerror = function(){ cb(null); };
+      var settled = false;
+      var timer = setTimeout(function(){
+        if (settled) return;
+        settled = true;
+        try{ URL.revokeObjectURL(url); }catch(e){}
+        stage3();
+      }, 15000);
       img.onload = function(){
-        var res = encodeImage(img, RECEIPT_MAX);
-        if (!res){ cb(null); return; }
-        res.n = file.name || "receipt.jpg";
-        cb(res);
+        if (settled) return;
+        settled = true;
+        clearTimeout(timer);
+        var res = null;
+        try{ res = encodeFrom(img, img.naturalWidth || img.width, img.naturalHeight || img.height, RECEIPT_MAX); }catch(e){}
+        try{ URL.revokeObjectURL(url); }catch(e){}
+        if (res) finish(res); else stage3();
       };
-      img.src = reader.result;
-    };
-    reader.readAsDataURL(file);
+      img.onerror = function(){
+        if (settled) return;
+        settled = true;
+        clearTimeout(timer);
+        try{ URL.revokeObjectURL(url); }catch(e){}
+        stage3();
+      };
+      img.src = url;
+    }
+
+    function stage3(){
+      if (done) return;
+      var reader = new FileReader();
+      reader.onerror = function(){ finish(null, heicMsg()); };
+      reader.onload = function(){
+        var img = new Image();
+        img.onerror = function(){ finish(null, heicMsg()); };
+        img.onload = function(){
+          var res = null;
+          try{ res = encodeFrom(img, img.naturalWidth || img.width, img.naturalHeight || img.height, RECEIPT_MAX); }catch(e){}
+          if (res) finish(res); else finish(null, heicMsg());
+        };
+        img.src = reader.result;
+      };
+      reader.readAsDataURL(file);
+    }
+
+    // ① createImageBitmap
+    if (typeof window.createImageBitmap === "function"){
+      var p = null;
+      try{ p = window.createImageBitmap(file, { imageOrientation: "from-image" }); }catch(e){ p = null; }
+      if (p && typeof p.then === "function"){
+        p.then(function(bmp){
+          var res = null;
+          try{ res = encodeFrom(bmp, bmp.width, bmp.height, RECEIPT_MAX); }catch(e){}
+          try{ if (bmp && bmp.close) bmp.close(); }catch(e){}
+          if (res) finish(res); else stage2();
+        }, function(){ stage2(); });
+        return;
+      }
+    }
+    stage2();
   }
   function compressDataUrl(d, cb){
     var img = new Image();
@@ -1869,7 +2263,7 @@ textarea.inp{height:auto;min-height:64px;padding:10px 12px;line-height:1.5;resiz
   var SHEET_URL = "https://docs.google.com/spreadsheets/d/1PLtsH2E1CkALiP8xHLs73hfpouqL01iCrrqO-uqz8lg/edit";
   var RECEIPT_MAX = 42000;      // 시트 한 셀 50,000자 한도 안전선
   var SYNC_EVERY = 20000;       // 20초마다 자동 새로고침
-  var SYNC = { busy:false, applying:false, knownIds:{}, lastAt:0, pushTimer:null, settingsSig:"", state:"init", again:false };
+  var SYNC = { busy:false, applying:false, knownIds:{}, lastAt:0, pushTimer:null, settingsSig:"", state:"init", again:false, relogin:false };
 
   function jsonOf(o){ try { return JSON.stringify(o); } catch(e){ return ""; } }
   function settingsSnapshot(){
@@ -1907,11 +2301,16 @@ textarea.inp{height:auto;min-height:64px;padding:10px 12px;line-height:1.5;resiz
   function syncFetch(qs, body){
     var url = SYNC_URL, opt = { cache: "no-store" };
     if (body){
+      var payload = {}, k;
+      for (k in body){ if (Object.prototype.hasOwnProperty.call(body, k)) payload[k] = body[k]; }
+      if (AUTH && AUTH.token && !payload.token) payload.token = AUTH.token;
       opt.method = "POST";
       opt.headers = { "Content-Type": "text/plain;charset=utf-8" };
-      opt.body = JSON.stringify(body);
+      opt.body = JSON.stringify(payload);
     } else {
-      url += "?" + (qs || "action=sync_all") + "&_t=" + Date.now();
+      var q = qs || "action=sync_all";
+      if (AUTH && AUTH.token) q += "&token=" + encodeURIComponent(AUTH.token);
+      url += "?" + q + "&_t=" + Date.now();
     }
     return fetch(url, opt).then(function(res){
       if (!res.ok) throw new Error("HTTP " + res.status);
@@ -1922,10 +2321,31 @@ textarea.inp{height:auto;min-height:64px;padding:10px 12px;line-height:1.5;resiz
     });
   }
 
+  // 저장된 비밀번호 해시로 조용히 세션을 다시 받습니다(세션 만료 대비).
+  function silentRelogin(){
+    if (!AUTH || !AUTH.id || !AUTH.authKey) return Promise.reject(new Error("unauthorized"));
+    return syncFetch(null, { action: "login", id: AUTH.id, authKey: AUTH.authKey }).then(function(d){
+      if (!d || d.ok !== true) throw new Error((d && (d.message || d.error)) || "다시 로그인하지 못했습니다");
+      storeAuth({ id: d.user.id, name: d.user.name, role: d.user.role,
+        token: d.token, authKey: d.authKey, expiresAt: d.expiresAt });
+      return d;
+    });
+  }
+
+  // 사용자가 직접 누르는 서버 요청 — 세션이 만료됐으면 조용히 다시 받아 한 번 재시도합니다.
+  function apiCall(body){
+    return syncFetch(null, body).then(function(d){
+      if (d && d.ok !== true && d.error === "unauthorized" && AUTH && AUTH.authKey){
+        return silentRelogin().then(function(){ return syncFetch(null, body); });
+      }
+      return d;
+    });
+  }
+
   function entryToRow(e){
     return {
       id: e.id, date: e.date, type: e.type, cat: e.account || "", memo: e.memo || "",
-      pay: e.method || "", amount: e.amount || 0, author: state.settings.author || "",
+      pay: e.method || "", amount: e.amount || 0, author: displayName(),
       receiptData: (e.receipt && e.receipt.d) || "",
       updatedAt: Number(e.updatedAt) || 0, deleted: false
     };
@@ -1991,7 +2411,7 @@ textarea.inp{height:auto;min-height:64px;padding:10px 12px;line-height:1.5;resiz
   }
 
   function syncNow(){
-    if (!SYNC_URL) return;
+    if (!SYNC_URL || !CURRENT_USER) return;
     if (SYNC.busy){ SYNC.again = true; return; }
     SYNC.busy = true;
     var removed = [];
@@ -2052,8 +2472,18 @@ textarea.inp{height:auto;min-height:64px;padding:10px 12px;line-height:1.5;resiz
       SYNC.lastAt = Date.now();
       setSyncState("ok");
     }).catch(function(err){
-      setSyncState("error", (err && err.message) || "");
+      var msg = (err && err.message) || "";
+      if (msg === "unauthorized"){
+        SYNC.relogin = true;
+        silentRelogin().then(function(){ SYNC.busy = false; syncNow(); }, function(){
+          SYNC.busy = false;
+          showLogin("로그인이 만료되었습니다. 다시 로그인해 주세요.");
+        });
+        return;
+      }
+      setSyncState("error", msg);
     }).then(function(){
+      if (SYNC.relogin){ SYNC.relogin = false; return; }
       SYNC.busy = false;
       if (SYNC.again){ SYNC.again = false; setTimeout(syncNow, 200); }
     });
@@ -2084,52 +2514,154 @@ textarea.inp{height:auto;min-height:64px;padding:10px 12px;line-height:1.5;resiz
   }
 
   /* =========================================================
-     시작
+     로그인 화면 · 앱 시작
      ========================================================= */
-  renderHeader();
-  renderLedger();
+  function loginError(msg){
+    var box = $("loginErr");
+    if (!msg){ box.textContent = ""; box.classList.remove("show"); return; }
+    box.textContent = msg;
+    box.classList.add("show");
+  }
+
+  function showLogin(msg){
+    $("appRoot").hidden = true;
+    $("loginScreen").hidden = false;
+    loginError(msg || "");
+    $("loginPw").value = "";
+    setTimeout(function(){ if (!$("loginId").value) $("loginId").focus(); }, 60);
+  }
+
+  function enterApp(){
+    $("loginScreen").hidden = true;
+    $("appRoot").hidden = false;
+    loginError("");
+    renderHeader();
+    renderAccountCard();
+    renderLedger();
+    if ($("view-month").classList.contains("active")) renderMonth();
+    if ($("view-year").classList.contains("active")) renderYear();
+    if ($("view-settings").classList.contains("active")) renderSettings();
+    syncNow();
+    if (!state.entries.length && !state.settings.org){
+      setTimeout(function(){
+        if (state.entries.length) return;
+        toast("수입 기록 / 지출 기록을 눌러 시작해 보세요");
+      }, 2500);
+    }
+  }
+
+  function doLogin(){
+    var id = $("loginId").value.trim();
+    var pw = $("loginPw").value;
+    if (!id || !pw){ loginError("아이디와 비밀번호를 입력해 주세요."); return; }
+    var btn = $("loginBtn");
+    if (btn.disabled) return;
+    btn.disabled = true;
+    btn.textContent = "로그인 중…";
+    loginError("");
+    syncFetch(null, { action: "login", id: id, pw: pw }).then(function(d){
+      if (d && d.ok === true && d.user && d.token){
+        storeAuth({ id: d.user.id, name: d.user.name, role: d.user.role,
+          token: d.token, authKey: d.authKey, expiresAt: d.expiresAt });
+        $("loginPw").value = "";
+        enterApp();
+        toast(d.user.name + "님, 반갑습니다");
+        return;
+      }
+      throw new Error((d && (d.message || d.error)) || "로그인하지 못했습니다");
+    }).catch(function(err){
+      var m = (err && err.message) || "";
+      if (/Failed to fetch|NetworkError|Load failed|HTTP /.test(m)) m = "서버에 연결하지 못했습니다. 인터넷 연결을 확인해 주세요.";
+      else if (m === "bad_credentials") m = "아이디 또는 비밀번호가 맞지 않습니다.";
+      loginError(m);
+    }).then(function(){
+      btn.disabled = false;
+      btn.innerHTML = '<svg class="svg" viewBox="0 0 24 24"><rect x="4.5" y="10.5" width="15" height="9.5" rx="2"/><path d="M8 10.5V8a4 4 0 0 1 8 0v2.5"/></svg>로그인';
+    });
+  }
+
+  function doLogout(){
+    if (!confirm("로그아웃할까요?\n이 기기에서는 다시 비밀번호를 입력해야 장부가 보입니다.")) return;
+    var tok = AUTH && AUTH.token;
+    storeAuth(null);
+    USERS = null;
+    showLogin("");
+    if (tok){
+      try { syncFetch(null, { action: "logout", token: tok }); } catch(e){}
+    }
+    toast("로그아웃했습니다");
+  }
+
+  $("loginForm").addEventListener("submit", function(ev){ ev.preventDefault(); doLogin(); });
+  $("whoChip").addEventListener("click", function(){ showTab("settings"); });
+
+  function bootSession(){
+    if (!AUTH || !CURRENT_USER){ showLogin(""); return; }
+    // 저장된 세션이 아직 살아 있는지 서버에 확인
+    syncFetch(null, { action: "me" }).then(function(d){
+      if (d && d.ok === true && d.user){
+        var keep = { id: d.user.id, name: d.user.name, role: d.user.role,
+          token: AUTH.token, authKey: AUTH.authKey, expiresAt: AUTH.expiresAt };
+        storeAuth(keep);
+        enterApp();
+        return;
+      }
+      if (d && d.error === "unauthorized"){
+        return silentRelogin().then(enterApp, function(){
+          storeAuth(null);
+          showLogin("로그인이 만료되었습니다. 다시 로그인해 주세요.");
+        });
+      }
+      enterApp();
+    }).catch(function(){
+      // 서버에 닿지 않아도 이 기기에서 로그인한 적이 있으면 장부를 엽니다(오프라인).
+      enterApp();
+    });
+  }
 
   // 공유 데이터 연결
   $("btnSync").addEventListener("click", function(){ toast("공유 데이터를 새로 받아옵니다"); syncNow(); });
   $("btnSyncNow").addEventListener("click", function(){ toast("공유 데이터를 새로 받아옵니다"); syncNow(); });
   $("linkSheet").href = SHEET_URL;
   document.addEventListener("visibilitychange", function(){
-    if (!document.hidden && Date.now() - SYNC.lastAt > 10000) syncNow();
+    if (!document.hidden && CURRENT_USER && Date.now() - SYNC.lastAt > 10000) syncNow();
   });
-  window.addEventListener("online", function(){ syncNow(); });
+  window.addEventListener("online", function(){ if (CURRENT_USER) syncNow(); });
   setInterval(function(){
-    if (document.hidden) return;
+    if (document.hidden || !CURRENT_USER) return;
     if (Date.now() - SYNC.lastAt >= SYNC_EVERY) syncNow();
   }, 5000);
   setInterval(function(){ if (SYNC.state === "ok") setSyncState("ok"); }, 15000);
-  syncNow();
-  // 첫 실행 안내
-  if (!state.entries.length && !state.settings.org){
-    setTimeout(function(){
-      if (state.entries.length) return;
-      toast("수입 기록 / 지출 기록을 눌러 시작해 보세요");
-    }, 700);
-  }
+
+  bootSession();
 
   // 테스트·외부 연동용 (읽기 전용 요약)
   window.LedgerApp = {
-    getState: function(){ return JSON.parse(JSON.stringify(state)); },
+    isLoggedIn: function(){ return !!CURRENT_USER; },
+    user: function(){ return CURRENT_USER ? JSON.parse(JSON.stringify(CURRENT_USER)) : null; },
+    getState: function(){ return CURRENT_USER ? JSON.parse(JSON.stringify(state)) : null; },
     summary: function(){
+      if (!CURRENT_USER) return null;
       var inS = sumBy(state.entries,"income"), outS = sumBy(state.entries,"expense");
       return { count: state.entries.length, income: inS, expense: outS,
                balance: state.settings.base + inS - outS, base: state.settings.base };
     },
     month: function(y,m){
+      if (!CURRENT_USER) return null;
       var rows = entriesOfMonth(y,m);
       return { income: sumBy(rows,"income"), expense: sumBy(rows,"expense"), carry: netBefore(y+"-"+pad2(m)),
                count: rows.length };
     },
     year: function(y){
+      if (!CURRENT_USER) return null;
       var rows = entriesOfYear(y);
       return { income: sumBy(rows,"income"), expense: sumBy(rows,"expense"),
                carry: netBeforeYear(y), count: rows.length };
     },
-    csv: function(y){ return y ? csvText(entriesOfYear(y), netBeforeYear(y)) : csvText(sortAsc(state.entries)); }
+    csv: function(y){
+      if (!CURRENT_USER) return "";
+      return y ? csvText(entriesOfYear(y), netBeforeYear(y)) : csvText(sortAsc(state.entries));
+    }
   };
 })();
 </script>
