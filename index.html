@@ -353,9 +353,7 @@ textarea.inp{height:auto;min-height:64px;padding:10px 12px;line-height:1.5;resiz
 .login-err{display:none;margin-top:10px;padding:9px 11px;border-radius:10px;background:#fdeceb;border:1px solid #f0cbc8;color:#8f2d26;font-size:12.5px;font-weight:700;line-height:1.45}
 .login-err.show{display:block}
 .login-form .btn{margin-top:14px;height:48px;font-size:15px}
-.login-hint{margin-top:13px;font-size:11.5px;color:var(--muted);line-height:1.6;background:var(--surface2);border:1px solid var(--line2);border-radius:10px;padding:9px 11px}
-.login-hint b{color:var(--ink);font-weight:800}
-.login-foot{margin-top:11px;text-align:center;font-size:11px;color:#98a29b}
+.login-foot{margin-top:13px;text-align:center;font-size:11px;color:#98a29b}
 .whochip{display:inline-flex;align-items:center;gap:5px;height:36px;padding:0 9px;border-radius:10px;border:1px solid var(--line);background:var(--surface);font-size:12px;font-weight:800;color:var(--ink2);max-width:38vw}
 .whochip .nm{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .whochip .role{font-size:9.5px;color:var(--brand-dark);background:var(--brand-soft);border:1px solid var(--brand-line);border-radius:5px;padding:0 4px}
@@ -390,6 +388,9 @@ textarea.inp{height:auto;min-height:64px;padding:10px 12px;line-height:1.5;resiz
   .view{display:none !important}
   .view.active{display:block !important}
   .view.print-this{display:block !important}
+  /* 인쇄 버튼으로 인쇄할 때는 고른 화면 하나만 나옵니다 */
+  body.print-one .view.active{display:none !important}
+  body.print-one .view.print-this{display:block !important}
   .print-only{display:block !important}
   .print-only.ph-meta,.print-only.sign{display:flex !important}
   .empty{padding:2mm 0;text-align:left}
@@ -421,6 +422,19 @@ textarea.inp{height:auto;min-height:64px;padding:10px 12px;line-height:1.5;resiz
   .tbl th,.tbl td{padding:1.6mm 2mm;border-color:#bbb}
   .tbl thead th{background:#f0f0f0 !important;-webkit-print-color-adjust:exact;print-color-adjust:exact}
   .tbl tr.tot td{background:#f0f0f0 !important;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  /* 출납부 표 양식 (번호·날짜·항목·내용·수입·지출·누계) */
+  .ledger-tbl{width:100%;border-collapse:collapse;table-layout:fixed;font-size:9.2pt;font-variant-numeric:tabular-nums}
+  .ledger-tbl thead{display:table-header-group}
+  .ledger-tbl tr{break-inside:avoid;page-break-inside:avoid}
+  .ledger-tbl th,.ledger-tbl td{border:.7pt solid #000;padding:1.3mm 1.5mm;color:#000;white-space:normal;word-break:break-word;vertical-align:middle}
+  .ledger-tbl thead th{background:#ececec !important;-webkit-print-color-adjust:exact;print-color-adjust:exact;font-size:8.6pt;font-weight:800;text-align:center;letter-spacing:.02em}
+  .ledger-tbl td.c{text-align:center}
+  .ledger-tbl td.l{text-align:left}
+  .ledger-tbl td.r{text-align:right}
+  .ledger-tbl td.carry{font-weight:800}
+  .ledger-tbl td.ct{font-weight:800}
+  .ledger-tbl tr.tot td{background:#ececec !important;font-weight:800;border-top:1.2pt solid #000;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  .ledger-tbl tr.tot td.l{text-align:center}
   .bar-t{background:#e2e2e2}
   .bar-f,.bar-f.out{-webkit-print-color-adjust:exact;print-color-adjust:exact;background:#6b6b6b !important}
   .rgrid{grid-template-columns:repeat(4,1fr);gap:3mm}
@@ -479,7 +493,6 @@ textarea.inp{height:auto;min-height:64px;padding:10px 12px;line-height:1.5;resiz
         <svg class="svg" viewBox="0 0 24 24"><rect x="4.5" y="10.5" width="15" height="9.5" rx="2"/><path d="M8 10.5V8a4 4 0 0 1 8 0v2.5"/></svg>로그인
       </button>
     </form>
-    <p class="login-hint">처음이면 <b>admin</b> / <b>admin1234</b> 로 들어온 뒤,<br>설정 → 내 비밀번호 변경에서 꼭 바꿔 주세요.</p>
     <p class="login-foot">아이디·비밀번호는 관리자에게 받으세요.</p>
   </div>
 </div>
@@ -555,7 +568,38 @@ textarea.inp{height:auto;min-height:64px;padding:10px 12px;line-height:1.5;resiz
       <button class="btn line sm" type="button" id="btnPrintLedger">
         <svg class="svg" viewBox="0 0 24 24"><path d="M6 9V3h12v6M6 18H4v-7h16v7h-2M8 14h8v7H8z"/></svg>장부 인쇄
       </button>
+      <button class="btn sm" type="button" id="btnPrintTable">
+        <svg class="svg" viewBox="0 0 24 24"><path d="M4 5h16v14H4z"/><path d="M4 10h16M9 10v9M15 10v9"/></svg>출납부 표 인쇄
+      </button>
     </div>
+    <p class="hint no-print" style="margin-top:8px">출납부 표는 위에서 고른 기간(전체 기간 또는 그 달)을 이월금부터 차례대로 담습니다.</p>
+  </section>
+
+  <!-- ===================== 1-b. 출납부 표 인쇄 (화면에는 보이지 않고 인쇄할 때만 나옵니다) ===================== -->
+  <section class="view" id="view-print-table" aria-label="출납부 표 인쇄">
+    <div class="print-only print-head">
+      <div class="ph-org" id="ptOrg">교회·모임</div>
+      <div class="ph-title">금전출납부</div>
+      <div class="ph-meta"><span id="ptMeta"></span><span>단위: 원</span></div>
+    </div>
+
+    <div class="print-only">
+      <table class="tbl ledger-tbl" id="ptTable">
+        <colgroup>
+          <col style="width:8%"><col style="width:15%"><col style="width:16%"><col style="width:24%">
+          <col style="width:12%"><col style="width:12%"><col style="width:13%">
+        </colgroup>
+        <thead>
+          <tr><th>번호</th><th>날짜</th><th>항목</th><th>내용</th><th>수입</th><th>지출</th><th>누계</th></tr>
+        </thead>
+        <tbody id="ptBody"></tbody>
+      </table>
+    </div>
+
+    <div class="print-only sign">
+      <div>작성자</div><div>확인자</div>
+    </div>
+    <div class="print-only print-note" id="ptNote"></div>
   </section>
 
   <!-- ===================== 2. 월간 보고서 ===================== -->
@@ -2149,9 +2193,113 @@ textarea.inp{height:auto;min-height:64px;padding:10px 12px;line-height:1.5;resiz
   function doPrint(viewId){
     document.querySelectorAll(".view").forEach(function(v){ v.classList.remove("print-this"); });
     $(viewId).classList.add("print-this");
+    document.body.classList.add("print-one");
     setTimeout(function(){ window.print(); }, 60);
   }
+  function endPrint(){
+    document.body.classList.remove("print-one");
+    document.querySelectorAll(".view").forEach(function(v){ v.classList.remove("print-this"); });
+  }
+  window.addEventListener("afterprint", endPrint);
   $("btnPrintLedger").addEventListener("click", function(){ doPrint("view-ledger"); });
+
+  /* =========================================================
+     출납부 표 (번호 · 날짜 · 항목 · 내용 · 수입 · 지출 · 누계)
+     ========================================================= */
+  // 지금 고른 기간의 이월금 + 거래를 날짜순으로 계산합니다.
+  function printTableData(){
+    var fm = $("fMonth") ? $("fMonth").value : "";
+    var rows, carry, carryLabel, carryDate, periodLabel, note;
+    if (fm){
+      var p = fm.split("-"), y = Number(p[0]), m = Number(p[1]);
+      rows = entriesOfMonth(y, m);
+      carry = netBefore(fm);
+      carryLabel = "전월이월금";
+      carryDate = fm + "-01";
+      periodLabel = y + "년 " + m + "월";
+      var pm = (m === 1) ? (y-1) + "-12" : y + "-" + pad2(m-1);
+      note = "※ 전월이월금은 " + pm.slice(0,4) + "년 " + Number(pm.slice(5,7)) + "월 말 잔액입니다. 누계 = 이월금 + 수입 − 지출.";
+    } else {
+      rows = sortAsc(state.entries);
+      carry = state.settings.base;
+      carryLabel = "기초이월금";
+      var firstYear = rows.length ? Number(String(rows[0].date).slice(0,4)) : Number(todayStr().slice(0,4));
+      carryDate = firstYear + "-01-01";
+      periodLabel = "전체 기간";
+      note = "※ 기초이월금 = 장부를 시작한 시점의 잔액. 누계 = 이월금 + 수입 − 지출.";
+    }
+
+    var inSum = 0, outSum = 0, run = carry, lines = [];
+    rows.forEach(function(e, i){
+      var amt = Math.round(Number(e.amount) || 0);
+      run += (e.type === "income" ? amt : -amt);
+      if (e.type === "income") inSum += amt; else outSum += amt;
+      lines.push({
+        no: i + 2,                       // 1번 줄은 이월금
+        date: e.date,
+        account: e.account || "",
+        memo: e.memo || "",
+        income: e.type === "income" ? amt : 0,
+        expense: e.type === "expense" ? amt : 0,
+        bal: run
+      });
+    });
+
+    return { periodLabel: periodLabel, note: note,
+      carryNo: 1, carryLabel: carryLabel, carryDate: carryDate, carry: carry,
+      rows: lines, count: rows.length,
+      inSum: inSum, outSum: outSum, endBal: run };
+  }
+
+  function renderPrintTable(){
+    var d = printTableData();
+    var org = (state.settings.org || "").trim() || "교회·모임";
+    var author = (state.settings.author || "").trim();
+    $("ptOrg").textContent = org;
+    $("ptMeta").innerHTML = "기간: <b>" + esc(d.periodLabel) + "</b>" +
+      " · 작성자: " + esc(author || "미지정") + " · 출력일: " + todayStr() +
+      " · 기록 " + d.count + "건";
+
+    var html = '<tr class="carry">' +
+      '<td class="c ct">' + d.carryNo + "</td>" +
+      '<td class="c ct">' + d.carryDate + "</td>" +
+      '<td class="l ct">' + esc(d.carryLabel) + "</td>" +
+      '<td class="l"></td>' +
+      '<td class="r ct">' + won(d.carry) + "</td>" +
+      '<td class="r"></td>' +
+      '<td class="r ct">' + won(d.carry) + "</td> </tr>";
+
+    d.rows.forEach(function(r){
+      html += "<tr>" +
+        '<td class="c">' + r.no + "</td>" +
+        '<td class="c">' + r.date + "</td>" +
+        '<td class="l">' + esc(r.account || "미지정") + "</td>" +
+        '<td class="l">' + esc(r.memo) + "</td>" +
+        '<td class="r">' + (r.income ? won(r.income) : "") + "</td>" +
+        '<td class="r">' + (r.expense ? won(r.expense) : "") + "</td>" +
+        '<td class="r">' + won(r.bal) + "</td> </tr>";
+    });
+
+    html += '<tr class="tot">' +
+      '<td class="l" colspan="4">합계</td>' +
+      '<td class="r">' + won(d.inSum) + "</td>" +
+      '<td class="r">' + won(d.outSum) + "</td>" +
+      '<td class="r">' + won(d.endBal) + "</td> </tr>";
+
+    $("ptBody").innerHTML = html;
+    $("ptNote").textContent = d.note + " 1번 줄은 이월금이며, 합계의 누계 칸은 기말 잔액입니다.";
+    return d;
+  }
+
+  $("btnPrintTable").addEventListener("click", function(){
+    var d = printTableData();
+    if (!d.count){
+      toast("이 기간에는 기록이 없습니다. 다른 기간을 골라 보세요");
+      return;
+    }
+    renderPrintTable();
+    doPrint("view-print-table");
+  });
 
   /* =========================================================
      CSV · JSON
@@ -2665,6 +2813,10 @@ textarea.inp{height:auto;min-height:64px;padding:10px 12px;line-height:1.5;resiz
     csv: function(y){
       if (!CURRENT_USER) return "";
       return y ? csvText(entriesOfYear(y), netBeforeYear(y)) : csvText(sortAsc(state.entries));
+    },
+    printTable: function(){
+      if (!CURRENT_USER) return null;
+      return printTableData();
     }
   };
 })();
