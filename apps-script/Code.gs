@@ -1,6 +1,6 @@
 /* 교회 금전출납부 · 공유 데이터 API (Google Apps Script 웹앱)
    스프레드시트 「교회 금전출납부 (공유 데이터)」에 붙여 배포한 서버 코드입니다.
-   action=sync_all / save_entry / save_settings / bulk_import 4가지를 처리합니다. */
+   action=sync_all / save_entry / save_settings / bulk_import / reset_all 을 처리합니다. */
 
 const SHEET_ENTRIES = "거래내역";
 const SHEET_SETTINGS = "설정";
@@ -31,6 +31,7 @@ function handle(action, body, p) {
     if (action === "save_entry") { out = saveEntry_(t, body.entry || body); }
     else if (action === "save_settings") { out = saveSettings_(t, body.settings || body); }
     else if (action === "bulk_import") { out = bulkImport_(t, body); }
+    else if (action === "reset_all") { out = resetAll_(t); }
     else { out = syncAll_(t); }
     out.ok = true;
   } catch (err) {
@@ -190,7 +191,7 @@ function bulkImport_(t, body) {
       add.push(vals);
       map[id] = { id: id };
     } else if (Number(en.updatedAt) > Number(have.updatedAt) || !have.row) {
-      if (have.row) { t.entries.getRange(have.row, 1, 1, HEAD.length).setValues([vals]); }
+      if (have && have.row) { t.entries.getRange(have.row, 1, 1, HEAD.length).setValues([vals]); }
       updated++;
     } else {
       skipped++;
@@ -201,6 +202,13 @@ function bulkImport_(t, body) {
   }
   if (body.settings) { writeSettings_(t.settings, body.settings); }
   return { ok: true, added: add.length, updated: updated, skipped: skipped, settings: readSettings_(t.settings) };
+}
+
+function resetAll_(t) {
+  const lr = t.entries.getLastRow();
+  if (lr > 1) { t.entries.getRange(2, 1, lr - 1, HEAD.length).clearContent(); }
+  writeSettings_(t.settings, { org: "", author: "", base: 0, accounts: { income: [], expense: [] } });
+  return { ok: true, cleared: Math.max(0, lr - 1) };
 }
 
 function syncAll_(t) {
