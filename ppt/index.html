@@ -1166,12 +1166,17 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   }
   function rowHeightFor(r, fs, nameCol) {
     const ind = r.isTotal ? 0 : r.depth;
-    const nameW = nameCol - (0.16 + 0.16 * ind) * fs - 0.14 * fs;
-    const lines = Math.max(1, wrapCountRich(r.name, 10 * fs, nameW * 0.90));
+    const nameW = nameCol - (0.16 + 0.16 * ind) * fs - 0.20 * fs;
+    const lines = Math.max(1, wrapCountRich(r.name, 10 * fs, nameW * 0.88));
     let h = rowBaseH(fs, lines);
     if (lines > 1) h += LINE_H * fs * 0.46 * (lines - 1);   // 이름이 여러 줄일 때 여유
     if (r.isTotal) h += 0.03 * fs;
     return h;
+  }
+  function nameBrk(r, fs, nameCol) {
+    const ind = r.isTotal ? 0 : r.depth;
+    const nameW = nameCol - (0.16 + 0.16 * ind) * fs - 0.20 * fs;
+    return parenBreakAt(r.name, 10 * fs, nameW * 0.88);
   }
 
   /* 표지: 글자를 키운 만큼 아래 요소를 밀어 겹치지 않게 다시 앉힙니다. */
@@ -1275,6 +1280,10 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     let lines = 1, cur = 0;
     for (const seg of parenSegs(name)) {
       const spt = seg.p ? pt * PAREN_K : pt;
+      // 괄호 설명은 글자 중간에서 끊기지 않게 괄호 앞에서 다음 줄로 넘깁니다.
+      const segW = measureWidth(seg.t, spt);
+      if (cur > 0 && cur + segW > limit) { lines++; cur = 0; }
+      if (cur + segW <= limit) { cur += segW; continue; }
       for (const ch of seg.t) {
         const w = measureWidth(ch, spt);
         if (cur + w <= limit) { cur += w; continue; }
@@ -1284,23 +1293,62 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     }
     return lines;
   }
+  /* 괄호 설명이 첫 줄에 다 들어가지 않으면 그 괄호 앞에서 줄을 바꿉니다.
+     돌려주는 값은 줄바꿈할 조각 번호(-1이면 줄바꿈 없음)입니다. */
+  function parenBreakAt(name, pt, widthIn) {
+    const segs = parenSegs(String(name == null ? '' : name));
+    if (segs.length < 2) return -1;
+    const limit = widthIn * 96;
+    let cur = 0;
+    for (let i = 0; i < segs.length; i++) {
+      const seg = segs[i];
+      const spt = seg.p ? pt * PAREN_K : pt;
+      const w = measureWidth(seg.t, spt);
+      if (i > 0 && seg.p && cur > 0 && cur + w > limit) return i;
+      cur += w;
+      if (cur > limit) return -1;      // 본문부터 넘치면 자연 줄바꿈에 맡깁니다
+    }
+    return -1;
+  }
   /* ================= 관항목(그룹) 단위 페이지 나누기 =================
-     - 한 관항목(대분류 행 + 그 아래 세부항목)은 절대 두 장에 걸치지 않게 통째로 묶습니다.
-     - 작은 관항목들은 한 장에 여러 개 모으고,
-       큰 관항목 혼자서 한 장을 넘으면 그 장만 글자·행 여백을 자동으로 줄여 한 장에 담습니다. */
-  function groupBlocks(rows) {
+     - 관(depth 0) 아래에 항(depth 1)이 있으면 항마다 한 장씩 나누고,
+       그 장 맨 위에 상위 관 행을 다시 보여 줍니다(항이 바뀌면 반드시 새 장).
+     - 항이 없는 작은 관들은 한 장에 여러 개 모으고,
+       큰 관 하나가 한 장을 넘으면 그 장만 글자·행 여백을 자동으로 줄여 한 장에 담습니다. */
+  function groupBlocks(rows, hangMode) {
     const blocks = [];
-    let cur = null, tot = null;
-    rows.forEach(r => {
-      if (r.isTotal) {
-        if (!tot) { tot = { kind: 'totals', name: '합계', rows: [] }; blocks.push(tot); }
-        tot.rows.push(r);
-        cur = null;
-        return;
+    const totals = { kind: 'totals', name: '합계', rows: [], heads: 0 };
+    let i = 0;
+    while (i < rows.length) {
+      const r = rows[i];
+      if (r.isTotal) { totals.rows.push(r); i++; continue; }
+      if (r.depth > 0) {            // 위에 관이 없는 하위 행(자료 이상)은 따로 한 묶음
+        blocks.push({ kind: 'group', name: r.name, kwan: r.name, rows: [r], heads: 1 });
+        i++; continue;
       }
-      if (!cur || r.depth <= 0) { cur = { kind: 'group', name: r.name, rows: [r] }; blocks.push(cur); }
-      else cur.rows.push(r);
-    });
+      let j = i + 1;
+      while (j < rows.length && !rows[j].isTotal && rows[j].depth > 0) j++;
+      const kids = rows.slice(i + 1, j);
+      if (hangMode && kids.some(k => k.depth === 1)) {
+        // 항마다 독립 블록: [관 행, 항 행, 그 아래 목들] — 각 블록은 새 장에서 시작합니다.
+        let cur = null;
+        kids.forEach(k => {
+          if (k.depth === 1) {
+            cur = { kind: 'group', name: k.name, kwan: r.name, hang: k.name, rows: [r, k], heads: 2, forceBreak: true };
+            blocks.push(cur);
+          } else if (cur) {
+            cur.rows.push(k);
+          } else {
+            cur = { kind: 'group', name: r.name, kwan: r.name, rows: [r, k], heads: 1, forceBreak: true };
+            blocks.push(cur);
+          }
+        });
+      } else {
+        blocks.push({ kind: 'group', name: r.name, kwan: r.name, rows: [r].concat(kids), heads: 1 });
+      }
+      i = j;
+    }
+    if (totals.rows.length) blocks.push(totals);
     return blocks;
   }
 
@@ -1308,7 +1356,10 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     const lay = detailLayout(rows, fsE, rateLabel);
     const hs = rows.map(r => rowHeightFor(r, fsE, lay.cols[0]));
     const total = hs.reduce((a, b) => a + b, 0);
-    return { rows: rows.map((r, i) => ({ ...r, h: hs[i] })), lay: lay, total: total, fsE: fsE };
+    return {
+      rows: rows.map((r, i) => ({ ...r, h: hs[i], brk: nameBrk(r, fsE, lay.cols[0]) })),
+      lay: lay, total: total, fsE: fsE
+    };
   }
   function availH(lay, fsE) { return (lay.bottom - lay.top) - headHeight(fsE); }
 
@@ -1350,17 +1401,26 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     if (!fit) { splitBlocks(items, fs, rateLabel, pages); return; }
     pages.push(makePage(items, fit));
   }
+  /* 여러 묶음을 한 장에 담아 보고, 안 되면 minS까지만 줄여 봅니다(작은 관들 + 합계가 헤어지지 않게). */
+  function packBlocks(items, fs, rateLabel, pages, minS) {
+    const flat = [];
+    items.forEach(it => flat.push.apply(flat, it.rows));
+    const fit = fitRows(flat, fs, rateLabel);
+    if (fit && fit.s >= minS) { pages.push(makePage(items, fit)); return true; }
+    return false;
+  }
   function makePage(items, fit) {
     const rows = evenOutRows(fit.rows, fit.fsE, fit.lay);
     return {
       rows: rows, lay: fit.lay, fsE: fit.fsE, s: fit.s,
-      names: items.filter(it => it.kind === 'group').map(it => it.name),
+      names: items.filter(it => it.kind === 'group').map(it =>
+        (it.hang && it.hang !== it.kwan) ? it.kwan + ' — ' + it.hang : it.name),
       hasTotals: items.some(it => it.kind === 'totals'),
       shrunk: fit.s < 0.995
     };
   }
 
-  /* 정말로 한 장에 담기지 않는 큰 관항목만, 세부항목 경계에서 나누고 관항목 머리행을 다시 보여 줍니다. */
+  /* 정말로 한 장에 담기지 않는 큰 관항목만, 세부항목 경계에서 나누고 머리행(관·항)을 다시 보여 줍니다. */
   function splitBlocks(items, fs, rateLabel, pages, depth) {
     depth = depth || 0;
     if (items.length > 1 && depth < 4) {
@@ -1370,8 +1430,9 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       return;
     }
     const b = items[0];
-    const head = b.rows[0], kids = b.rows.slice(1);
-    const groupOf = rs => ({ kind: 'group', name: b.name, rows: rs });
+    const hn = Math.min(b.heads || 1, b.rows.length);
+    const head = b.rows.slice(0, hn), kids = b.rows.slice(hn);
+    const groupOf = rs => ({ kind: 'group', name: b.name, kwan: b.kwan, hang: b.hang, heads: hn, rows: rs });
     if (kids.length < 2 || depth >= 4) {
       const fit = fitRows(b.rows, fs, rateLabel);
       const m = fit || measureRows(b.rows, Math.max(0.3, SCALE_FLOOR_PT / (10 * fs)), rateLabel);
@@ -1379,7 +1440,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       return;
     }
     const mid = Math.ceil(kids.length / 2);
-    [groupOf([head].concat(kids.slice(0, mid))), groupOf([head].concat(kids.slice(mid)))].forEach(g => {
+    [groupOf(head.concat(kids.slice(0, mid))), groupOf(head.concat(kids.slice(mid)))].forEach(g => {
       const fit = fitRows(g.rows, fs, rateLabel);
       if (fit) pages.push(makePage([g], fit));
       else splitBlocks([g], fs, rateLabel, pages, depth + 1);
@@ -1389,18 +1450,31 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   function sectionPages(rows, fs, rateLabel) {
     const pages = [];
     if (!rows.length) return pages;
-    const blocks = groupBlocks(rows);
+    // 항(관 아래 한 단계 더 들어간 머리행)이 있는 장부에서만 항 단위로 나눕니다.
+    const hangMode = rows.some(r => !r.isTotal && r.depth >= 2);
+    const blocks = groupBlocks(rows, hangMode);
     const full = availH(detailLayout(rows.slice(0, 1), fs, rateLabel), fs);
     let cur = [], curH = 0;
     const flush = () => { if (cur.length) pageFromBlocks(cur, fs, rateLabel, pages); cur = []; curH = 0; };
     blocks.forEach(b => {
       const m = measureRows(b.rows, fs, rateLabel);
+      if (b.forceBreak) {
+        // 항이 바뀔 때는 작더라도 반드시 새 장 (앞 장과 합치지 않음)
+        flush();
+        pageFromBlocks([b], fs, rateLabel, pages, true);
+        flush();
+        return;
+      }
       if (m.total <= full) {
-        if (cur.length && curH + m.total > full) flush();
+        if (cur.length && curH + m.total > full) {
+          // 합계는 앞 장의 작은 관들과 같은 장에 붙입니다(글씨가 너무 작아지지 않을 때만).
+          if (b.kind === 'totals' && packBlocks(cur.concat([b]), fs, rateLabel, pages, 0.7)) { cur = []; curH = 0; return; }
+          flush();
+        }
         cur.push(b); curH += m.total;
         return;
       }
-      // 관항목 하나가 한 장을 넘는 경우 → 앞 장을 끊고 그 관항목만 축소해 한 장에 담기
+      // 관 하나가 한 장을 넘는 경우 → 앞 장을 끊고 그 관만 축소해 한 장에 담기
       flush();
       pageFromBlocks([b], fs, rateLabel, pages, true);
     });
@@ -1411,8 +1485,8 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   function detailTitle(pg) {
     const names = (pg.names || []).filter(Boolean);
     if (!names.length) return pg.title;
-    let s = names.length <= 2 ? names.join(', ') : names.slice(0, 2).join(', ') + ' 외 ' + (names.length - 2);
-    if (s.length > 28) s = s.slice(0, 27) + '…';
+    let s = names.length <= 2 ? names.join(', ') : names[0] + ' 외';
+    if (s.length > 34) s = s.slice(0, 33) + '…';
     return pg.title + ' · ' + s;
   }
 
@@ -1577,8 +1651,9 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     });
   }
 
-  /* 한 셀 안에서 “본문 + (괄호 안 작은 글자)” 여러 런으로 나누기 */
-  function splitParenRuns(tc, k) {
+  /* 한 셀 안에서 “본문 + (괄호 안 작은 글자)” 여러 런으로 나누기.
+     brk가 가리키는 조각 앞에서는 줄을 바꿉니다(괄호 설명이 첫 줄에 다 들어가지 않을 때). */
+  function splitParenRuns(tc, k, brk) {
     const tx = tc.getElementsByTagNameNS(NS_A, 'txBody')[0] || tc.getElementsByTagNameNS(NS_P, 'txBody')[0];
     if (!tx) return;
     const p = kids(tx, 'p')[0];
@@ -1593,8 +1668,9 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     if (segs.length < 2) return;
     const rPr = kids(run, 'rPr')[0];
     const base = rPr && rPr.getAttribute('sz') ? Number(rPr.getAttribute('sz')) : 1000;
-    segs.forEach(seg => {
+    segs.forEach((seg, i) => {
       if (!seg.t) return;
+      if (brk === i) p.insertBefore(px('<a:br xmlns:a="' + NS_A + '"><a:rPr lang="ko-KR" dirty="0"/></a:br>'), run);
       const nr = run.cloneNode(true);
       const nt = nr.getElementsByTagNameNS(NS_A, 't')[0];
       if (nt) { nt.textContent = seg.t; nt.setAttribute('xml:space', 'preserve'); }
@@ -1638,7 +1714,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
         if (tcPr) tcPr.setAttribute('marL', String(inch(i === 0 ? marL : 0.08)));
         setCellText(tc, texts[i]);
         styleRun(tc, bold, color);
-        if (i === 0) splitParenRuns(tc, PAREN_K);
+        if (i === 0) splitParenRuns(tc, PAREN_K, r.brk);
       });
       tbl.appendChild(tr);
       totalH += r.h;
@@ -2029,7 +2105,8 @@ https://github.com/nodeca/pako/blob/main/LICENSE
         const td = document.createElement('td');
         const sp = div('c' + (i ? ' r' : ''), null);
         if (i === 0 && r.segs) {
-          r.segs.forEach(seg => {
+          r.segs.forEach((seg, si) => {
+            if (r.brk === si) sp.appendChild(document.createElement('br'));
             const el = document.createElement('span');
             el.textContent = seg.t;
             if (seg.p) el.className = 'par';
@@ -2121,12 +2198,13 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     const rows = page.rows.map(r => ({
       vals: [r.name, cleanNumStr(r.budget), cleanNumStr(r.mid), cleanNumStr(r.total), fmtRate(r.rate)],
       segs: parenSegs(r.name),
+      brk: r.brk,
       cls: r.isTotal ? 'tot' : ('d' + r.depth),
       h: r.h,
       pad0: ((0.16 + 0.16 * (r.isTotal ? 0 : r.depth)) * fsE) * 72 - 9 * fsE
     }));
     const table = miniTable({ x: lay.x, top: lay.top, w: lay.w }, cols, headHeight(fsE),
-      rows.map(r => ({ vals: r.vals, segs: r.segs, cls: r.cls, pad0: r.pad0 / 72, h: r.h })),
+      rows.map(r => ({ vals: r.vals, segs: r.segs, brk: r.brk, cls: r.cls, pad0: r.pad0 / 72, h: r.h })),
       [LABELS.item, LABELS.budget, LABELS.mid, LABELS.total, page.rateLabel]);
     if (Math.abs(fsE - fs) > 0.005) table.style.setProperty('--fsx', String(fsE));
     root.appendChild(table);
