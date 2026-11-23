@@ -2655,7 +2655,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
 
   /* ================= 전 기기 동기화 (구글 시트 + Apps Script) ================= */
   const SYNC_ON = !!SYNC_URL && /^https:\/\//.test(SYNC_URL);
-  let syncSlotId = null, syncPushTimer = null, syncPollTimer = null, syncBusy = false, applyingRemote = false;
+  let syncSlotId = null, syncPushTimer = null, syncPollTimer = null, syncBusy = false, applyingRemote = false, syncPending = false;
 
   function syncStore() {
     try { return JSON.parse(localStorage.getItem(SYNC_KEY) || '{}') || {}; } catch (e) { return {}; }
@@ -2736,7 +2736,12 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   }
 
   async function syncPush(reason) {
-    if (!SYNC_ON || !state.key || !syncSlotId || !state.model || syncBusy || applyingRemote) return false;
+    if (!SYNC_ON || !state.key || !syncSlotId || !state.model) return false;
+    if (syncBusy || applyingRemote) {
+      // 다른 통신이 끝나기를 기다렸다가 다시 올립니다(놓치지 않게)
+      syncPending = true;
+      return false;
+    }
     syncBusy = true;
     try {
       const payload = syncPayload();
@@ -2763,6 +2768,11 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       return false;
     } finally {
       syncBusy = false;
+      if (syncPending) {
+        syncPending = false;
+        clearTimeout(syncPushTimer);
+        syncPushTimer = setTimeout(() => syncPush('retry'), 1500);
+      }
     }
   }
 
