@@ -80,7 +80,17 @@ main{flex:1;max-width:1180px;width:100%;margin:0 auto;padding:26px 20px 120px}
 .hero h2{font-size:22px;font-weight:700;letter-spacing:-.6px;margin-bottom:6px}
 .hero p{font-size:13.5px;color:var(--gray);line-height:1.65;max-width:640px}
 .hero .badge{margin-left:auto;display:flex;align-items:center;gap:6px;font-size:11.5px;color:var(--ok);background:#EAF4EF;border:1px solid #D3E8DE;padding:6px 10px;border-radius:999px;font-weight:700}
-.drop{margin-top:20px;border:1.6px dashed #C7D2E0;border-radius:14px;background:#FAFBFD;padding:30px 20px;text-align:center;transition:.16s;cursor:pointer}
+.drop{position:relative;margin-top:20px;border:1.6px dashed #C7D2E0;border-radius:14px;background:#FAFBFD;padding:30px 20px;text-align:center;transition:.16s;cursor:pointer}
+.drop-inner{position:relative;z-index:1;pointer-events:none}
+/* 파일 선택: display:none·JS click() 대신, 투명한 input이 칸 전체를 덮어 스마트폰에서도 네이티브 선택기가 직접 열린다 */
+.drop-input{position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer;z-index:2;font-size:0;-webkit-appearance:none;appearance:none;border:0;padding:0;margin:0;touch-action:manipulation}
+.drop:focus-within{border-color:var(--navy3);background:#F6F9FC;box-shadow:0 0 0 3px rgba(46,74,107,.12)}
+.drop.busy .drop-input{pointer-events:none}
+.filebtn{position:relative;display:inline-flex;border-radius:9px}
+.filebtn-input{position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer;font-size:0;-webkit-appearance:none;appearance:none;border:0;padding:0;margin:0}
+.filebtn:focus-within .btn{border-color:var(--navy3);box-shadow:0 0 0 3px rgba(46,74,107,.12)}
+.mobile-tip{display:none}
+.picklook{pointer-events:none}
 .drop:hover{border-color:var(--navy3);background:#F6F9FC}
 .drop.drag{border-color:var(--gold);background:#FBF7EE;box-shadow:inset 0 0 0 3px rgba(191,162,101,.12)}
 .drop .ico{width:48px;height:48px;margin:0 auto 12px;border-radius:14px;background:#fff;border:1px solid var(--line);display:flex;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(22,39,63,.06)}
@@ -126,42 +136,66 @@ main{flex:1;max-width:1180px;width:100%;margin:0 auto;padding:26px 20px 120px}
 .slide-frame{position:relative;width:100%;aspect-ratio:16/9;overflow:hidden;background:#fff}
 .slide-scaler{position:absolute;top:0;left:0;width:960px;height:540px;transform-origin:top left}
 .slide-scaler .grow{cursor:zoom-in}
-.slide-mini{position:relative;width:960px;height:540px;overflow:hidden;font-family:var(--font);color:#1F2A37}
+.slide-mini{position:relative;width:960px;height:540px;overflow:hidden;font-family:var(--sf,var(--font));color:#1F2A37}
 .slide-mini *{box-sizing:border-box}
 
 /* mini slide primitives */
 .m-abs{position:absolute}
 .m-cover{background:#16273F;color:#fff}
-.m-cover .dept{color:#BFA265;font-size:11px;letter-spacing:2px;font-weight:700}
-.m-cover .yr{font-size:30px;font-weight:700;line-height:1.1}
-.m-cover .qt{font-size:42px;font-weight:700;line-height:1.1}
+.m-cover .dept{color:#BFA265;font-size:calc(11px * var(--fsx,1));letter-spacing:2px;font-weight:700}
+.m-cover .yr{font-size:calc(30px * var(--fsx,1));font-weight:700;line-height:1.1}
+.m-cover .qt{font-size:calc(42px * var(--fsx,1));font-weight:700;line-height:1.1}
 .m-cover .rule{background:#BFA265;height:3.2px}
-.m-cover .period{color:#A9BBD0;font-size:14px}
-.m-cover .qbig{color:#223A5A;font-size:96px;font-weight:700;text-align:right;line-height:1}
-.m-cover .qlab{color:#3C5573;font-size:10px;letter-spacing:4px;text-align:right}
-.m-cover .foot{color:#7E93AB;font-size:9px}
+.m-cover .period{color:#A9BBD0;font-size:calc(14px * var(--fsx,1))}
+.m-cover .qbig{color:#223A5A;font-size:calc(96px * var(--fsx,1));font-weight:700;text-align:right;line-height:1}
+.m-cover .qlab{color:#3C5573;font-size:calc(10px * var(--fsx,1));letter-spacing:4px;text-align:right}
+.m-cover .foot{color:#7E93AB;font-size:calc(9px * var(--fsx,1))}
 .m-band{background:#2B415C}
 .m-hair{background:#E1E6ED;height:0.9px}
 .m-accent{background:#BFA265}
-.m-title{color:#16273F;font-size:21px;font-weight:700;letter-spacing:-.4px;display:flex;align-items:center}
-.m-right{color:#93A0AF;font-size:9.5px;text-align:right}
-.m-foot{color:#93A0AF;font-size:8.5px}
+.m-title{color:#16273F;font-size:calc(21px * var(--fsx,1));font-weight:700;letter-spacing:-.4px;display:flex;align-items:center}
+.m-right{color:#93A0AF;font-size:calc(9.5px * var(--fsx,1));text-align:right}
+.m-foot{color:#93A0AF;font-size:calc(8.5px * var(--fsx,1))}
 .m-kpi{background:#F7F9FC;border:0.75px solid #E4E9F0;border-radius:8px;overflow:hidden}
 .m-kpi .bar{position:absolute;left:0;top:0;bottom:0;width:3px;background:#BFA265}
-.m-kpi .k{color:#6E7C8D;font-size:9.5px}
-.m-kpi .v{color:#16273F;font-size:18px;font-weight:700;letter-spacing:-.3px;margin-top:5px}
-.m-kpi .s{color:#93A0AF;font-size:8.5px;margin-top:3px}
+.m-kpi .k{color:#6E7C8D;font-size:calc(9.5px * var(--fsx,1))}
+.m-kpi .v{color:#16273F;font-size:calc(18px * var(--fsx,1));font-weight:700;letter-spacing:-.3px;margin-top:5px}
+.m-kpi .s{color:#93A0AF;font-size:calc(8.5px * var(--fsx,1));margin-top:3px}
 .m-tbl{width:100%;border-collapse:collapse;table-layout:fixed}
 .m-tbl th,.m-tbl td{padding:0;overflow:hidden}
-.m-tbl th{background:#16273F;color:#fff;font-size:10px;font-weight:700;height:100%}
-.m-tbl th .c,.m-tbl td .c{display:flex;align-items:center;height:100%;padding:0 9px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.m-tbl th .c.r,.m-tbl td .c.r{justify-content:flex-end;padding-right:8px}
-.m-tbl td{font-size:10px;border-bottom:0.75px solid #E1E6ED;color:#1F2A37}
+.m-tbl th{background:#16273F;color:#fff;font-size:calc(10px * var(--fsx,1));font-weight:700;height:100%}
+.m-tbl th .c,.m-tbl td .c{display:flex;align-items:center;height:100%;padding:0 calc(9px * var(--fsx,1));white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.m-tbl th .c.r,.m-tbl td .c.r{justify-content:flex-end;padding-right:calc(8px * var(--fsx,1))}
+.m-tbl td{font-size:calc(10px * var(--fsx,1));border-bottom:0.75px solid #E1E6ED;color:#1F2A37}
 .m-tbl tr.d0 td{background:#EDF2F8;font-weight:700;color:#16273F}
 .m-tbl tr.d1 td{background:#fff;color:#2B3A4D}
 .m-tbl tr.d2 td{background:#fff;color:#4A5866}
 .m-tbl tr.tot td{background:#DCE5EF;font-weight:700;color:#16273F;border-bottom:0.9px solid #16273F}
-.m-note{color:#93A0AF;font-size:8.5px}
+.m-note{color:#93A0AF;font-size:calc(8.5px * var(--fsx,1))}
+
+/* 글꼴·크기 조절 바 */
+.fbar{padding:0;overflow:hidden}
+.fbar-head{display:flex;align-items:center;gap:9px;width:100%;padding:13px 16px;text-align:left;color:var(--navy)}
+.fbar-head b{font-size:13.5px;font-weight:700;letter-spacing:-.2px;white-space:nowrap}
+.fbar-head svg{color:var(--navy3);flex:0 0 auto;opacity:.85}
+.fbar-head .fbar-sum{margin-left:auto;font-size:12px;color:var(--muted);font-weight:600;white-space:nowrap}
+.fbar-head .chev{margin-left:2px;transition:transform .18s;opacity:.6}
+.fbar.open .fbar-head .chev{transform:rotate(180deg)}
+.fbar-body{display:none;padding:0 16px 14px;border-top:1px solid var(--line);background:#FCFDFE}
+.fbar.open .fbar-body{display:block}
+.fbar-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding-top:12px}
+.fbar-row+.fbar-row{padding-top:10px}
+.fbar-lab{font-size:11.5px;color:var(--muted);font-weight:700;min-width:52px}
+.seg{display:flex;gap:6px;flex-wrap:wrap}
+.seg button{height:34px;padding:0 12px;border-radius:9px;border:1.5px solid var(--line);background:#fff;color:var(--gray);font-size:12.5px;font-weight:600;white-space:nowrap;transition:.14s}
+.seg button:hover{border-color:#C3CFDE;color:var(--navy)}
+.seg button.on{background:var(--navy);border-color:var(--navy);color:#fff;box-shadow:0 4px 10px rgba(22,39,63,.18)}
+.fsctl{display:flex;align-items:center;gap:2px;border:1.5px solid var(--line);border-radius:9px;background:#fff;height:34px;padding:0 3px}
+.fsctl button{width:30px;height:26px;border-radius:7px;color:var(--navy);font-size:15px;font-weight:700;line-height:1;display:flex;align-items:center;justify-content:center}
+.fsctl button:hover{background:var(--soft)}
+.fsctl button:disabled{opacity:.32;background:none}
+.fsctl b{min-width:46px;text-align:center;font-size:12.5px;color:var(--navy);font-variant-numeric:tabular-nums}
+.fbar-hint{font-size:11px;color:var(--muted);line-height:1.5}
 
 /* editable tables */
 .edit-wrap{background:#fff;border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow);overflow:hidden}
@@ -245,6 +279,13 @@ main{flex:1;max-width:1180px;width:100%;margin:0 auto;padding:26px 20px 120px}
   .icon-btn span{display:none}
   .icon-btn{width:38px;height:38px;justify-content:center;padding:0}
   .hero{padding:18px 16px}
+  .mobile-tip{display:block;margin-top:9px;font-size:11.5px;line-height:1.55;color:var(--muted);background:#F4F7FB;border-radius:10px;padding:9px 11px}
+  .mobile-tip b{color:var(--navy2)}
+  .fbar-head{padding:12px 14px}
+  .fbar-body{padding:0 14px 12px}
+  .fbar-lab{min-width:0;width:100%}
+  .seg button{height:32px;padding:0 10px;font-size:12px}
+  .fbar-row{gap:8px}
   .hero h2{font-size:19px}
   .kpis{grid-template-columns:1fr 1fr;gap:10px}
   .kpi .v{font-size:16.5px}
@@ -337,13 +378,18 @@ main{flex:1;max-width:1180px;width:100%;margin:0 auto;padding:26px 20px 120px}
           </div>
         </div>
         <div class="drop" id="drop">
-          <div class="ico">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#24405F" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M13 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V9z"/><path d="M13 3v6h6"/><path d="M9 14.5h6M9 17.5h4"/></svg>
+          <div class="drop-inner" id="dropInner">
+            <div class="ico">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#24405F" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M13 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V9z"/><path d="M13 3v6h6"/><path d="M9 14.5h6M9 17.5h4"/></svg>
+            </div>
+            <b>한글 파일을 눌러서 고르세요</b>
+            <span>.hwpx 파일 · 이 칸 어디를 눌러도 파일 선택 창이 열립니다</span>
+            <div><span class="btn btn-primary btn-sm picklook" style="height:40px;padding:0 16px">파일 선택</span></div>
           </div>
-          <b>한글 파일을 끌어다 놓으세요</b>
-          <span>.hwpx 파일 · 또는 아래 버튼으로 선택</span>
-          <div><button class="btn btn-primary btn-sm" id="pickBtn" style="height:40px;padding:0 16px">파일 선택</button></div>
-          <input type="file" id="file" accept=".hwpx,.hwp" class="hidden">
+          <input type="file" id="file" class="drop-input" aria-label="한글 .hwpx 파일 선택">
+        </div>
+        <div class="mobile-tip">
+          스마트폰 인앱 브라우저(카카오톡·네이버 등)에서 파일 선택 창이 안 열리면, 오른쪽 위 메뉴에서 <b>Chrome</b> 또는 <b>삼성 인터넷</b>으로 열어 주세요.
         </div>
         <div class="hint-row">
           <div><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><rect x="4.5" y="10" width="15" height="10.5" rx="2"/><path d="M8 10V7.5a4 4 0 0 1 8 0V10"/></svg>업로드 파일은 서버로 보내지 않습니다</div>
@@ -374,6 +420,39 @@ main{flex:1;max-width:1180px;width:100%;margin:0 auto;padding:26px 20px 120px}
       <div class="section">
         <div class="section-head"><h2>총괄</h2><span class="count" id="kpiCount"></span></div>
         <div class="kpis" id="kpis"></div>
+      </div>
+
+      <div class="section">
+        <div class="card fbar open" id="fbar">
+          <button class="fbar-head" id="fbarToggle" type="button" aria-expanded="true" aria-controls="fbarBody">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5V7a2 2 0 0 1 2-2h5M20 19.5V11m0 0V7a2 2 0 0 0-2-2h-5"/><path d="M7 19.5h7M15.5 19.5H19"/></svg>
+            <b>글꼴 · 크기 조절</b>
+            <span class="fbar-sum" id="fbarSum">맑은 고딕 · 100%</span>
+            <svg class="chev" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9.5 12 15.5 18 9.5"/></svg>
+          </button>
+          <div class="fbar-body" id="fbarBody">
+            <div class="fbar-row">
+              <span class="fbar-lab">글꼴</span>
+              <div class="seg" id="fontSeg" role="group" aria-label="글꼴 선택">
+                <button type="button" data-font="맑은 고딕" class="on">맑은 고딕</button>
+                <button type="button" data-font="나눔고딕">나눔고딕</button>
+                <button type="button" data-font="나눔명조">나눔명조</button>
+                <button type="button" data-font="Noto Sans KR">Noto Sans KR</button>
+                <button type="button" data-font="돋움">돋움</button>
+              </div>
+            </div>
+            <div class="fbar-row">
+              <span class="fbar-lab">글자 크기</span>
+              <div class="fsctl">
+                <button type="button" id="fsDown" aria-label="글자 크기 줄이기">−</button>
+                <b id="fsVal">100%</b>
+                <button type="button" id="fsUp" aria-label="글자 크기 늘리기">+</button>
+              </div>
+              <button type="button" class="btn btn-ghost btn-sm" id="fsReset" style="height:34px">초기화</button>
+              <span class="fbar-hint">표지·표 글자에 함께 적용되고, 내려받는 파워포인트 파일에도 그대로 담깁니다</span>
+            </div>
+          </div>
+        </div>
       </div>
 
       <div class="section">
@@ -435,8 +514,10 @@ main{flex:1;max-width:1180px;width:100%;margin:0 auto;padding:26px 20px 120px}
     </div>
     <div class="field" style="margin-bottom:10px"><input id="impPw" type="password" placeholder="백업 파일의 비밀번호"></div>
     <div style="display:flex;gap:8px;flex-wrap:wrap">
-      <button class="btn btn-ghost btn-sm" id="btnImport" style="height:42px;padding:0 16px">파일 가져오기</button>
-      <input type="file" id="importFile" accept=".enc,application/json" class="hidden">
+      <div class="filebtn">
+        <span class="btn btn-ghost btn-sm" style="height:42px;padding:0 16px">파일 가져오기</span>
+        <input type="file" id="importFile" class="filebtn-input" aria-label="암호화 백업 파일(.enc) 선택">
+      </div>
     </div>
     <div style="font-size:12px;color:var(--muted);margin-top:14px;line-height:1.6" id="backupInfo"></div>
     <div class="modal-actions"><button class="btn btn-ghost btn-sm" data-close="backupModal">닫기</button></div>
@@ -490,6 +571,16 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   const ITERS = 210000;
   const CHECK = 'deoksin-finance-report-v1';
   const IDLE_MS = 10 * 60 * 1000;
+  const PREF_KEY = 'dfp.prefs.v1';
+  const FONTS = ['맑은 고딕', '나눔고딕', '나눔명조', 'Noto Sans KR', '돋움'];
+  const FONT_CSS = {
+    '맑은 고딕': "'Malgun Gothic','맑은 고딕','Apple SD Gothic Neo','Noto Sans KR',sans-serif",
+    '나눔고딕': "'NanumGothic','나눔고딕','Malgun Gothic','Noto Sans KR',sans-serif",
+    '나눔명조': "'NanumMyeongjo','나눔명조','Batang','바탕',serif",
+    'Noto Sans KR': "'Noto Sans KR','Noto Sans CJK KR','Malgun Gothic',sans-serif",
+    '돋움': "'Dotum','돋움','Gulim','굴림','Malgun Gothic',sans-serif"
+  };
+  const FS_MIN = 0.8, FS_MAX = 1.3, FS_STEP = 0.1;
 
   async function sha256Hex(s) {
     const d = await crypto.subtle.digest('SHA-256', enc.encode(s));
@@ -541,6 +632,49 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     toastTimer = setTimeout(() => (t.className = 'toast'), 3200);
   }
 
+  /* ================= 글꼴 · 크기 설정 ================= */
+  function loadPrefs() {
+    try {
+      const p = JSON.parse(localStorage.getItem(PREF_KEY) || 'null');
+      if (p && FONTS.indexOf(p.font) >= 0) state.font = p.font;
+      const f = Number(p && p.fs);
+      if (Number.isFinite(f) && f >= FS_MIN - 1e-6 && f <= FS_MAX + 1e-6) state.fs = Math.round(f * 10) / 10;
+    } catch (e) { /* 저장된 설정이 없거나 깨졌으면 기본값 */ }
+  }
+  function savePrefs() {
+    try { localStorage.setItem(PREF_KEY, JSON.stringify({ font: state.font, fs: state.fs, savedAt: Date.now() })); } catch (e) { /* 저장 공간이 없으면 이번만 적용 */ }
+  }
+  function applyTypeStyle() {
+    const root = document.documentElement;
+    root.style.setProperty('--fsx', String(state.fs));
+    root.style.setProperty('--sf', FONT_CSS[state.font] || FONT_CSS[FONTS[0]]);
+    const pct = Math.round(state.fs * 100) + '%';
+    const sum = $('#fbarSum'), val = $('#fsVal');
+    if (sum) sum.textContent = state.font + ' · ' + pct;
+    if (val) val.textContent = pct;
+    $$('#fontSeg button').forEach(b => b.classList.toggle('on', b.getAttribute('data-font') === state.font));
+    const d = $('#fsDown'), u = $('#fsUp');
+    if (d) d.disabled = state.fs <= FS_MIN + 1e-6;
+    if (u) u.disabled = state.fs >= FS_MAX - 1e-6;
+    if ($('#fsReset')) $('#fsReset').disabled = (state.font === FONTS[0] && state.fs === 1);
+  }
+  function setFont(f) {
+    if (FONTS.indexOf(f) < 0 || f === state.font) return;
+    state.font = f;
+    applyTypeStyle();
+    savePrefs();
+    if (state.model) schedulePreview();
+  }
+  function setFs(v) {
+    const n = Math.min(FS_MAX + 1e-9, Math.max(FS_MIN, Math.round(v / FS_STEP) * FS_STEP));
+    const val = Math.round(n * 10) / 10;
+    if (val === state.fs) return;
+    state.fs = val;
+    applyTypeStyle();
+    savePrefs();
+    if (state.model) schedulePreview();
+  }
+
   /* ================= 암호화 금고 ================= */
   async function deriveKey(pw, salt, iters) {
     const km = await crypto.subtle.importKey('raw', enc.encode(pw), 'PBKDF2', false, ['deriveKey']);
@@ -557,7 +691,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     return JSON.parse(dec.decode(pt));
   }
 
-  const state = { key: null, vault: null, data: null, model: null, pages: [], fileName: '', locked: true };
+  const state = { key: null, vault: null, data: null, model: null, pages: [], fileName: '', locked: true, font: FONTS[0], fs: 1 };
 
   async function tryUnlock(pw) {
     const raw = localStorage.getItem(VAULT_KEY);
@@ -894,7 +1028,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       const c = document.createElement('canvas');
       mctx = c.getContext('2d');
     }
-    mctx.font = (pt * 96 / 72) + 'px "Malgun Gothic","맑은 고딕","Noto Sans KR",sans-serif';
+    mctx.font = (pt * 96 / 72) + 'px ' + (FONT_CSS[state.font] || FONT_CSS[FONTS[0]]);
     return mctx.measureText(text).width * 1.03; // 여유
   }
   function wrapCount(text, pt, widthIn) {
@@ -912,24 +1046,27 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     return lines;
   }
   function rowHeight(row) {
-    const nameW = DT.cols[0] - (0.16 + 0.16 * row.depth) - 0.16;
-    const lines = Math.max(1, wrapCount(row.name, 10, nameW));
-    let h = Math.max(BASE_ROW, lines * LINE_H + PAD);
-    if (row.isTotal) h += 0.03;
+    const s = state.fs;
+    const nameW = DT.cols[0] - (0.16 + 0.16 * row.depth) * s - 0.14 * s;
+    const lines = Math.max(1, wrapCount(row.name, 10 * s, nameW));
+    let h = Math.max(BASE_ROW * s, lines * LINE_H * s + PAD * s);
+    if (row.isTotal) h += 0.03 * s;
     return h;
   }
+  function headHeight() { return DT.headH * state.fs; }
   function paginate(rows) {
     if (!rows.length) return [];
     const avail = DT.bottom - DT.y;
-    const usable = avail - DT.headH;
+    const head = headHeight();
+    const usable = avail - head;
     const sumH = rows.reduce((s, r) => s + r.h, 0);
     let k = Math.max(1, Math.ceil(sumH / usable));
     const greedy = target => {
       const pages = [];
-      let cur = [], used = DT.headH;
+      let cur = [], used = head;
       for (const r of rows) {
         if (cur.length && (used + r.h > avail || cur.length >= target)) {
-          pages.push(cur); cur = []; used = DT.headH;
+          pages.push(cur); cur = []; used = head;
         }
         cur.push(r); used += r.h;
       }
@@ -948,11 +1085,11 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   function evenOut(page) {
     if (!page.length) return page;
     const usable = DT.bottom - DT.y;
-    const used = page.reduce((a, r) => a + r.h, 0) + DT.headH;
+    const used = page.reduce((a, r) => a + r.h, 0) + headHeight();
     const extra = usable - used;
     if (extra <= 0.5) return page;
-    const add = Math.min(extra * 0.72, page.length * 0.2) / page.length;
-    page.forEach(r => { r.h = Math.min(0.72, r.h + add); });
+    const add = Math.min(extra * 0.72, page.length * 0.2 * state.fs) / page.length;
+    page.forEach(r => { r.h = Math.min(0.72 * state.fs, r.h + add); });
     return page;
   }
 
@@ -1092,10 +1229,10 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     const hCells = kids(head, 'tc');
     const hTexts = [labels.item, labels.budget, labels.mid, labels.total, rateHeader];
     hCells.forEach((tc, i) => setCellText(tc, hTexts[i] || ''));
-    setRowHeight(head, DT.headH);
+    setRowHeight(head, headHeight());
     tbl.appendChild(head);
 
-    let totalH = DT.headH;
+    let totalH = headHeight();
     for (const r of rows) {
       const isTot = !!r.isTotal;
       const tr = (isTot ? totalProto : normalProto).cloneNode(true);
@@ -1104,7 +1241,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       const fill = isTot ? 'DCE5EF' : (r.depth === 0 ? 'EDF2F8' : 'FFFFFF');
       const color = isTot || r.depth === 0 ? '16273F' : (r.depth === 1 ? '2B3A4D' : '4A5866');
       const bold = isTot || r.depth === 0;
-      const marL = 0.16 + 0.16 * (isTot ? 0 : r.depth);
+      const marL = (0.16 + 0.16 * (isTot ? 0 : r.depth)) * state.fs;
       const texts = [r.name, cleanNumStr(r.budget), cleanNumStr(r.mid), cleanNumStr(r.total), fmtRate(r.rate)];
       cells.forEach((tc, i) => {
         setCellFill(tc, fill);
@@ -1161,6 +1298,23 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     });
   }
 
+  /* 선택한 글꼴·배율을 슬라이드 XML 전체(a:latin/a:ea/a:cs typeface, rPr sz)에 반영 */
+  function applySlideStyle(doc) {
+    const s = state.fs, font = state.font;
+    ['latin', 'ea', 'cs'].forEach(t => {
+      Array.prototype.slice.call(doc.getElementsByTagNameNS(NS_A, t)).forEach(el => {
+        el.setAttribute('typeface', font);
+      });
+    });
+    ['rPr', 'endParaRPr', 'defRPr'].forEach(t => {
+      Array.prototype.slice.call(doc.getElementsByTagNameNS(NS_A, t)).forEach(el => {
+        const v = el.getAttribute('sz');
+        if (!v) return;
+        el.setAttribute('sz', String(Math.max(100, Math.round(Number(v) * s / 10) * 10)));
+      });
+    });
+  }
+
   async function buildPptx(model) {
     const zip = await JSZip.loadAsync(b64.toBytes(window.__TEMPLATE_B64__));
     const read = p => zip.file(p).async('string');
@@ -1184,6 +1338,14 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     setShapeText(d1, 't_period', model.period);
     setShapeText(d1, 't_qbig', model.quarter + '/4');
     setShapeText(d1, 't_foot', '덕신교회  ' + model.year + '년도  ' + model.quarter + '분기 재정 보고');
+    // 큰 분기 숫자는 아래 기준으로 앉혀 글자를 키워도 아래 문구를 짓지 않게 한다
+    const qbSp = findSp(d1, 't_qbig');
+    if (qbSp) {
+      const tb = qbSp.getElementsByTagNameNS(NS_P, 'txBody')[0];
+      const bp = tb && kids(tb, 'bodyPr')[0];
+      if (bp) bp.setAttribute('anchor', 'b');
+    }
+    applySlideStyle(d1);
     const coverXml = ser(d1);
 
     // ---- 총괄 ----
@@ -1195,6 +1357,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     setKpi(d2, 4, fmtNum(nums.nextT), model.quarter + '분기 말 잔액');
     setShapeText(d2, 't_note', noteLine);
     buildSummaryTable(d2, model, nums);
+    applySlideStyle(d2);
     const summaryXml = ser(d2);
 
     // ---- 세부 슬라이드 ----
@@ -1207,6 +1370,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       setShapeText(d, 't_page', pg.page + ' / ' + pg.pages);
       setShapeText(d, 't_fright', titleLine);
       buildDetailTable(d, pg.rows, labels, pg.rateLabel);
+      applySlideStyle(d);
       detailXmls.push({ section: pg.section, first: pg.page === 1, xml: ser(d) });
     }
 
@@ -1354,7 +1518,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       root.appendChild(miniPos(div('m-abs rule'), 1.05, 4.70, 1.32, 0.045));
       root.appendChild(miniPos(div('m-abs period', model.period), 1.05, 4.96, 6.6, 0.34));
       const qb = miniPos(div('m-abs qbig', model.quarter + '/4'), 8.45, 2.85, 4.3, 2.05);
-      qb.style.display = 'flex'; qb.style.alignItems = 'center'; qb.style.justifyContent = 'flex-end';
+      qb.style.display = 'flex'; qb.style.alignItems = 'flex-end'; qb.style.justifyContent = 'flex-end';
       root.appendChild(qb);
       root.appendChild(miniPos(div('m-abs qlab', 'QUARTERLY REPORT'), 8.45, 5.08, 4.3, 0.4));
       root.appendChild(miniPos(div('m-abs m-band'), 1.05, 6.50, 11.28, 0.012));
@@ -1439,7 +1603,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     table.appendChild(cg);
     const thead = document.createElement('thead');
     const htr = document.createElement('tr');
-    htr.style.height = (DT.headH * 72) + 'px';
+    htr.style.height = (headHeight() * 72) + 'px';
     ['분류항목', '예산', '기간결산', '결산누계', page.rateLabel].forEach((t, i) => {
       const th = document.createElement('th');
       th.appendChild(div('c' + (i ? ' r' : ''), t));
@@ -1455,7 +1619,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       vals.forEach((t, i) => {
         const td = document.createElement('td');
         const sp = div('c' + (i ? ' r' : ''), t);
-        if (i === 0) sp.style.paddingLeft = ((0.16 + 0.16 * (r.isTotal ? 0 : r.depth)) * 72 - 9) + 'px';
+        if (i === 0) sp.style.paddingLeft = (((0.16 + 0.16 * (r.isTotal ? 0 : r.depth)) * state.fs) * 72 - 9 * state.fs) + 'px';
         if (i === 0) sp.style.whiteSpace = 'normal';
         td.appendChild(sp);
         tr.appendChild(td);
@@ -1649,27 +1813,50 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   }
 
   /* ================= 파일 처리 ================= */
+  let parseSeq = 0;
+  async function sniffKind(file) {
+    try {
+      const buf = await file.slice(0, 8).arrayBuffer();
+      const b = new Uint8Array(buf);
+      if (b.length >= 2 && b[0] === 0x50 && b[1] === 0x4B) return 'zip';        // PK = ZIP(=hwpx)
+      if (b.length >= 4 && b[0] === 0xD0 && b[1] === 0xCF && b[2] === 0x11 && b[3] === 0xE0) return 'ole'; // 구형 .hwp
+    } catch (e) { /* 한 조각도 읽지 못하면 이름으로만 판단 */ }
+    return 'unknown';
+  }
+
   async function handleFile(file) {
     if (!file) return;
+    const seq = ++parseSeq;
     const name = file.name || '';
     const lower = name.toLowerCase();
-    $('#errBox').classList.add('hidden');
+    hideError();
     if (lower.endsWith('.hwp')) {
       showError('구형 한글 문서(.hwp)입니다', '한글 2014 이상에서 문서를 연 뒤 <b>파일 → 다른 이름으로 저장 → 문서 형식: 한글 표준 문서(*.hwpx)</b>로 저장하고, 그 파일을 올려 주세요.');
       return;
     }
     if (!lower.endsWith('.hwpx')) {
-      showError('한글(.hwpx) 파일이 아닙니다', '한글에서 저장한 <b>.hwpx</b> 파일을 올려 주세요.');
-      return;
+      const kind = await sniffKind(file);
+      if (seq !== parseSeq) return;
+      if (kind === 'ole') {
+        showError('구형 한글 문서(.hwp)로 보입니다', '이름은 달라도 내용이 예전 한글 문서라면 열 수 없습니다. 한글에서 <b>다른 이름으로 저장 → 한글 표준 문서(*.hwpx)</b>로 다시 저장해 주세요.');
+        return;
+      }
+      if (kind !== 'zip') {
+        showError('한글(.hwpx) 파일이 아닙니다', '한글에서 저장한 <b>.hwpx</b> 파일을 올려 주세요. (엑셀·PDF·사진 파일은 열 수 없습니다)');
+        return;
+      }
+      // 확장자는 달라도 속이 압축(ZIP) 구조라면 한글 표준문서일 수 있으니 읽어 본다
     }
-    $('#drop').innerHTML = '<div class="loading"><span class="spinner"></span>한글 파일에서 표를 읽는 중…</div>';
+    setDropBusy(true);
     try {
       const model = await parseHwpx(file);
+      if (seq !== parseSeq) return;
       state.model = model;
       state.fileName = name;
       showResult(name);
     } catch (e) {
-      resetDrop();
+      if (seq !== parseSeq) return;
+      setDropBusy(false);
       if (e instanceof ParseError) {
         if (e.kind === 'not-zip' || e.kind === 'no-section' || e.kind === 'bad-xml') {
           showError('한글 파일을 열 수 없습니다', '한글에서 <b>.hwpx</b>로 다시 저장한 파일인지 확인해 주세요. (.hwp는 열 수 없습니다)');
@@ -1685,23 +1872,40 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     }
   }
 
+  function dropIconHtml() {
+    return '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#24405F" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M13 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V9z"/><path d="M13 3v6h6"/><path d="M9 14.5h6M9 17.5h4"/></svg>';
+  }
   function resetDrop() {
-    const drop = $('#drop');
-    drop.innerHTML = '';
+    const inner = $('#dropInner');
+    if (!inner) return;
     const ico = document.createElement('div');
     ico.className = 'ico';
-    ico.innerHTML = '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#24405F" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M13 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V9z"/><path d="M13 3v6h6"/><path d="M9 14.5h6M9 17.5h4"/></svg>';
-    drop.appendChild(ico);
-    const b = document.createElement('b'); b.textContent = '한글 파일을 끌어다 놓으세요';
-    const s = document.createElement('span'); s.textContent = '.hwpx 파일 · 또는 아래 버튼으로 선택';
+    ico.innerHTML = dropIconHtml();
+    const b = document.createElement('b'); b.textContent = '한글 파일을 눌러서 고르세요';
+    const s = document.createElement('span'); s.textContent = '.hwpx 파일 · 이 칸 어디를 눌러도 파일 선택 창이 열립니다';
     const wrap = document.createElement('div');
-    const btn = document.createElement('button');
-    btn.className = 'btn btn-primary btn-sm';
+    const btn = document.createElement('span');
+    btn.className = 'btn btn-primary btn-sm picklook';
     btn.style.height = '40px'; btn.style.padding = '0 16px';
     btn.textContent = '파일 선택';
-    btn.addEventListener('click', ev => { ev.stopPropagation(); $('#file').click(); });
     wrap.appendChild(btn);
-    drop.appendChild(b); drop.appendChild(s); drop.appendChild(wrap);
+    inner.innerHTML = '';
+    inner.appendChild(ico); inner.appendChild(b); inner.appendChild(s); inner.appendChild(wrap);
+  }
+  function setDropBusy(on) {
+    const drop = $('#drop');
+    if (drop) drop.classList.toggle('busy', !!on);
+    const inner = $('#dropInner');
+    if (!inner) return;
+    if (on) {
+      inner.innerHTML = '<div class="loading"><span class="spinner"></span>한글 파일에서 표를 읽는 중…</div>';
+    } else {
+      resetDrop();
+    }
+  }
+  function hideError() {
+    const box = $('#errBox');
+    if (box) box.classList.add('hidden');
   }
 
   function showError(title, body) {
@@ -1714,6 +1918,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
 
   function showResult(name) {
     const m = state.model;
+    setDropBusy(false);
     $('#fYear').value = String(m.year);
     $('#fQuarter').value = String(m.quarter);
     $('#fPeriod').value = m.period;
@@ -1893,11 +2098,9 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     });
     $('#file').addEventListener('change', e => {
       const f = e.target.files && e.target.files[0];
-      e.target.value = '';
-      handleFile(f);
+      Promise.resolve(handleFile(f)).then(() => { try { e.target.value = ''; } catch (err) { /* 무시 */ } });
     });
     const drop = $('#drop');
-    drop.addEventListener('click', () => { if (drop.querySelector('.btn')) return; $('#file').click(); });
     drop.addEventListener('dragover', e => { e.preventDefault(); drop.classList.add('drag'); });
     drop.addEventListener('dragleave', () => drop.classList.remove('drag'));
     drop.addEventListener('drop', e => {
@@ -1908,6 +2111,21 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     });
     document.addEventListener('dragover', e => e.preventDefault());
     document.addEventListener('drop', e => e.preventDefault());
+
+    // 글꼴 · 크기 조절
+    $('#fbarToggle').addEventListener('click', () => {
+      const bar = $('#fbar');
+      const open = bar.classList.toggle('open');
+      $('#fbarToggle').setAttribute('aria-expanded', open ? 'true' : 'false');
+    });
+    $$('#fontSeg button').forEach(b => b.addEventListener('click', () => setFont(b.getAttribute('data-font'))));
+    $('#fsDown').addEventListener('click', () => setFs(state.fs - FS_STEP));
+    $('#fsUp').addEventListener('click', () => setFs(state.fs + FS_STEP));
+    $('#fsReset').addEventListener('click', () => {
+      state.font = FONTS[0]; state.fs = 1;
+      applyTypeStyle(); savePrefs();
+      if (state.model) schedulePreview();
+    });
 
     $('#btnReset').addEventListener('click', () => {
       state.model = null;
@@ -1923,14 +2141,12 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     $('#scrim').addEventListener('click', closeDrawer);
     $('#btnBackup').addEventListener('click', () => { openModal('backupModal'); });
     $('#btnExport').addEventListener('click', exportBackup);
-    $('#btnImport').addEventListener('click', () => {
-      if (!$('#impPw').value) { toast('백업 파일의 비밀번호를 먼저 입력해 주세요.', true); $('#impPw').focus(); return; }
-      $('#importFile').click();
-    });
     $('#importFile').addEventListener('change', e => {
       const f = e.target.files && e.target.files[0];
       e.target.value = '';
-      if (f) importBackup(f);
+      if (!f) return;
+      if (!$('#impPw').value) { toast('백업 파일의 비밀번호를 먼저 입력해 주세요.', true); $('#impPw').focus(); return; }
+      importBackup(f);
     });
     $('#btnKey').addEventListener('click', () => { $('#keyErr').textContent = ''; openModal('keyModal'); });
     $('#btnKeySave').addEventListener('click', changePassword);
@@ -1960,6 +2176,10 @@ https://github.com/nodeca/pako/blob/main/LICENSE
 
   /* ================= 시작 ================= */
   function init() {
+    if (init.done) return;
+    init.done = true;
+    loadPrefs();
+    applyTypeStyle();
     bind();
     const has = !!localStorage.getItem(VAULT_KEY);
     setLockMode(has ? 'unlock' : 'setup');
