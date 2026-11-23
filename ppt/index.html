@@ -165,6 +165,8 @@ main{flex:1;max-width:1180px;width:100%;margin:0 auto;padding:26px 20px 120px}
 .m-tbl th,.m-tbl td{padding:0;overflow:hidden}
 .m-tbl th{background:#16273F;color:#fff;font-size:calc(10px * var(--fsx,1));font-weight:700;height:100%}
 .m-tbl th .c,.m-tbl td .c{display:flex;align-items:center;height:100%;padding:0 calc(9px * var(--fsx,1));white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+/* (…) 괄호 안 설명은 조금 작게 */
+.m-tbl td .par,.m-tbl th .par{font-size:72%;opacity:.94;letter-spacing:-.2px}
 .m-tbl th .c.r,.m-tbl td .c.r{justify-content:flex-end;padding-right:calc(8px * var(--fsx,1))}
 .m-tbl td{font-size:calc(10px * var(--fsx,1));border-bottom:0.75px solid #E1E6ED;color:#1F2A37}
 .m-tbl tr.d0 td{background:#EDF2F8;font-weight:700;color:#16273F}
@@ -217,6 +219,31 @@ main{flex:1;max-width:1180px;width:100%;margin:0 auto;padding:26px 20px 120px}
 .tbl-scroll .edit-tbl th{position:sticky;top:0;z-index:2;box-shadow:0 1px 0 var(--line)}
 .tbl-scroll::-webkit-scrollbar{width:8px;height:8px}
 .tbl-scroll::-webkit-scrollbar-thumb{background:#D5DDE7;border-radius:8px}
+
+/* 행 추가·삭제·단계 조작 */
+.edit-tbl th.op{text-align:center}
+.edit-tbl td.opcell{padding:0 6px 0 2px}
+.edit-tbl .ops{display:flex;align-items:center;gap:2px;justify-content:flex-end}
+.opbtn{width:26px;height:26px;border-radius:7px;border:1px solid var(--line);background:#fff;color:var(--navy2);
+  font-size:12px;font-weight:700;line-height:1;display:inline-flex;align-items:center;justify-content:center;
+  transition:.12s;flex:0 0 auto}
+.opbtn:hover{background:var(--soft);border-color:#B9C7D8}
+.opbtn.del{color:#B4573F;border-color:#EEDCD6}
+.opbtn.del:hover{background:#FDF1EE;border-color:#E2B9AD}
+.edit-add{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:9px}
+.edit-hint{font-size:11.5px;color:var(--muted);line-height:1.5}
+.edit-hint b{color:var(--navy2)}
+
+/* 동기화 상태 */
+.syncbar{display:flex;align-items:center;gap:11px;padding:12px 14px}
+.syncbar .sb-ico{width:32px;height:32px;border-radius:9px;background:var(--soft);color:var(--navy3);display:flex;align-items:center;justify-content:center;flex:0 0 auto}
+.syncbar .sb-txt{display:flex;flex-direction:column;gap:1px;min-width:0;flex:1}
+.syncbar .sb-txt b{font-size:12.5px;color:var(--navy);font-weight:700}
+.syncbar .sb-txt span{font-size:11.5px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.syncbar.on .sb-ico{background:#EAF4EF;color:var(--ok)}
+.syncbar.err .sb-ico{background:#FDF1EE;color:var(--warn)}
+.syncbar.err .sb-txt span{color:var(--warn)}
+.syncbar.busy .sb-ico svg{animation:spin 1s linear infinite}
 
 /* action bar */
 .actionbar{position:fixed;left:0;right:0;bottom:0;z-index:35;background:rgba(255,255,255,.95);backdrop-filter:blur(10px);border-top:1px solid var(--line);padding:12px 20px;padding-bottom:calc(12px + env(safe-area-inset-bottom))}
@@ -328,7 +355,7 @@ main{flex:1;max-width:1180px;width:100%;margin:0 auto;padding:26px 20px 120px}
       <button class="btn btn-primary btn-block" id="lockBtn" type="submit">잠금 해제</button>
     </form>
     <div class="lock-err" id="lockErr"></div>
-    <div class="lock-note">파일은 서버로 전송되지 않습니다 · 이 기기 안에서만 처리·암호화</div>
+    <div class="lock-note">한글 파일은 서버로 전송되지 않습니다 · 작업 내용은 비밀번호로 암호화되어 내 구글 계정에 동기화됩니다</div>
   </div>
 </div>
 
@@ -396,7 +423,7 @@ main{flex:1;max-width:1180px;width:100%;margin:0 auto;padding:26px 20px 120px}
         <div class="hint-row">
           <div><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><rect x="4.5" y="10" width="15" height="10.5" rx="2"/><path d="M8 10V7.5a4 4 0 0 1 8 0V10"/></svg>업로드 파일은 서버로 보내지 않습니다</div>
           <div><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><path d="M12 3.5 4.5 7v6c0 4.2 3.2 7 7.5 8 4.3-1 7.5-3.8 7.5-8V7z"/></svg>이력은 AES-GCM으로 암호화 저장</div>
-          <div><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><path d="M12 20v-9M8 15l4 4 4-4"/><path d="M4.5 4.5h15v5h-15z"/></svg>다른 기기로는 백업 파일로 이동</div>
+          <div><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><path d="M12 20v-9M8 15l4 4 4-4"/><path d="M4.5 4.5h15v5h-15z"/></svg>기기를 바꿔도 작업 내용이 자동으로 이어집니다</div>
         </div>
         <div id="errBox" class="hidden" style="margin-top:16px"></div>
       </div>
@@ -416,6 +443,16 @@ main{flex:1;max-width:1180px;width:100%;margin:0 auto;padding:26px 20px 120px}
           <div class="f" style="min-width:88px"><label>분기</label><input id="fQuarter" inputmode="numeric" value="2"></div>
           <div class="f wide"><label>보고 기간</label><input id="fPeriod" value=""></div>
           <div class="filetag"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M13 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V9z"/><path d="M13 3v6h6"/></svg><b id="fileName">-</b></div>
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="card syncbar" id="syncBar">
+          <div class="sb-ico">
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6.5 18.5a3.5 3.5 0 0 1-.4-7 5.2 5.2 0 0 1 10.1-1.2 3.9 3.9 0 0 1 .3 7.7"/><path d="M12 12.5v6M9.4 15.6 12 18.2l2.6-2.6"/></svg>
+          </div>
+          <div class="sb-txt"><b>모든 기기 동기화</b><span id="syncState">동기화 준비 중…</span></div>
+          <button class="btn btn-ghost btn-sm" id="btnSyncNow" type="button">지금 동기화</button>
         </div>
       </div>
 
@@ -474,8 +511,16 @@ main{flex:1;max-width:1180px;width:100%;margin:0 auto;padding:26px 20px 120px}
         </div>
         <div class="section-head" style="margin-top:18px"><h2 style="font-size:14px">수입 세부내역</h2><span class="count" id="incCount"></span></div>
         <div class="edit-wrap tbl-scroll"><table class="edit-tbl" id="incEdit"></table></div>
+        <div class="edit-add">
+          <button class="btn btn-ghost btn-sm" type="button" id="incAddRoot">＋ 관항목 추가</button>
+          <span class="edit-hint">행 끝 <b>＋</b>는 그 아래 세부항목 추가, <b>◀ ▶</b>는 단계(관항목↔세부항목), <b>✕</b>는 삭제</span>
+        </div>
         <div class="section-head" style="margin-top:18px"><h2 style="font-size:14px">지출 세부내역</h2><span class="count" id="expCount"></span></div>
         <div class="edit-wrap tbl-scroll"><table class="edit-tbl" id="expEdit"></table></div>
+        <div class="edit-add">
+          <button class="btn btn-ghost btn-sm" type="button" id="expAddRoot">＋ 관항목 추가</button>
+          <span class="edit-hint">행 끝 <b>＋</b>는 그 아래 세부항목 추가, <b>◀ ▶</b>는 단계(관항목↔세부항목), <b>✕</b>는 삭제</span>
+        </div>
       </div>
 
       <div class="footer-note">
@@ -586,6 +631,12 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   };
   const FS_MIN = 0.8, FS_MAX = 2.2, FS_STEP = 0.1;
   const FS_BIG = 1.8;   // 프로젝터용 크게 보기
+  const PAREN_K = 0.72;        // (…) 괄호 안 글자는 본문의 72%
+  const SCALE_FLOOR_PT = 6.4;  // 한 관항목을 한 장에 담기 위한 글자 크기 하한(pt)
+  // 전 기기 동기화 (Google Apps Script 웹앱 /exec 주소). 비어 있으면 동기화를 쓰지 않습니다.
+  const SYNC_URL = "https://script.google.com/macros/s/AKfycbxGfR4B0Em4UcfsIU3A5rMyk2tlCmno5tBUbmnLz_0XakP9OoxcsBgCugvdZrRMdDT7Rg/exec";
+  const SYNC_KEY = 'dfp.sync.v1';
+  const SYNC_CHUNK = 38000;
 
   async function sha256Hex(s) {
     const d = await crypto.subtle.digest('SHA-256', enc.encode(s));
@@ -696,7 +747,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     return JSON.parse(dec.decode(pt));
   }
 
-  const state = { key: null, vault: null, data: null, model: null, pages: [], fileName: '', locked: true, font: FONTS[0], fs: 1 };
+  const state = { key: null, vault: null, data: null, model: null, pages: [], fileName: '', locked: true, font: FONTS[0], fs: 1, dirtyAt: 0, pw: '' };
 
   async function tryUnlock(pw) {
     const raw = localStorage.getItem(VAULT_KEY);
@@ -777,7 +828,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       }
       state.key = r.key; state.vault = r.vault; state.data = r.data || { history: [] };
       if (!state.data.history) state.data.history = [];
-      enterApp();
+      await enterApp(pw);
       return;
     }
     // first run
@@ -787,7 +838,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
         const r = await createVault(pw);
         $('#lockBtn').disabled = false;
         state.key = r.key; state.vault = r.vault; state.data = r.data;
-        enterApp();
+        await enterApp(pw);
         return;
       }
       if (pw.length < 6) { err.textContent = '6자 이상으로 정해 주세요.'; return; }
@@ -807,17 +858,32 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       const r = await createVault(pw);
       $('#lockBtn').disabled = false;
       state.key = r.key; state.vault = r.vault; state.data = r.data;
-      enterApp();
+      await enterApp(pw);
       return;
     }
   }
 
-  function enterApp() {
+  async function enterApp(pw) {
     state.locked = false;
+    state.pw = pw || '';
     $('#lockScreen').classList.add('hidden');
     $('#app').classList.remove('hidden');
     resetIdle();
+    if (SYNC_ON && pw) {
+      try { syncSlotId = await syncSlotFor(pw); } catch (e) { syncSlotId = null; }
+    }
     renderHistory();
+    const cur = state.data && state.data.current;
+    if (cur && cur.model && cur.model.income) {
+      state.model = cur.model;
+      state.fileName = cur.fileName || '이전 작업';
+      applyingRemote = true;
+      showResult(state.fileName, true);
+      applyingRemote = false;
+    }
+    updateSyncBar();
+    startSyncPolling();
+    if (SYNC_ON) setTimeout(() => syncPull({ manual: false }), 500);
   }
 
   function lockApp() {
@@ -827,6 +893,11 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     state.data = null;
     state.model = null;
     state.pages = [];
+    state.pw = '';
+    syncSlotId = null;
+    state.syncSalt = null;
+    syncKeys.clear();
+    clearInterval(syncPollTimer);
     $('#app').classList.add('hidden');
     $('#lockScreen').classList.remove('hidden');
     $('#stepResult').classList.add('hidden');
@@ -1041,7 +1112,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   }
   function headHeight(fs) { return 0.40 + Math.max(0, fs - 1) * 0.14; }
   function rowBaseH(fs, lines) {
-    return Math.max(BASE_ROW * fs, lines * LINE_H * fs + PAD + Math.max(0, fs - 1) * 0.05);
+    return Math.max(BASE_ROW * fs, lines * LINE_H * fs + PAD * fs + Math.max(0, fs - 1) * 0.05);
   }
 
   // 숫자·머리글이 두 줄로 깨지지 않도록 실제 글자 폭으로 숫자 열 너비를 계산합니다.
@@ -1089,8 +1160,9 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     return { x: x, w: w, top: 1.05, bottom: 6.85, cols: fitCols(w, need, NAT_DETAIL) };
   }
   function rowHeightFor(r, fs, nameCol) {
-    const nameW = nameCol - (0.16 + 0.16 * r.depth) * fs - 0.14 * fs;
-    const lines = Math.max(1, wrapCount(r.name, 10 * fs, nameW * 0.90));
+    const ind = r.isTotal ? 0 : r.depth;
+    const nameW = nameCol - (0.16 + 0.16 * ind) * fs - 0.14 * fs;
+    const lines = Math.max(1, wrapCountRich(r.name, 10 * fs, nameW * 0.90));
     let h = rowBaseH(fs, lines);
     if (lines > 1) h += LINE_H * fs * 0.46 * (lines - 1);   // 이름이 여러 줄일 때 여유
     if (r.isTotal) h += 0.03 * fs;
@@ -1176,74 +1248,187 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     mctx.font = (pt * 96 / 72) + 'px ' + (FONT_CSS[state.font] || FONT_CSS[FONTS[0]]);
     return mctx.measureText(text).width * 1.03; // 여유
   }
-  function wrapCount(text, pt, widthIn) {
-    if (!text) return 1;
+  /* "찬양대유지비(샘솟는, 할렐루야)" 처럼 괄호가 있으면 괄호 안만 작게 그립니다.
+     조각 목록 [{t, p}] 로 나눠 미리보기(span)와 pptx(여러 런)에 함께 씁니다. */
+  function parenSegs(name) {
+    const s = String(name == null ? '' : name);
+    const re = /\([^()]*\)|（[^（）]*）/g;
+    const out = [];
+    let last = 0, m;
+    while ((m = re.exec(s))) {
+      if (m.index > last) out.push({ t: s.slice(last, m.index), p: false });
+      out.push({ t: m[0], p: true });
+      last = m.index + m[0].length;
+    }
+    if (last < s.length) out.push({ t: s.slice(last), p: false });
+    if (!out.length) out.push({ t: s, p: false });
+    return out;
+  }
+  function wrapCountRich(name, pt, widthIn) {
+    if (!name) return 1;
     const limit = widthIn * 96;
-    let lines = 1, cur = '';
-    for (const ch of text) {
-      const t = cur + ch;
-      if (measureWidth(t, pt) <= limit) { cur = t; continue; }
-      lines++;
-      const sp = cur.lastIndexOf(' ');
-      if (ch !== ' ' && sp > 0 && sp > cur.length * 0.55) cur = cur.slice(sp + 1) + ch;
-      else cur = ch;
+    let lines = 1, cur = 0;
+    for (const seg of parenSegs(name)) {
+      const spt = seg.p ? pt * PAREN_K : pt;
+      for (const ch of seg.t) {
+        const w = measureWidth(ch, spt);
+        if (cur + w <= limit) { cur += w; continue; }
+        lines++;
+        cur = ch === ' ' ? 0 : w;
+      }
     }
     return lines;
   }
-  function paginate(rows, fs, lay) {
-    if (!rows.length) return [];
-    const avail = lay.bottom - lay.top;
-    const head = headHeight(fs);
-    const usable = avail - head;
-    const sumH = rows.reduce((s, r) => s + r.h, 0);
-    let k = Math.max(1, Math.ceil(sumH / usable));
-    const greedy = target => {
-      const pages = [];
-      let cur = [], used = head;
-      for (const r of rows) {
-        if (cur.length && (used + r.h > avail || cur.length >= target)) {
-          pages.push(cur); cur = []; used = head;
-        }
-        cur.push(r); used += r.h;
+  /* ================= 관항목(그룹) 단위 페이지 나누기 =================
+     - 한 관항목(대분류 행 + 그 아래 세부항목)은 절대 두 장에 걸치지 않게 통째로 묶습니다.
+     - 작은 관항목들은 한 장에 여러 개 모으고,
+       큰 관항목 혼자서 한 장을 넘으면 그 장만 글자·행 여백을 자동으로 줄여 한 장에 담습니다. */
+  function groupBlocks(rows) {
+    const blocks = [];
+    let cur = null, tot = null;
+    rows.forEach(r => {
+      if (r.isTotal) {
+        if (!tot) { tot = { kind: 'totals', name: '합계', rows: [] }; blocks.push(tot); }
+        tot.rows.push(r);
+        cur = null;
+        return;
       }
-      if (cur.length) pages.push(cur);
-      return pages;
-    };
-    for (let i = 0; i < 6; i++) {
-      const target = Math.max(1, Math.ceil(rows.length / k));
-      const pages = greedy(target);
-      if (pages.length <= Math.max(k, 1)) return pages;
-      k = pages.length;
-    }
-    return greedy(Math.ceil(rows.length / k));
+      if (!cur || r.depth <= 0) { cur = { kind: 'group', name: r.name, rows: [r] }; blocks.push(cur); }
+      else cur.rows.push(r);
+    });
+    return blocks;
   }
 
-  function evenOut(page, fs, lay) {
-    if (!page.length) return page;
+  function measureRows(rows, fsE, rateLabel) {
+    const lay = detailLayout(rows, fsE, rateLabel);
+    const hs = rows.map(r => rowHeightFor(r, fsE, lay.cols[0]));
+    const total = hs.reduce((a, b) => a + b, 0);
+    return { rows: rows.map((r, i) => ({ ...r, h: hs[i] })), lay: lay, total: total, fsE: fsE };
+  }
+  function availH(lay, fsE) { return (lay.bottom - lay.top) - headHeight(fsE); }
+
+  /* 배율 1로 안 들어가면 이 장만 배율을 낮춰 딱 맞춥니다(내릴 수 있는 데까지). */
+  function fitRows(rows, fs, rateLabel) {
+    if (!rows.length) return null;
+    const m1 = measureRows(rows, fs, rateLabel);
+    m1.s = 1;
+    if (m1.total <= availH(m1.lay, fs)) return m1;
+    let lo = Math.max(0.3, SCALE_FLOOR_PT / (10 * fs)), hi = 1, best = 0;
+    for (let i = 0; i < 20; i++) {
+      const mid = (lo + hi) / 2;
+      const m = measureRows(rows, fs * mid, rateLabel);
+      if (m.total <= availH(m.lay, fs * mid)) { best = mid; lo = mid; } else hi = mid;
+    }
+    if (!best) return null;
+    const m = measureRows(rows, fs * best, rateLabel);
+    m.s = best;
+    return m;
+  }
+
+  function evenOutRows(rows, fsE, lay) {
+    if (!rows.length) return rows;
     const usable = lay.bottom - lay.top;
-    const used = page.reduce((a, r) => a + r.h, 0) + headHeight(fs);
+    const used = rows.reduce((a, r) => a + r.h, 0) + headHeight(fsE);
     const extra = usable - used;
-    if (extra <= 0.5) return page;
-    const add = Math.min(extra * 0.72, page.length * 0.2 * state.fs) / page.length;
-    page.forEach(r => { r.h = Math.max(r.h, Math.min(0.72 + Math.max(0, state.fs - 1) * 0.25, r.h + add)); });
-    return page;
+    if (extra <= 0.4) return rows;
+    // 행이 적은 장은 남는 높이를 고르게 나눠 표가 장을 채우게 합니다(너무 두꺼워지지 않게 상한).
+    const cap = Math.min(1.35, Math.max(0.72 + Math.max(0, fsE - 1) * 0.25, usable / rows.length * 0.92));
+    const add = Math.min(extra * 0.9, rows.length * cap) / rows.length;
+    rows.forEach(r => { r.h = Math.max(r.h, Math.min(cap, r.h + add)); });
+    return rows;
+  }
+
+  function pageFromBlocks(items, fs, rateLabel, pages, forceShrink) {
+    const flat = [];
+    items.forEach(it => flat.push.apply(flat, it.rows));
+    const fit = fitRows(flat, fs, rateLabel);
+    if (!fit) { splitBlocks(items, fs, rateLabel, pages); return; }
+    pages.push(makePage(items, fit));
+  }
+  function makePage(items, fit) {
+    const rows = evenOutRows(fit.rows, fit.fsE, fit.lay);
+    return {
+      rows: rows, lay: fit.lay, fsE: fit.fsE, s: fit.s,
+      names: items.filter(it => it.kind === 'group').map(it => it.name),
+      hasTotals: items.some(it => it.kind === 'totals'),
+      shrunk: fit.s < 0.995
+    };
+  }
+
+  /* 정말로 한 장에 담기지 않는 큰 관항목만, 세부항목 경계에서 나누고 관항목 머리행을 다시 보여 줍니다. */
+  function splitBlocks(items, fs, rateLabel, pages, depth) {
+    depth = depth || 0;
+    if (items.length > 1 && depth < 4) {
+      const mid = Math.ceil(items.length / 2);
+      splitBlocks(items.slice(0, mid), fs, rateLabel, pages, depth + 1);
+      splitBlocks(items.slice(mid), fs, rateLabel, pages, depth + 1);
+      return;
+    }
+    const b = items[0];
+    const head = b.rows[0], kids = b.rows.slice(1);
+    const groupOf = rs => ({ kind: 'group', name: b.name, rows: rs });
+    if (kids.length < 2 || depth >= 4) {
+      const fit = fitRows(b.rows, fs, rateLabel);
+      const m = fit || measureRows(b.rows, Math.max(0.3, SCALE_FLOOR_PT / (10 * fs)), rateLabel);
+      pages.push(makePage([b], m));
+      return;
+    }
+    const mid = Math.ceil(kids.length / 2);
+    [groupOf([head].concat(kids.slice(0, mid))), groupOf([head].concat(kids.slice(mid)))].forEach(g => {
+      const fit = fitRows(g.rows, fs, rateLabel);
+      if (fit) pages.push(makePage([g], fit));
+      else splitBlocks([g], fs, rateLabel, pages, depth + 1);
+    });
+  }
+
+  function sectionPages(rows, fs, rateLabel) {
+    const pages = [];
+    if (!rows.length) return pages;
+    const blocks = groupBlocks(rows);
+    const full = availH(detailLayout(rows.slice(0, 1), fs, rateLabel), fs);
+    let cur = [], curH = 0;
+    const flush = () => { if (cur.length) pageFromBlocks(cur, fs, rateLabel, pages); cur = []; curH = 0; };
+    blocks.forEach(b => {
+      const m = measureRows(b.rows, fs, rateLabel);
+      if (m.total <= full) {
+        if (cur.length && curH + m.total > full) flush();
+        cur.push(b); curH += m.total;
+        return;
+      }
+      // 관항목 하나가 한 장을 넘는 경우 → 앞 장을 끊고 그 관항목만 축소해 한 장에 담기
+      flush();
+      pageFromBlocks([b], fs, rateLabel, pages, true);
+    });
+    flush();
+    return pages;
+  }
+
+  function detailTitle(pg) {
+    const names = (pg.names || []).filter(Boolean);
+    if (!names.length) return pg.title;
+    let s = names.length <= 2 ? names.join(', ') : names.slice(0, 2).join(', ') + ' 외 ' + (names.length - 2);
+    if (s.length > 28) s = s.slice(0, 27) + '…';
+    return pg.title + ' · ' + s;
   }
 
   function buildPages(model) {
     const fs = state.fs;
-    const incLay = detailLayout(model.income, fs, '달성률');
-    const expLay = detailLayout(model.expense, fs, '집행률');
-    const income = model.income.map(r => ({ ...r, h: rowHeightFor(r, fs, incLay.cols[0]) }));
-    const expense = model.expense.map(r => ({ ...r, h: rowHeightFor(r, fs, expLay.cols[0]) }));
-    const incPages = paginate(income, fs, incLay);
-    const expPages = paginate(expense, fs, expLay);
-    if (!incPages.length) incPages.push([]);
-    if (!expPages.length) expPages.push([]);
+    const inc = sectionPages(model.income, fs, '달성률');
+    const exp = sectionPages(model.expense, fs, '집행률');
     const pages = [{ type: 'cover' }, { type: 'summary' }];
-    incPages.forEach(p => evenOut(p, fs, incLay));
-    expPages.forEach(p => evenOut(p, fs, expLay));
-    incPages.forEach((rows, i) => pages.push({ type: 'detail', section: 'income', title: '수입 세부내역', rateLabel: '달성률', rows, page: i + 1, pages: incPages.length, lay: incLay, cols: incLay.cols }));
-    expPages.forEach((rows, i) => pages.push({ type: 'detail', section: 'expense', title: '지출 세부내역', rateLabel: '집행률', rows, page: i + 1, pages: expPages.length, lay: expLay, cols: expLay.cols }));
+    const add = (list, section, title, rateLabel) => {
+      if (!list.length) {
+        list.push({ rows: [], lay: detailLayout(model[section].slice(0, 1), fs, rateLabel), fsE: fs, s: 1, names: [] });
+      }
+      list.forEach((p, i) => pages.push({
+        type: 'detail', section: section, title: title, rateLabel: rateLabel,
+        rows: p.rows, page: i + 1, pages: list.length,
+        lay: p.lay, cols: p.lay.cols, fsE: p.fsE, s: p.s, names: p.names || []
+      }));
+    };
+    add(inc, 'income', '수입 세부내역', '달성률');
+    add(exp, 'expense', '지출 세부내역', '집행률');
+    state.sectionCounts = { income: inc.length, expense: exp.length };
     return pages;
   }
 
@@ -1374,9 +1559,50 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     if (ext && w != null) ext.setAttribute('cx', String(inch(w)));
   }
 
+  function scaleTableRuns(doc, s) {
+    if (!s || Math.abs(s - 1) < 0.005) return;
+    Array.prototype.slice.call(doc.getElementsByTagNameNS(NS_A, 'tbl')).forEach(tbl => {
+      ['rPr', 'endParaRPr'].forEach(t => {
+        Array.prototype.slice.call(tbl.getElementsByTagNameNS(NS_A, t)).forEach(el => {
+          const v = el.getAttribute('sz');
+          if (!v) return;
+          el.setAttribute('sz', String(Math.max(100, Math.round(Number(v) * s / 10) * 10)));
+        });
+      });
+    });
+  }
+
+  /* 한 셀 안에서 “본문 + (괄호 안 작은 글자)” 여러 런으로 나누기 */
+  function splitParenRuns(tc, k) {
+    const tx = tc.getElementsByTagNameNS(NS_A, 'txBody')[0] || tc.getElementsByTagNameNS(NS_P, 'txBody')[0];
+    if (!tx) return;
+    const p = kids(tx, 'p')[0];
+    if (!p) return;
+    const runs = kids(p, 'r');
+    if (runs.length !== 1) return;
+    const run = runs[0];
+    const t = run.getElementsByTagNameNS(NS_A, 't')[0];
+    const text = t ? t.textContent : '';
+    if (!text || (text.indexOf('(') < 0 && text.indexOf('（') < 0)) return;
+    const segs = parenSegs(text);
+    if (segs.length < 2) return;
+    const rPr = kids(run, 'rPr')[0];
+    const base = rPr && rPr.getAttribute('sz') ? Number(rPr.getAttribute('sz')) : 1000;
+    segs.forEach(seg => {
+      if (!seg.t) return;
+      const nr = run.cloneNode(true);
+      const nt = nr.getElementsByTagNameNS(NS_A, 't')[0];
+      if (nt) { nt.textContent = seg.t; nt.setAttribute('xml:space', 'preserve'); }
+      const npr = kids(nr, 'rPr')[0];
+      if (npr && seg.p) npr.setAttribute('sz', String(Math.max(100, Math.round(base * k / 10) * 10)));
+      p.insertBefore(nr, run);
+    });
+    run.remove();
+  }
+
   function buildDetailTable(doc, pg) {
     const rows = pg.rows, labels = LABELS, rateHeader = pg.rateLabel;
-    const lay = pg.lay, fs = state.fs;
+    const lay = pg.lay, fs = pg.fsE || state.fs;
     const tbl = doc.getElementsByTagNameNS(NS_A, 'tbl')[0];
     const trs = kids(tbl, 'tr');
     const head = trs[0].cloneNode(true);
@@ -1399,7 +1625,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       const fill = isTot ? 'DCE5EF' : (r.depth === 0 ? 'EDF2F8' : 'FFFFFF');
       const color = isTot || r.depth === 0 ? '16273F' : (r.depth === 1 ? '2B3A4D' : '4A5866');
       const bold = isTot || r.depth === 0;
-      const marL = (0.16 + 0.16 * (isTot ? 0 : r.depth)) * state.fs;
+      const marL = (0.16 + 0.16 * (isTot ? 0 : r.depth)) * fs;
       const texts = [r.name, cleanNumStr(r.budget), cleanNumStr(r.mid), cleanNumStr(r.total), fmtRate(r.rate)];
       cells.forEach((tc, i) => {
         setCellFill(tc, fill);
@@ -1407,6 +1633,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
         if (tcPr) tcPr.setAttribute('marL', String(inch(i === 0 ? marL : 0.08)));
         setCellText(tc, texts[i]);
         styleRun(tc, bold, color);
+        if (i === 0) splitParenRuns(tc, PAREN_K);
       });
       tbl.appendChild(tr);
       totalH += r.h;
@@ -1616,13 +1843,14 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       if (pg.type !== 'detail') continue;
       const base = pg.section === 'income' ? s3 : s4;
       const d = px(base);
-      setShapeText(d, 't_title', pg.title);
+      setShapeText(d, 't_title', detailTitle(pg));
       setShapeText(d, 't_page', pg.page + ' / ' + pg.pages);
       setShapeText(d, 't_fright', titleLine);
       const fs = state.fs;
       applyHeaderGeom(d, pg.lay, fs);
       buildDetailTable(d, pg);
       applySlideStyle(d, fs, { t_title: CAP_TITLE, t_page: CAP_SMALL, t_fright: CAP_FOOT, t_ffoot: CAP_FOOT });
+      scaleTableRuns(d, pg.s || 1);
       detailXmls.push({ section: pg.section, first: pg.page === 1, xml: ser(d) });
     }
 
@@ -1794,7 +2022,17 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       if (r.cls) tr.className = r.cls;
       r.vals.forEach((t, i) => {
         const td = document.createElement('td');
-        const sp = div('c' + (i ? ' r' : ''), t);
+        const sp = div('c' + (i ? ' r' : ''), null);
+        if (i === 0 && r.segs) {
+          r.segs.forEach(seg => {
+            const el = document.createElement('span');
+            el.textContent = seg.t;
+            if (seg.p) el.className = 'par';
+            sp.appendChild(el);
+          });
+        } else {
+          sp.textContent = t;
+        }
         if (i === 0) {
           sp.style.paddingLeft = (r.pad0 != null ? r.pad0 : 0.16 * state.fs) * 72 + 'px';
           sp.style.whiteSpace = 'normal';
@@ -1873,16 +2111,19 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     // detail
     const lay = page.lay || geom(fs);
     const cols = page.cols || lay.cols;
-    root.appendChild(miniHeader(page.page + ' / ' + page.pages, page.title, lay, fs));
+    const fsE = page.fsE || fs;
+    root.appendChild(miniHeader(page.page + ' / ' + page.pages, detailTitle(page), lay, fs));
     const rows = page.rows.map(r => ({
       vals: [r.name, cleanNumStr(r.budget), cleanNumStr(r.mid), cleanNumStr(r.total), fmtRate(r.rate)],
+      segs: parenSegs(r.name),
       cls: r.isTotal ? 'tot' : ('d' + r.depth),
       h: r.h,
-      pad0: ((0.16 + 0.16 * (r.isTotal ? 0 : r.depth)) * state.fs) * 72 - 9 * state.fs
+      pad0: ((0.16 + 0.16 * (r.isTotal ? 0 : r.depth)) * fsE) * 72 - 9 * fsE
     }));
-    const table = miniTable({ x: lay.x, top: lay.top, w: lay.w }, cols, headHeight(fs),
-      rows.map(r => ({ vals: r.vals, cls: r.cls, pad0: r.pad0 / 72, h: r.h })),
+    const table = miniTable({ x: lay.x, top: lay.top, w: lay.w }, cols, headHeight(fsE),
+      rows.map(r => ({ vals: r.vals, segs: r.segs, cls: r.cls, pad0: r.pad0 / 72, h: r.h })),
       [LABELS.item, LABELS.budget, LABELS.mid, LABELS.total, page.rateLabel]);
+    if (Math.abs(fsE - fs) > 0.005) table.style.setProperty('--fsx', String(fsE));
     root.appendChild(table);
     root.appendChild(miniFooter(lay, model.year + '년도 ' + model.quarter + '분기 재정 보고', fs));
     return root;
@@ -1912,7 +2153,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       tag.className = 'tag';
       tag.textContent = String(i + 1);
       cap.appendChild(tag);
-      const label = pg.type === 'cover' ? '표지' : pg.type === 'summary' ? '총괄 요약' : pg.title + ' ' + pg.page + '/' + pg.pages;
+      const label = pg.type === 'cover' ? '표지' : pg.type === 'summary' ? '총괄 요약' : pg.title + ' ' + pg.page + '/' + pg.pages + (pg.s < 0.95 ? ' · 자동 축소 ' + Math.round(pg.s * 100) + '%' : '');
       cap.appendChild(document.createTextNode(label));
       card.appendChild(cap);
       const frame = document.createElement('div');
@@ -1960,6 +2201,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   function schedulePreview() {
     clearTimeout(renderTimer);
     renderTimer = setTimeout(() => { renderDeck(); renderKpis(); }, 260);
+    markDirty();
   }
 
   function renderKpis() {
@@ -2017,25 +2259,66 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     });
   }
 
+  function mkOp(label, title, fn, extraCls) {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'opbtn' + (extraCls ? ' ' + extraCls : '');
+    b.textContent = label;
+    b.title = title;
+    b.setAttribute('aria-label', title);
+    b.addEventListener('click', fn);
+    return b;
+  }
+  function newRow(which, name, depth) {
+    return { id: (which === 'income' ? 'i' : 'e') + 'n' + Date.now().toString(36) + Math.floor(Math.random() * 1e4).toString(36),
+      name: name, budget: '', mid: '', total: '', rate: '', depth: depth || 0, isTotal: false };
+  }
+  function addRow(which, index, row) {
+    const list = state.model[which];
+    list.splice(index, 0, row);
+    refreshEditors();
+    const tbl = $(which === 'income' ? '#incEdit' : '#expEdit');
+    const tr = tbl.querySelector('tr[data-id="' + row.id + '"]');
+    const nm = tr && tr.querySelector('td .in');
+    if (nm) { nm.focus(); document.execCommand && document.execCommand('selectAll', false, null); }
+  }
+  function removeRow(which, id) {
+    const list = state.model[which];
+    const i = list.findIndex(r => r.id === id);
+    if (i < 0) return;
+    const r = list[i];
+    if (!window.confirm('「' + (r.name || '이 항목') + '」을(를) 목록에서 지울까요?')) return;
+    list.splice(i, 1);
+    refreshEditors();
+  }
+  function setDepth(which, id, delta) {
+    const r = state.model[which].find(x => x.id === id);
+    if (!r) return;
+    r.depth = Math.min(2, Math.max(0, (r.depth || 0) + delta));
+    refreshEditors();
+  }
+
   function renderDetailEdit(which) {
     const m = state.model;
     const rows = m[which];
     const t = $(which === 'income' ? '#incEdit' : '#expEdit');
     t.innerHTML = '';
     const head = document.createElement('tr');
-    ['분류항목', '예산', '기간결산', '결산 누계', which === 'income' ? '달성률' : '집행률'].forEach((h, i) => {
+    ['분류항목', '예산', '기간결산', '결산 누계', which === 'income' ? '달성률' : '집행률', '조작'].forEach((h, i) => {
       const th = document.createElement('th');
       th.textContent = h;
-      if (i) th.className = 'r';
+      if (i && i < 5) th.className = 'r';
+      if (i === 5) th.className = 'op';
       head.appendChild(th);
     });
     t.appendChild(head);
-    rows.forEach(r => {
+    rows.forEach((r, idx) => {
       const tr = document.createElement('tr');
-      tr.className = r.isTotal ? 'tot' : ('d' + r.depth);
+      tr.className = (r.isTotal ? 'tot' : ('d' + (r.depth || 0))) + ((r.depth || 0) >= 1 ? ' sub' : '');
+      tr.setAttribute('data-id', r.id);
       const td0 = document.createElement('td');
       const nm = div('in', r.name);
-      nm.style.paddingLeft = (10 + 14 * (r.isTotal ? 0 : r.depth)) + 'px';
+      nm.style.paddingLeft = (10 + 14 * (r.isTotal ? 0 : (r.depth || 0))) + 'px';
       bindCell(nm, (v, done) => {
         r.name = v;
         if (done) { nm.textContent = v.trim(); r.name = v.trim(); }
@@ -2045,7 +2328,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       tr.appendChild(td0);
       ['budget', 'mid', 'total', 'rate'].forEach(k => {
         const td = document.createElement('td');
-        td.style.width = k === 'rate' ? '74px' : '112px';
+        td.style.width = k === 'rate' ? '64px' : '102px';
         const inp = div('in r', r[k] || '');
         bindCell(inp, (v, done) => {
           r[k] = done ? (k === 'rate' ? fmtRate(v) : cleanNumStr(v)) : v;
@@ -2055,6 +2338,20 @@ https://github.com/nodeca/pako/blob/main/LICENSE
         td.appendChild(inp);
         tr.appendChild(td);
       });
+      const tdOp = document.createElement('td');
+      tdOp.className = 'opcell';
+      const ops = document.createElement('div');
+      ops.className = 'ops';
+      ops.appendChild(mkOp('＋', '이 항목 아래에 하위 항목을 넣습니다', () => {
+        addRow(which, idx + 1, newRow(which, '새 세부항목', Math.min(2, (r.isTotal ? 0 : (r.depth || 0)) + 1)));
+      }));
+      if (!r.isTotal) {
+        ops.appendChild(mkOp('◀', '한 단계 밖으로(관항목 쪽으로)', () => setDepth(which, r.id, -1)));
+        ops.appendChild(mkOp('▶', '한 단계 안으로(세부항목 쪽으로)', () => setDepth(which, r.id, 1)));
+      }
+      ops.appendChild(mkOp('✕', '이 항목을 지웁니다', () => removeRow(which, r.id), 'del'));
+      tdOp.appendChild(ops);
+      tr.appendChild(tdOp);
       t.appendChild(tr);
     });
     $(which === 'income' ? '#incCount' : '#expCount').textContent = rows.length + '개 항목';
@@ -2066,6 +2363,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     renderDetailEdit('income');
     renderDetailEdit('expense');
     renderDeck();
+    markDirty();
   }
 
   /* ================= 파일 처리 ================= */
@@ -2172,19 +2470,21 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     box.scrollIntoView({ behavior: 'smooth', block: 'center' });
   }
 
-  function showResult(name) {
+  function showResult(name, silent) {
     const m = state.model;
     setDropBusy(false);
     $('#fYear').value = String(m.year);
     $('#fQuarter').value = String(m.quarter);
     $('#fPeriod').value = m.period;
-    $('#fileName').textContent = name.replace(/-[0-9a-f]{12,}(\.[A-Za-z0-9]+)$/, '$1');
+    $('#fileName').textContent = String(name || '').replace(/-[0-9a-f]{12,}(\.[A-Za-z0-9]+)$/, '$1');
     $('#stepUpload').classList.add('hidden');
     $('#stepResult').classList.remove('hidden');
     $('#actionbar').classList.remove('hidden');
     refreshEditors();
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-    toast(state.pages.length + '장 슬라이드로 정리했습니다.');
+    if (!silent) {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      toast(state.pages.length + '장 슬라이드로 정리했습니다.');
+    }
   }
 
   /* ================= 다운로드 ================= */
@@ -2204,6 +2504,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       document.body.appendChild(a); a.click(); a.remove();
       setTimeout(() => URL.revokeObjectURL(url), 4000);
       await addHistory(m, slideCount);
+      scheduleSyncPush(600);
       toast('파워포인트 파일을 내려받았습니다 (' + slideCount + '장)');
     } catch (e) {
       console.error(e);
@@ -2340,10 +2641,248 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     $('#curPw').value = ''; $('#newPw').value = ''; $('#newPw2').value = '';
     closeModal('keyModal');
     toast('비밀번호를 바꿨습니다.');
+    if (SYNC_ON) {
+      try { syncSlotId = await syncSlotFor(n1); } catch (e) { syncSlotId = null; }
+      state.pw = n1;
+      state.syncSalt = null;
+      syncKeys.clear();
+      scheduleSyncPush(600);
+    }
   }
 
   function openDrawer() { $('#drawer').classList.add('show'); $('#scrim').classList.add('show'); renderHistory(); }
   function closeDrawer() { $('#drawer').classList.remove('show'); $('#scrim').classList.remove('show'); }
+
+  /* ================= 전 기기 동기화 (구글 시트 + Apps Script) ================= */
+  const SYNC_ON = !!SYNC_URL && /^https:\/\//.test(SYNC_URL);
+  let syncSlotId = null, syncPushTimer = null, syncPollTimer = null, syncBusy = false, applyingRemote = false;
+
+  function syncStore() {
+    try { return JSON.parse(localStorage.getItem(SYNC_KEY) || '{}') || {}; } catch (e) { return {}; }
+  }
+  function syncSave(obj) {
+    try { localStorage.setItem(SYNC_KEY, JSON.stringify(obj)); } catch (e) { /* 저장 공간이 없으면 이번만 */ }
+  }
+  function syncStatus(text, cls) {
+    const bar = $('#syncBar');
+    if (!bar) return;
+    bar.className = 'syncbar' + (cls ? ' ' + cls : '');
+    const s = $('#syncState');
+    if (s) s.textContent = text;
+  }
+  function agoText(ts) {
+    if (!ts) return '';
+    const d = Math.max(0, Date.now() - ts);
+    if (d < 60000) return '방금';
+    if (d < 3600000) return Math.floor(d / 60000) + '분 전';
+    if (d < 86400000) return Math.floor(d / 3600000) + '시간 전';
+    return Math.floor(d / 86400000) + '일 전';
+  }
+  function deviceLabel() {
+    const ua = navigator.userAgent || '';
+    if (/Android/i.test(ua)) return '스마트폰';
+    if (/iPhone|iPad/i.test(ua)) return '아이폰';
+    if (/Mac/i.test(ua)) return 'PC(Mac)';
+    return 'PC';
+  }
+  async function syncSlotFor(pw) {
+    // 비밀번호에서 만든 슬롯 이름 — 비밀번호를 모르면 다른 기기의 자료를 찾을 수 없습니다.
+    return (await sha256Hex('dfp-sync-v1|' + pw)).slice(0, 48);
+  }
+  /* 동기화 전용 키: 슬롯에 적힌 salt 로 같은 비밀번호에서 같은 키를 만듭니다.
+     (기기마다 금고 salt 가 다르므로, 동기화는 슬롯의 salt 를 기준으로 삼아야 서로 열립니다.) */
+  const syncKeys = new Map();
+  async function syncKeyFor(saltB64, iters) {
+    const k = String(saltB64) + '|' + (iters || ITERS);
+    if (syncKeys.has(k)) return syncKeys.get(k);
+    if (!state.pw) throw new Error('다시 잠금 해제해 주세요');
+    const key = await deriveKey(state.pw, b64.toBytes(saltB64), iters || ITERS);
+    syncKeys.set(k, key);
+    return key;
+  }
+  async function syncApi(body) {
+    const res = await fetch(SYNC_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify(body),
+      redirect: 'follow'
+    });
+    const txt = await res.text();
+    let obj = null;
+    try { obj = JSON.parse(txt); } catch (e) { throw new Error('서버 응답을 읽지 못했습니다'); }
+    if (!obj || obj.ok === false) throw new Error((obj && (obj.message || obj.error)) || '동기화 실패');
+    return obj;
+  }
+
+  function syncPayload() {
+    return {
+      v: 1,
+      savedAt: Date.now(),
+      device: deviceLabel(),
+      model: state.model,
+      prefs: { font: state.font, fs: state.fs },
+      history: ((state.data && state.data.history) || []).slice(0, 12),
+      fileName: state.fileName || ''
+    };
+  }
+
+  let syncStatusTimer = null;
+  function syncStatusLater(ms) {
+    clearTimeout(syncStatusTimer);
+    syncStatusTimer = setTimeout(() => {
+      const st = syncStore();
+      if (st.lastOk) syncStatus('마지막 저장 ' + agoText(st.lastOk) + ' · ' + (st.device || '이 기기'), 'on');
+    }, ms || 4000);
+  }
+
+  async function syncPush(reason) {
+    if (!SYNC_ON || !state.key || !syncSlotId || !state.model || syncBusy || applyingRemote) return false;
+    syncBusy = true;
+    try {
+      const payload = syncPayload();
+      const salt = state.syncSalt || (state.vault && state.vault.salt);
+      const key = await syncKeyFor(salt, ITERS);
+      const env = { v: 1, salt: salt, iters: ITERS, box: await aesEnc(key, payload) };
+      const raw = JSON.stringify(env);
+      const chunks = [];
+      for (let i = 0; i < raw.length; i += SYNC_CHUNK) chunks.push(raw.slice(i, i + SYNC_CHUNK));
+      syncStatus('올리는 중…', 'busy');
+      const r = await syncApi({ action: 'push', slot: syncSlotId, updatedAt: payload.savedAt, chunks: chunks });
+      const st = syncStore();
+      st.lastPushed = payload.savedAt;
+      st.lastSeen = r.updatedAt || payload.savedAt;
+      st.lastOk = Date.now();
+      st.device = payload.device;
+      syncSave(st);
+      state.dirtyAt = payload.savedAt;
+      syncStatus('이 기기에서 저장했습니다 · 다른 기기에서 열면 그대로 이어집니다', 'on');
+      syncStatusLater(4500);
+      return true;
+    } catch (e) {
+      syncStatus('동기화하지 못했습니다 · ' + (e && e.message ? e.message : e), 'err');
+      return false;
+    } finally {
+      syncBusy = false;
+    }
+  }
+
+  async function syncPull(opts) {
+    const manual = !!(opts && opts.manual);
+    if (!SYNC_ON || !state.key || !syncSlotId) return false;
+    if (syncBusy || applyingRemote) return false;
+    syncBusy = true;
+    try {
+      const st = syncStore();
+      const meta = await syncApi({ action: 'meta', slot: syncSlotId });
+      if (!meta.updatedAt) {
+        syncStatus('아직 올려 둔 작업이 없습니다 · 고치면 자동으로 올라갑니다', manual ? 'on' : '');
+        syncBusy = false;
+        if (manual) toast('이 계정에는 아직 올려 둔 작업이 없습니다.');
+        return false;
+      }
+      const newer = !st.lastPushed || meta.updatedAt > Number(st.lastPushed) + 999;
+      if (!newer && !manual) {
+        st.lastSeen = meta.updatedAt;
+        syncSave(st);
+        syncStatus('다른 기기와 맞춰져 있습니다 · ' + agoText(st.lastOk || meta.updatedAt), 'on');
+        return false;
+      }
+      syncStatus('불러오는 중…', 'busy');
+      const r = await syncApi({ action: 'pull', slot: syncSlotId });
+      if (!r.chunks || !r.chunks.length) { syncStatus('올려 둔 작업이 없습니다'); return false; }
+      let data, env;
+      try {
+        env = JSON.parse(r.chunks.join(''));
+        data = await aesDec(await syncKeyFor(env.salt, env.iters), env.box);
+      } catch (e) {
+        syncStatus('이 비밀번호로는 다른 기기의 자료를 열 수 없습니다', 'err');
+        return false;
+      }
+      state.syncSalt = env.salt;
+      const localAt = state.dirtyAt || 0;
+      if (!manual && data.savedAt && localAt && data.savedAt < localAt - 500) {
+        // 이 기기에서 방금 고친 것이 더 새롭다 → 이 기기 것을 올린다
+        syncBusy = false;
+        return syncPush('local-newer');
+      }
+      applyingRemote = true;
+      applySynced(data);
+      applyingRemote = false;
+      st.lastPushed = data.savedAt || Date.now();
+      st.lastSeen = r.updatedAt || st.lastPushed;
+      st.lastOk = Date.now();
+      st.device = data.device || '';
+      syncSave(st);
+      state.dirtyAt = data.savedAt || 0;
+      syncStatus('다른 기기(' + (data.device || '기기') + ')에서 ' + agoText(data.savedAt) + ' 저장한 내용을 받았습니다', 'on');
+      toast('다른 기기에서 작업하던 내용을 그대로 받았습니다 (' + (data.device || '기기') + ').');
+      return true;
+    } catch (e) {
+      syncStatus('동기화하지 못했습니다 · ' + (e && e.message ? e.message : e), 'err');
+      return false;
+    } finally {
+      syncBusy = false;
+      applyingRemote = false;
+    }
+  }
+
+  function applySynced(data) {
+    if (data.prefs) {
+      if (data.prefs.font && FONTS.indexOf(data.prefs.font) >= 0) state.font = data.prefs.font;
+      const f = Number(data.prefs.fs);
+      if (Number.isFinite(f) && f >= FS_MIN - 1e-6 && f <= FS_MAX + 1e-6) state.fs = Math.round(f * 10) / 10;
+      applyTypeStyle(); savePrefs();
+    }
+    if (Array.isArray(data.history)) state.data.history = data.history;
+    if (data.model && data.model.income) {
+      state.model = data.model;
+      state.fileName = data.fileName || '동기화된 자료';
+      showResult(state.fileName, true);
+    }
+    state.data.current = { model: state.model, font: state.font, fs: state.fs, fileName: state.fileName, savedAt: data.savedAt || Date.now() };
+    saveVault();
+    renderHistory();
+  }
+
+  function scheduleSyncPush(ms) {
+    if (!SYNC_ON || applyingRemote) return;
+    clearTimeout(syncPushTimer);
+    syncPushTimer = setTimeout(() => syncPush('edit'), ms || 2200);
+  }
+
+  function startSyncPolling() {
+    if (!SYNC_ON) return;
+    clearInterval(syncPollTimer);
+    syncPollTimer = setInterval(() => {
+      if (document.hidden || state.locked || !state.key) return;
+      syncPull({ manual: false });
+    }, 25000);
+    document.addEventListener('visibilitychange', () => {
+      if (!document.hidden && !state.locked) syncPull({ manual: false });
+    });
+  }
+
+  function saveCurrentLocal() {
+    if (!state.data || !state.model) return;
+    state.data.current = { model: state.model, font: state.font, fs: state.fs, fileName: state.fileName, savedAt: Date.now() };
+    saveVault();
+  }
+  function markDirty() {
+    if (applyingRemote) return;
+    state.dirtyAt = Date.now();
+    saveCurrentLocal();
+    scheduleSyncPush();
+  }
+
+  function updateSyncBar() {
+    const bar = $('#syncBar');
+    if (!bar) return;
+    if (!SYNC_ON) { bar.classList.add('hidden'); return; }
+    bar.classList.remove('hidden');
+    const st = syncStore();
+    if (st.lastOk) syncStatus('마지막 저장 ' + agoText(st.lastOk) + ' · ' + (st.device || '이 기기') + ' · 다른 기기에서 같은 비밀번호로 열면 이어집니다', 'on');
+    else syncStatus('보고서를 열거나 고치면 자동으로 올라갑니다 (비밀번호로 암호화)', '');
+  }
 
   /* ================= 이벤트 ================= */
   function bind() {
@@ -2395,6 +2934,25 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       window.scrollTo({ top: 0 });
     });
     $('#btnDownload').addEventListener('click', download);
+    const bSync = $('#btnSyncNow');
+    if (bSync) bSync.addEventListener('click', async () => {
+      const got = await syncPull({ manual: true });
+      if (!got) await syncPush('manual');
+      updateSyncBar();
+    });
+    const incAdd = $('#incAddRoot'), expAdd = $('#expAddRoot');
+    if (incAdd) incAdd.addEventListener('click', () => {
+      const list = state.model.income;
+      let at = list.findIndex(r => r.isTotal);
+      if (at < 0) at = list.length;
+      addRow('income', at, newRow('income', '새 관항목', 0));
+    });
+    if (expAdd) expAdd.addEventListener('click', () => {
+      const list = state.model.expense;
+      let at = list.findIndex(r => r.isTotal);
+      if (at < 0) at = list.length;
+      addRow('expense', at, newRow('expense', '새 관항목', 0));
+    });
     $('#btnHistory').addEventListener('click', openDrawer);
     $('#drawerX').addEventListener('click', closeDrawer);
     $('#scrim').addEventListener('click', closeDrawer);
@@ -2440,6 +2998,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     loadPrefs();
     applyTypeStyle();
     bind();
+    if (!SYNC_ON && $('#syncBar')) $('#syncBar').classList.add('hidden');
     const has = !!localStorage.getItem(VAULT_KEY);
     setLockMode(has ? 'unlock' : 'setup');
     if (!window.crypto || !window.crypto.subtle) {
