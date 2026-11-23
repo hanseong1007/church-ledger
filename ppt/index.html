@@ -196,6 +196,8 @@ main{flex:1;max-width:1180px;width:100%;margin:0 auto;padding:26px 20px 120px}
 .fsctl button:disabled{opacity:.32;background:none}
 .fsctl b{min-width:46px;text-align:center;font-size:12.5px;color:var(--navy);font-variant-numeric:tabular-nums}
 .fbar-hint{font-size:11px;color:var(--muted);line-height:1.5}
+.btn-preset{border:1.5px solid var(--line);background:#fff;color:var(--navy);font-weight:700}
+.btn-preset:hover{background:var(--soft);border-color:var(--navy)}
 
 /* editable tables */
 .edit-wrap{background:#fff;border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow);overflow:hidden}
@@ -449,7 +451,9 @@ main{flex:1;max-width:1180px;width:100%;margin:0 auto;padding:26px 20px 120px}
                 <button type="button" id="fsUp" aria-label="글자 크기 늘리기">+</button>
               </div>
               <button type="button" class="btn btn-ghost btn-sm" id="fsReset" style="height:34px">초기화</button>
-              <span class="fbar-hint">표지·표 글자에 함께 적용되고, 내려받는 파워포인트 파일에도 그대로 담깁니다</span>
+              <button type="button" class="btn btn-sm btn-preset" id="fsBig" style="height:34px" title="프로젝터에 띄워 볼 때 쓰는 크기">프로젝터용 크게 180%</button>
+              <button type="button" class="btn btn-sm btn-preset" id="fsMax" style="height:34px" title="글자를 가장 크게">최대 220%</button>
+              <span class="fbar-hint">표지·표 글자에 함께 적용되고, 내려받는 파워포인트 파일에도 그대로 담깁니다 (80~220%)</span>
             </div>
           </div>
         </div>
@@ -580,7 +584,8 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     'Noto Sans KR': "'Noto Sans KR','Noto Sans CJK KR','Malgun Gothic',sans-serif",
     '돋움': "'Dotum','돋움','Gulim','굴림','Malgun Gothic',sans-serif"
   };
-  const FS_MIN = 0.8, FS_MAX = 1.3, FS_STEP = 0.1;
+  const FS_MIN = 0.8, FS_MAX = 2.2, FS_STEP = 0.1;
+  const FS_BIG = 1.8;   // 프로젝터용 크게 보기
 
   async function sha256Hex(s) {
     const d = await crypto.subtle.digest('SHA-256', enc.encode(s));
@@ -1019,8 +1024,142 @@ https://github.com/nodeca/pako/blob/main/LICENSE
 
   /* ================= 레이아웃 / 페이지 나누기 ================= */
   const SLIDE_W = 13.3333, SLIDE_H = 7.5;
-  const DT = { x: 0.75, y: 1.05, w: 11.833, cols: [5.833, 1.6, 1.6, 1.6, 1.2], headH: 0.40, bottom: 6.85 };
   const BASE_ROW = 0.345, LINE_H = 0.186, PAD = 0.155;
+  const LABELS = { item: '분류항목', budget: '예산', mid: '기간결산', total: '결산누계' };
+  // 슬라이드 틀에 갇힌 글자(표지·머리글)는 겹치지 않는 선까지만 키웁니다.
+  const CAP_TITLE = 1.75, CAP_SMALL = 1.5, CAP_KPI = 1.55, CAP_FOOT = 1.4;
+  const CAP_COVER = { t_dept: 1.6, t_year: 1.6, t_quarter: 1.6, t_period: 1.5, t_qbig: 1.25, t_qlabel: 1.3, t_foot: 1.4 };
+  const CAP_COVER_KEYS = { dept: 1.6, year: 1.6, quarter: 1.6, period: 1.5, qbig: 1.25, qlabel: 1.3, foot: 1.4 };
+
+  function lin(pt, f) { return pt * f * 1.2 / 72; }          // 줄 높이(inch)
+  function coverF(k, fs) { return Math.min(fs || state.fs, CAP_COVER_KEYS[k]); }
+
+  // 본문 영역: 글자가 커져도 표가 좌우를 넓게 쓰도록 여백만 조금씩 줄입니다.
+  function geom(fs) {
+    const x = fs > 1 ? Math.max(0.45, 0.75 - (fs - 1) * 0.10) : 0.75;
+    return { x: x, w: SLIDE_W - 2 * x, top: 1.05, bottom: 6.85 };
+  }
+  function headHeight(fs) { return 0.40 + Math.max(0, fs - 1) * 0.14; }
+  function rowBaseH(fs, lines) {
+    return Math.max(BASE_ROW * fs, lines * LINE_H * fs + PAD + Math.max(0, fs - 1) * 0.05);
+  }
+
+  // 숫자·머리글이 두 줄로 깨지지 않도록 실제 글자 폭으로 숫자 열 너비를 계산합니다.
+  // (브라우저 글꼴과 실제 파워포인트 글꼴이 조금 달라도 안 깨지도록 10% 여유를 둡니다.)
+  function numNeeds(rows, fs, headers) {
+    const bodyPt = 10 * fs, headPt = 9.5 * fs;
+    return headers.map((h, i) => {
+      let w = measureWidth(h || '', headPt) * 1.10 / 96 + 0.26;
+      rows.forEach(r => {
+        const t = [cleanNumStr(r.budget), cleanNumStr(r.mid), cleanNumStr(r.total), fmtRate(r.rate)][i] || '';
+        w = Math.max(w, measureWidth(t, bodyPt) * 1.10 / 96 + 0.26);
+      });
+      return Math.round(w * 100) / 100;
+    });
+  }
+
+  const NAT_DETAIL = [5.833, 1.6, 1.6, 1.6, 1.2];
+  const NAT_SUMMARY = [3.72, 2.70, 2.70, 2.713];
+  // 기본 비율을 지키면서, 글자가 커져 필요한 만큼은 숫자 열을 넓혀 줍니다.
+  function fitCols(W, need, nat) {
+    const base = nat.reduce((a, b) => a + b, 0);
+    const k = W / base;
+    const cols = nat.map(v => Math.round(v * k * 100) / 100);
+    for (let i = 1; i < cols.length; i++) {
+      if (need[i - 1] != null) cols[i] = Math.max(cols[i], need[i - 1]);
+    }
+    const sum = cols.slice(1).reduce((a, b) => a + b, 0);
+    cols[0] = Math.round((W - sum) * 100) / 100;
+    return cols;
+  }
+
+  function detailLayout(rows, fs, rateLabel) {
+    const need = numNeeds(rows, fs, [LABELS.budget, LABELS.mid, LABELS.total, rateLabel]);
+    need[3] = Math.max(need[3], 0.95);
+    const sum = need.reduce((a, b) => a + b, 0);
+    const g = geom(fs);
+    const x = (g.w - sum >= 2.2) ? g.x : 0.45;
+    const w = SLIDE_W - 2 * x;
+    return { x: x, w: w, top: 1.05, bottom: 6.85, cols: fitCols(w, need, NAT_DETAIL) };
+  }
+  function rowHeightFor(r, fs, nameCol) {
+    const nameW = nameCol - (0.16 + 0.16 * r.depth) * fs - 0.14 * fs;
+    const lines = Math.max(1, wrapCount(r.name, 10 * fs, nameW * 0.90));
+    let h = rowBaseH(fs, lines);
+    if (lines > 1) h += LINE_H * fs * 0.46 * (lines - 1);   // 이름이 여러 줄일 때 여유
+    if (r.isTotal) h += 0.03 * fs;
+    return h;
+  }
+
+  /* 표지: 글자를 키운 만큼 아래 요소를 밀어 겹치지 않게 다시 앉힙니다. */
+  function coverLayout(fs) {
+    const CF = k => coverF(k, fs);
+    const H = (pt, k) => lin(pt, CF(k));
+    const dh = H(11, 'dept'), yh = H(30, 'year'), qh = H(42, 'quarter'), ph = H(14, 'period');
+    const total = dh + 0.56 + yh + 0.14 + qh + 0.50 + 0.045 + 0.26 + ph;
+    let top = 3.65 - total / 2;
+    if (top < 1.45) top = 1.45;
+    const yDept = top;
+    const yYear = yDept + dh + 0.56;
+    const yQuart = yYear + yh + 0.14;
+    const yRule = yQuart + qh + 0.50;
+    const yPeriod = yRule + 0.045 + 0.26;
+    return {
+      dept: { x: 1.05, y: yDept, w: 6.4, h: dh + 0.12, f: CF('dept'), pt: 11 },
+      year: { x: 1.02, y: yYear, w: 6.9, h: yh + 0.12, f: CF('year'), pt: 30 },
+      quarter: { x: 1.02, y: yQuart, w: 6.9, h: qh + 0.12, f: CF('quarter'), pt: 42 },
+      rule: { x: 1.05, y: yRule },
+      period: { x: 1.05, y: yPeriod, w: 6.6, h: ph + 0.12, f: CF('period'), pt: 14 },
+      qbig: { x: 8.45, y: 2.20, w: 4.3, h: 2.60, f: CF('qbig'), pt: 96 },
+      qlabel: { x: 8.45, y: 5.02, w: 4.3, h: 0.36, f: CF('qlabel'), pt: 10 },
+      foot: { x: 1.05, y: 6.62, w: 9.0, h: 0.3, f: CF('foot'), pt: 9 }
+    };
+  }
+
+  /* 총괄 요약: 카드 4개와 4행 표를 배율에 맞춰 다시 앉힙니다. */
+  function summaryLayout(model, nums, fs) {
+    const G = geom(fs);
+    const gap = 0.20;
+    const cw = (G.w - gap * 3) / 4;
+    const cardY = 1.42;
+    const fk = Math.min(fs, CAP_KPI);
+    let fv = fs;
+    const texts = [fmtNum(nums.carryT), fmtNum(nums.incT), fmtNum(nums.expT), fmtNum(nums.nextT)];
+    const innerW = cw - 0.50;
+    const widest = Math.max.apply(null, texts.map(t => measureWidth(t || '', 18 * fv) * 1.10 / 96));
+    if (widest > innerW) fv = Math.max(0.9, fv * innerW * 0.98 / widest);
+    const labelH = lin(9.5, fk), valueH = lin(18, fv), subH = lin(8.5, fk);
+    const cardH = Math.max(1.34, labelH + valueH + subH + 0.12 + 0.34);
+    const gapV = Math.max(0.26, 0.54 - Math.max(0, fs - 1) * 0.17);
+    const tableTop = cardY + cardH + gapV;
+    const fn = Math.min(fs, 1.5);
+    const noteH = lin(8.5, fn) + 0.06;
+    const headMin = lin(10, fs) + 0.10, rowMin = lin(10.5, fs) + 0.10;
+    let headT = Math.max(0.40, lin(10, fs) + 0.20);
+    let rowT = Math.max(0.56, lin(10.5, fs) + 0.17);
+    const availH = G.bottom - 0.08 - noteH - 0.10 - tableTop;
+    if (headT + 4 * rowT > availH) {
+      rowT = Math.max(rowMin, (availH - headT) / 4);
+      if (headT + 4 * rowT > availH) headT = Math.max(headMin, availH - 4 * rowT);
+    }
+    const tableH = headT + 4 * rowT;
+    const noteY = Math.min(G.bottom - 0.02 - noteH, tableTop + tableH + 0.12);
+    const heads = ['항목', model.year + '년 예산', model.quarter + '분기 누계', '결산 누계'];
+    const need = numNeeds([
+      { budget: cleanNumStr(model.summary.carry.budget), mid: cleanNumStr(model.summary.carry.mid), total: cleanNumStr(model.summary.carry.total) },
+      { budget: cleanNumStr(model.summary.income.budget), mid: cleanNumStr(model.summary.income.mid), total: cleanNumStr(model.summary.income.total) },
+      { budget: cleanNumStr(model.summary.expense.budget), mid: cleanNumStr(model.summary.expense.mid), total: cleanNumStr(model.summary.expense.total) },
+      { budget: fmtNum(nums.nextT), mid: fmtNum(nums.nextM), total: fmtNum(nums.nextT) }
+    ], fs, heads.slice(1));
+    const sum = need.reduce((a, b) => a + b, 0);
+    const cols = fitCols(G.w, need, NAT_SUMMARY);
+    if (cols[0] < 2.4) cols[0] = 2.4;
+    return {
+      G: G, gap: gap, cw: cw, cardY: cardY, cardH: cardH, fk: fk, fv: fv,
+      tableTop: tableTop, headT: headT, rowT: rowT, tableH: tableH, cols: cols,
+      noteY: noteY, noteH: noteH, noteF: fn, heads: heads
+    };
+  }
 
   let mctx = null;
   function measureWidth(text, pt) {
@@ -1045,19 +1184,10 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     }
     return lines;
   }
-  function rowHeight(row) {
-    const s = state.fs;
-    const nameW = DT.cols[0] - (0.16 + 0.16 * row.depth) * s - 0.14 * s;
-    const lines = Math.max(1, wrapCount(row.name, 10 * s, nameW));
-    let h = Math.max(BASE_ROW * s, lines * LINE_H * s + PAD * s);
-    if (row.isTotal) h += 0.03 * s;
-    return h;
-  }
-  function headHeight() { return DT.headH * state.fs; }
-  function paginate(rows) {
+  function paginate(rows, fs, lay) {
     if (!rows.length) return [];
-    const avail = DT.bottom - DT.y;
-    const head = headHeight();
+    const avail = lay.bottom - lay.top;
+    const head = headHeight(fs);
     const usable = avail - head;
     const sumH = rows.reduce((s, r) => s + r.h, 0);
     let k = Math.max(1, Math.ceil(sumH / usable));
@@ -1082,29 +1212,32 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     return greedy(Math.ceil(rows.length / k));
   }
 
-  function evenOut(page) {
+  function evenOut(page, fs, lay) {
     if (!page.length) return page;
-    const usable = DT.bottom - DT.y;
-    const used = page.reduce((a, r) => a + r.h, 0) + headHeight();
+    const usable = lay.bottom - lay.top;
+    const used = page.reduce((a, r) => a + r.h, 0) + headHeight(fs);
     const extra = usable - used;
     if (extra <= 0.5) return page;
     const add = Math.min(extra * 0.72, page.length * 0.2 * state.fs) / page.length;
-    page.forEach(r => { r.h = Math.min(0.72 * state.fs, r.h + add); });
+    page.forEach(r => { r.h = Math.max(r.h, Math.min(0.72 + Math.max(0, state.fs - 1) * 0.25, r.h + add)); });
     return page;
   }
 
   function buildPages(model) {
-    const income = model.income.map(r => ({ ...r, h: rowHeight(r) }));
-    const expense = model.expense.map(r => ({ ...r, h: rowHeight(r) }));
-    const incPages = paginate(income);
-    const expPages = paginate(expense);
+    const fs = state.fs;
+    const incLay = detailLayout(model.income, fs, '달성률');
+    const expLay = detailLayout(model.expense, fs, '집행률');
+    const income = model.income.map(r => ({ ...r, h: rowHeightFor(r, fs, incLay.cols[0]) }));
+    const expense = model.expense.map(r => ({ ...r, h: rowHeightFor(r, fs, expLay.cols[0]) }));
+    const incPages = paginate(income, fs, incLay);
+    const expPages = paginate(expense, fs, expLay);
     if (!incPages.length) incPages.push([]);
     if (!expPages.length) expPages.push([]);
     const pages = [{ type: 'cover' }, { type: 'summary' }];
-    incPages.forEach(evenOut);
-    expPages.forEach(evenOut);
-    incPages.forEach((rows, i) => pages.push({ type: 'detail', section: 'income', title: '수입 세부내역', rateLabel: '달성률', rows, page: i + 1, pages: incPages.length }));
-    expPages.forEach((rows, i) => pages.push({ type: 'detail', section: 'expense', title: '지출 세부내역', rateLabel: '집행률', rows, page: i + 1, pages: expPages.length }));
+    incPages.forEach(p => evenOut(p, fs, incLay));
+    expPages.forEach(p => evenOut(p, fs, expLay));
+    incPages.forEach((rows, i) => pages.push({ type: 'detail', section: 'income', title: '수입 세부내역', rateLabel: '달성률', rows, page: i + 1, pages: incPages.length, lay: incLay, cols: incLay.cols }));
+    expPages.forEach((rows, i) => pages.push({ type: 'detail', section: 'expense', title: '지출 세부내역', rateLabel: '집행률', rows, page: i + 1, pages: expPages.length, lay: expLay, cols: expLay.cols }));
     return pages;
   }
 
@@ -1218,7 +1351,26 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   }
   function setRowHeight(tr, h) { tr.setAttribute('h', String(inch(h))); }
 
-  function buildDetailTable(doc, rows, labels, rateHeader) {
+  /* 표의 위치·너비와 열 너비를 배율에 맞춰 다시 잡습니다. */
+  function setTableGeom(tbl, x, y, w, cols) {
+    if (cols) {
+      const grid = kids(tbl, 'tblGrid')[0];
+      const gcs = grid ? kids(grid, 'gridCol') : [];
+      cols.forEach((c, i) => { if (gcs[i]) gcs[i].setAttribute('w', String(inch(c))); });
+    }
+    let node = tbl.parentNode;
+    while (node && node.localName !== 'graphicFrame') node = node.parentNode;
+    if (!node) return;
+    const xf = node.getElementsByTagNameNS(NS_P, 'xfrm')[0];
+    if (!xf) return;
+    const off = kids(xf, 'off')[0], ext = kids(xf, 'ext')[0];
+    if (off) { off.setAttribute('x', String(inch(x))); off.setAttribute('y', String(inch(y))); }
+    if (ext && w != null) ext.setAttribute('cx', String(inch(w)));
+  }
+
+  function buildDetailTable(doc, pg) {
+    const rows = pg.rows, labels = LABELS, rateHeader = pg.rateLabel;
+    const lay = pg.lay, fs = state.fs;
     const tbl = doc.getElementsByTagNameNS(NS_A, 'tbl')[0];
     const trs = kids(tbl, 'tr');
     const head = trs[0].cloneNode(true);
@@ -1229,10 +1381,10 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     const hCells = kids(head, 'tc');
     const hTexts = [labels.item, labels.budget, labels.mid, labels.total, rateHeader];
     hCells.forEach((tc, i) => setCellText(tc, hTexts[i] || ''));
-    setRowHeight(head, headHeight());
+    setRowHeight(head, headHeight(fs));
     tbl.appendChild(head);
 
-    let totalH = headHeight();
+    let totalH = headHeight(fs);
     for (const r of rows) {
       const isTot = !!r.isTotal;
       const tr = (isTot ? totalProto : normalProto).cloneNode(true);
@@ -1253,6 +1405,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       tbl.appendChild(tr);
       totalH += r.h;
     }
+    setTableGeom(tbl, lay.x, lay.top, lay.w, pg.cols);
     let node = tbl.parentNode;
     while (node && node.localName !== 'graphicFrame') node = node.parentNode;
     if (node) {
@@ -1262,7 +1415,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     return totalH;
   }
 
-  function buildSummaryTable(doc, model, nums) {
+  function buildSummaryTable(doc, model, nums, SL) {
     const tbl = doc.getElementsByTagNameNS(NS_A, 'tbl')[0];
     const trs = kids(tbl, 'tr');
     const head = trs[0].cloneNode(true);
@@ -1270,9 +1423,9 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     const totalProto = trs[trs.length - 1].cloneNode(true);
     trs.forEach(tr => tr.remove());
 
-    const label = ['항목', model.year + '년 예산', model.quarter + '분기 누계', '결산 누계'];
+    const label = SL.heads;
     kids(head, 'tc').forEach((tc, i) => setCellText(tc, label[i]));
-    setRowHeight(head, 0.40);
+    setRowHeight(head, SL.headT);
     tbl.appendChild(head);
 
     const bodyDefs = [
@@ -1283,7 +1436,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     ];
     bodyDefs.forEach((d, idx) => {
       const tr = (d.tot ? totalProto : normalProto).cloneNode(true);
-      setRowHeight(tr, 0.56);
+      setRowHeight(tr, SL.rowT);
       const cells = kids(tr, 'tc');
       const fill = d.tot ? 'DCE5EF' : (idx % 2 === 0 ? 'F7F9FC' : 'FFFFFF');
       const texts = d.tot
@@ -1296,23 +1449,108 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       });
       tbl.appendChild(tr);
     });
+    setTableGeom(tbl, SL.G.x, SL.tableTop, SL.G.w, SL.cols);
+    let node = tbl.parentNode;
+    while (node && node.localName !== 'graphicFrame') node = node.parentNode;
+    if (node) {
+      const ext = node.getElementsByTagNameNS(NS_A, 'ext')[0];
+      if (ext) ext.setAttribute('cy', String(inch(SL.tableH)));
+    }
   }
 
   /* 선택한 글꼴·배율을 슬라이드 XML 전체(a:latin/a:ea/a:cs typeface, rPr sz)에 반영 */
-  function applySlideStyle(doc) {
-    const s = state.fs, font = state.font;
+  function shapeNameOf(el) {
+    let n = el;
+    while (n && n.nodeType === 1) {
+      if (n.localName === 'sp' || n.localName === 'graphicFrame') {
+        const c = n.getElementsByTagNameNS(NS_P, 'cNvPr')[0];
+        return (c && c.getAttribute('name')) || '';
+      }
+      n = n.parentNode;
+    }
+    return '';
+  }
+  function capFor(name, fs, caps) {
+    if (!caps) return fs;
+    for (const k in caps) if (name && name.indexOf(k) === 0) return Math.min(fs, caps[k]);
+    return fs;
+  }
+  function scaleRuns(root, f) {
+    ['rPr', 'endParaRPr', 'defRPr'].forEach(t => {
+      Array.prototype.slice.call(root.getElementsByTagNameNS(NS_A, t)).forEach(el => {
+        const v = el.getAttribute('sz');
+        if (!v) return;
+        el.setAttribute('sz', String(Math.max(100, Math.round(Number(v) * f / 10) * 10)));
+      });
+    });
+  }
+  function applySlideStyle(doc, fs, caps) {
+    const font = state.font;
     ['latin', 'ea', 'cs'].forEach(t => {
       Array.prototype.slice.call(doc.getElementsByTagNameNS(NS_A, t)).forEach(el => {
         el.setAttribute('typeface', font);
       });
     });
+    const all = [];
     ['rPr', 'endParaRPr', 'defRPr'].forEach(t => {
-      Array.prototype.slice.call(doc.getElementsByTagNameNS(NS_A, t)).forEach(el => {
-        const v = el.getAttribute('sz');
-        if (!v) return;
-        el.setAttribute('sz', String(Math.max(100, Math.round(Number(v) * s / 10) * 10)));
-      });
+      all.push.apply(all, Array.prototype.slice.call(doc.getElementsByTagNameNS(NS_A, t)));
     });
+    all.forEach(el => {
+      const v = el.getAttribute('sz');
+      if (!v) return;
+      el.setAttribute('sz', String(Math.max(100, Math.round(Number(v) * capFor(shapeNameOf(el), fs, caps) / 10) * 10)));
+    });
+  }
+  function setFrame(sp, x, y, w, h) {
+    if (!sp) return;
+    const xf = sp.getElementsByTagNameNS(NS_P, 'xfrm')[0] || sp.getElementsByTagNameNS(NS_A, 'xfrm')[0];
+    if (!xf) return;
+    const off = kids(xf, 'off')[0], ext = kids(xf, 'ext')[0];
+    if (off) { if (x != null) off.setAttribute('x', String(inch(x))); if (y != null) off.setAttribute('y', String(inch(y))); }
+    if (ext) { if (w != null) ext.setAttribute('cx', String(inch(w))); if (h != null) ext.setAttribute('cy', String(inch(h))); }
+  }
+  /* 머리글·꼬리말을 표 너비에 맞춰 다시 앉힙니다(글자가 커지면 여백이 좁아짐). */
+  function applyHeaderGeom(doc, G, fs) {
+    const tf = Math.min(fs, CAP_TITLE), sf = Math.min(fs, CAP_SMALL);
+    const th = lin(21, tf), cy = 0.66;
+    const barH = Math.max(0.36, th + 0.04);
+    setFrame(findSp(doc, 'accent'), G.x, cy - barH / 2, 0.055, barH);
+    setFrame(findSp(doc, 't_title'), G.x + 0.17, cy - (th + 0.16) / 2, G.w - 0.17 - 2.6, th + 0.16);
+    const rh = lin(9.5, sf) + 0.12;
+    setFrame(findSp(doc, 't_page'), G.x + G.w - 2.7, cy - rh / 2 - 0.06, 2.7, rh);
+    setFrame(findSp(doc, 't_sumsubt'), G.x + G.w - 2.7, cy - rh / 2 - 0.06, 2.7, rh);
+    setFrame(findSp(doc, 'hairline'), G.x, 1.14, G.w, null);
+    setFrame(findSp(doc, 'hairline_f'), G.x, 6.95, G.w, null);
+    setFrame(findSp(doc, 't_ffoot'), G.x, 7.02, 6, null);
+    setFrame(findSp(doc, 't_fright'), G.x + G.w - 3.0, 7.02, 3, null);
+  }
+  /* 표지 요소를 계산된 위치로 */
+  function applyCoverGeom(doc, fs) {
+    const CL = coverLayout(fs);
+    ['dept', 'year', 'quarter', 'period', 'qbig', 'qlabel', 'foot'].forEach(k => {
+      const b = CL[k];
+      setFrame(findSp(doc, 't_' + k), b.x, b.y, b.w, b.h);
+    });
+    setFrame(findSp(doc, 'rule'), CL.rule.x, CL.rule.y, null, null);
+  }
+  /* 총괄 카드 위치 */
+  function applyKpiGeom(doc, SL) {
+    for (let i = 1; i <= 4; i++) {
+      const x = SL.G.x + (i - 1) * (SL.cw + SL.gap);
+      setFrame(findSp(doc, 'card' + i), x, SL.cardY, SL.cw, SL.cardH);
+      setFrame(findSp(doc, 'card_accent' + i), x, SL.cardY, 0.035, SL.cardH);
+      setFrame(findSp(doc, 'kpi' + i), x + 0.22, SL.cardY + 0.14, SL.cw - 0.44, SL.cardH - 0.22);
+    }
+  }
+  /* 카드 안 글자는 줄마다 다른 배율(라벨·보조 문구는 작게, 숫자는 크게) */
+  function setKpiFonts(doc, fk, fv) {
+    for (let i = 1; i <= 4; i++) {
+      const sp = findSp(doc, 'kpi' + i);
+      if (!sp) continue;
+      const tx = sp.getElementsByTagNameNS(NS_P, 'txBody')[0];
+      if (!tx) continue;
+      kids(tx, 'p').forEach((p, idx) => scaleRuns(p, idx === 1 ? fv : fk));
+    }
   }
 
   async function buildPptx(model) {
@@ -1329,7 +1567,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     const nums = summaryNumbers(model);
     const titleLine = model.year + '년도 ' + model.quarter + '분기 재정 보고';
     const noteLine = model.year + '년 1월 1일 ~ ' + model.period.replace(/^.*~\s*/, '') + ' 누계 · 예산은 ' + model.year + '년도 예산 기준입니다.';
-    const labels = { item: '분류항목', budget: '예산', mid: '기간결산', total: '결산누계' };
+    const fs = state.fs;
 
     // ---- 표지 ----
     const d1 = px(s1);
@@ -1345,7 +1583,8 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       const bp = tb && kids(tb, 'bodyPr')[0];
       if (bp) bp.setAttribute('anchor', 'b');
     }
-    applySlideStyle(d1);
+    applyCoverGeom(d1, fs);
+    applySlideStyle(d1, fs, CAP_COVER);
     const coverXml = ser(d1);
 
     // ---- 총괄 ----
@@ -1356,8 +1595,13 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     setKpi(d2, 3, fmtNum(nums.expT), pctText(nums.expT, nums.expB, nums.expRate));
     setKpi(d2, 4, fmtNum(nums.nextT), model.quarter + '분기 말 잔액');
     setShapeText(d2, 't_note', noteLine);
-    buildSummaryTable(d2, model, nums);
-    applySlideStyle(d2);
+    const SL = summaryLayout(model, nums, fs);
+    applyHeaderGeom(d2, SL.G, fs);
+    applyKpiGeom(d2, SL);
+    buildSummaryTable(d2, model, nums, SL);
+    setFrame(findSp(d2, 't_note'), SL.G.x, SL.noteY, SL.G.w, SL.noteH);
+    applySlideStyle(d2, fs, { t_title: CAP_TITLE, t_sumsubt: CAP_SMALL, kpi: 1, t_note: 1.5, t_ffoot: CAP_FOOT });
+    setKpiFonts(d2, SL.fk, SL.fv);
     const summaryXml = ser(d2);
 
     // ---- 세부 슬라이드 ----
@@ -1369,8 +1613,10 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       setShapeText(d, 't_title', pg.title);
       setShapeText(d, 't_page', pg.page + ' / ' + pg.pages);
       setShapeText(d, 't_fright', titleLine);
-      buildDetailTable(d, pg.rows, labels, pg.rateLabel);
-      applySlideStyle(d);
+      const fs = state.fs;
+      applyHeaderGeom(d, pg.lay, fs);
+      buildDetailTable(d, pg);
+      applySlideStyle(d, fs, { t_title: CAP_TITLE, t_page: CAP_SMALL, t_fright: CAP_FOOT, t_ffoot: CAP_FOOT });
       detailXmls.push({ section: pg.section, first: pg.page === 1, xml: ser(d) });
     }
 
@@ -1483,152 +1729,156 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     if (text != null) d.textContent = text;
     return d;
   }
-  function miniHeader(pg, title) {
+  function miniHeader(right, title, G, fs) {
     const wrap = document.createDocumentFragment();
-    wrap.appendChild(miniPos(div('m-abs m-accent'), 0.75, 0.44, 0.055, 0.36));
-    const t = miniPos(div('m-abs m-title', title), 0.92, 0.40, 7.6, 0.5);
+    const tf = Math.min(fs, CAP_TITLE), sf = Math.min(fs, CAP_SMALL);
+    const th = lin(21, tf), cy = 0.66;
+    const barH = Math.max(0.36, th + 0.04);
+    wrap.appendChild(miniPos(div('m-abs m-accent'), G.x, cy - barH / 2, 0.055, barH));
+    const t = miniPos(div('m-abs m-title', title), G.x + 0.17, cy - (th + 0.16) / 2, G.w - 0.17 - 2.6, th + 0.16);
     t.style.display = 'flex'; t.style.alignItems = 'center';
+    t.style.fontSize = (21 * tf) + 'px';
     wrap.appendChild(t);
-    const r = miniPos(div('m-abs m-right', pg), 9.88, 0.42, 2.7, 0.42);
+    const rh = lin(9.5, sf) + 0.12;
+    const r = miniPos(div('m-abs m-right', right), G.x + G.w - 2.7, cy - rh / 2 - 0.06, 2.7, rh);
     r.style.display = 'flex'; r.style.alignItems = 'center'; r.style.justifyContent = 'flex-end';
+    r.style.fontSize = (9.5 * sf) + 'px';
     wrap.appendChild(r);
-    wrap.appendChild(miniPos(div('m-abs m-hair'), 0.75, 1.14, 11.833, null));
+    wrap.appendChild(miniPos(div('m-abs m-hair'), G.x, 1.14, G.w, null));
     return wrap;
   }
-  function miniFooter(model, right) {
+  function miniFooter(G, right, fs) {
+    const ff = Math.min(fs, CAP_FOOT);
     const wrap = document.createDocumentFragment();
-    wrap.appendChild(miniPos(div('m-abs m-hair'), 0.75, 6.95, 11.833, null));
-    wrap.appendChild(miniPos(div('m-abs m-foot', '덕신교회 재정부'), 0.75, 7.02, 6, 0.26));
+    wrap.appendChild(miniPos(div('m-abs m-hair'), G.x, 6.95, G.w, null));
+    const l = miniPos(div('m-abs m-foot', '덕신교회 재정부'), G.x, 7.02, 6, 0.26);
+    l.style.fontSize = (8.5 * ff) + 'px';
+    wrap.appendChild(l);
     if (right) {
-      const r = miniPos(div('m-abs m-foot', right), 9.58, 7.02, 3, 0.26);
+      const r = miniPos(div('m-abs m-foot', right), G.x + G.w - 3.0, 7.02, 3, 0.26);
       r.style.textAlign = 'right';
+      r.style.fontSize = (8.5 * ff) + 'px';
       wrap.appendChild(r);
     }
     return wrap;
   }
-  function miniSlide(page, model) {
-    const root = div('slide-mini');
-    const nums = summaryNumbers(model);
-    if (page.type === 'cover') {
-      root.classList.add('m-cover');
-      root.appendChild(miniPos(div('m-abs m-band'), 8.15, 1.45, 0.012, 4.85));
-      root.appendChild(miniPos(div('m-abs dept', '덕신교회  ·  재정부'), 1.05, 2.12, 6.4, 0.3));
-      root.appendChild(miniPos(div('m-abs yr', model.year + '년도'), 1.02, 2.86, 6.9, 0.62));
-      root.appendChild(miniPos(div('m-abs qt', model.quarter + '분기 재정 보고'), 1.02, 3.50, 6.9, 0.95));
-      root.appendChild(miniPos(div('m-abs rule'), 1.05, 4.70, 1.32, 0.045));
-      root.appendChild(miniPos(div('m-abs period', model.period), 1.05, 4.96, 6.6, 0.34));
-      const qb = miniPos(div('m-abs qbig', model.quarter + '/4'), 8.45, 2.85, 4.3, 2.05);
-      qb.style.display = 'flex'; qb.style.alignItems = 'flex-end'; qb.style.justifyContent = 'flex-end';
-      root.appendChild(qb);
-      root.appendChild(miniPos(div('m-abs qlab', 'QUARTERLY REPORT'), 8.45, 5.08, 4.3, 0.4));
-      root.appendChild(miniPos(div('m-abs m-band'), 1.05, 6.50, 11.28, 0.012));
-      root.appendChild(miniPos(div('m-abs foot', '덕신교회  ' + model.year + '년도  ' + model.quarter + '분기 재정 보고'), 1.05, 6.62, 9, 0.28));
-      return root;
-    }
-    root.appendChild(miniHeader(page.type === 'summary' ? '총괄 요약' : (page.page + ' / ' + page.pages),
-      page.type === 'summary' ? (model.year + '년도 ' + model.quarter + '분기 재정 보고') : page.title));
-    const frag = document.createDocumentFragment();
-    if (page.type === 'summary') {
-      const cards = [
-        ['전년도 이월', fmtNum(nums.carryT), (model.year - 1) + '년도 결산 이월'],
-        ['수입 누계', fmtNum(nums.incT), pctText(nums.incT, nums.incB, nums.incRate)],
-        ['지출 누계', fmtNum(nums.expT), pctText(nums.expT, nums.expB, nums.expRate)],
-        ['차기 이월', fmtNum(nums.nextT), model.quarter + '분기 말 잔액']
-      ];
-      const gap = 0.20, cw = (11.833 - gap * 3) / 4;
-      cards.forEach((c, i) => {
-        const box = miniPos(div('m-abs m-kpi'), 0.75 + i * (cw + gap), 1.42, cw, 1.34);
-        box.appendChild(miniPos(div('bar'), 0, 0, 0.035, 1.34));
-        const inner = miniPos(div(), 0.22, 0.15, cw - 0.4, 1.1);
-        inner.appendChild(div('k', c[0]));
-        inner.appendChild(div('v', c[1]));
-        inner.appendChild(div('s', c[2]));
-        box.appendChild(inner);
-        frag.appendChild(box);
-      });
-      // 표
-      const table = document.createElement('table');
-      table.className = 'm-tbl';
-      table.style.position = 'absolute';
-      table.style.left = (0.75 * 72) + 'px';
-      table.style.top = (3.30 * 72) + 'px';
-      table.style.width = (11.833 * 72) + 'px';
-      const cols = [3.72, 2.70, 2.70, 2.713];
-      const cg = document.createElement('colgroup');
-      cols.forEach(w => { const c = document.createElement('col'); c.style.width = (w * 72) + 'px'; cg.appendChild(c); });
-      table.appendChild(cg);
-      const thead = document.createElement('thead');
-      const htr = document.createElement('tr');
-      htr.style.height = (0.4 * 72) + 'px';
-      ['항목', model.year + '년 예산', model.quarter + '분기 누계', '결산 누계'].forEach((t, i) => {
-        const th = document.createElement('th');
-        const sp = div('c' + (i ? ' r' : ''), t);
-        th.appendChild(sp); htr.appendChild(th);
-      });
-      thead.appendChild(htr); table.appendChild(thead);
-      const tb = document.createElement('tbody');
-      const rows = [
-        ['전년도 이월', cleanNumStr(model.summary.carry.budget), cleanNumStr(model.summary.carry.mid), cleanNumStr(model.summary.carry.total), ''],
-        ['수입', cleanNumStr(model.summary.income.budget), cleanNumStr(model.summary.income.mid), cleanNumStr(model.summary.income.total), ''],
-        ['지출', cleanNumStr(model.summary.expense.budget), cleanNumStr(model.summary.expense.mid), cleanNumStr(model.summary.expense.total), ''],
-        ['차기 이월 (계산)', fmtNum(nums.nextT), fmtNum(nums.nextM), fmtNum(nums.nextT), 'tot']
-      ];
-      rows.forEach(r => {
-        const tr = document.createElement('tr');
-        tr.style.height = (0.56 * 72) + 'px';
-        if (r[4]) tr.className = 'tot';
-        r.slice(0, 4).forEach((t, i) => {
-          const td = document.createElement('td');
-          td.appendChild(div('c' + (i ? ' r' : ''), t));
-          tr.appendChild(td);
-        });
-        tb.appendChild(tr);
-      });
-      table.appendChild(tb);
-      frag.appendChild(table);
-      frag.appendChild(miniPos(div('m-abs m-note', noteText(model)), 0.75, 6.16, 11.833, 0.3));
-      root.appendChild(frag);
-      root.appendChild(miniFooter(model));
-      return root;
-    }
-    // detail
+  function miniTable(lay, cols, headT, rows, headTexts) {
     const table = document.createElement('table');
     table.className = 'm-tbl';
     table.style.position = 'absolute';
-    table.style.left = (DT.x * 72) + 'px';
-    table.style.top = (DT.y * 72) + 'px';
-    table.style.width = (DT.w * 72) + 'px';
+    table.style.left = (lay.x * 72) + 'px';
+    table.style.top = (lay.top * 72) + 'px';
+    table.style.width = (lay.w * 72) + 'px';
     const cg = document.createElement('colgroup');
-    DT.cols.forEach(w => { const c = document.createElement('col'); c.style.width = (w * 72) + 'px'; cg.appendChild(c); });
+    cols.forEach(w => { const c = document.createElement('col'); c.style.width = (w * 72) + 'px'; cg.appendChild(c); });
     table.appendChild(cg);
     const thead = document.createElement('thead');
     const htr = document.createElement('tr');
-    htr.style.height = (headHeight() * 72) + 'px';
-    ['분류항목', '예산', '기간결산', '결산누계', page.rateLabel].forEach((t, i) => {
+    htr.style.height = (headT * 72) + 'px';
+    headTexts.forEach((t, i) => {
       const th = document.createElement('th');
       th.appendChild(div('c' + (i ? ' r' : ''), t));
       htr.appendChild(th);
     });
     thead.appendChild(htr); table.appendChild(thead);
     const tb = document.createElement('tbody');
-    page.rows.forEach(r => {
+    rows.forEach(r => {
       const tr = document.createElement('tr');
       tr.style.height = (r.h * 72) + 'px';
-      tr.className = r.isTotal ? 'tot' : ('d' + r.depth);
-      const vals = [r.name, cleanNumStr(r.budget), cleanNumStr(r.mid), cleanNumStr(r.total), fmtRate(r.rate)];
-      vals.forEach((t, i) => {
+      if (r.cls) tr.className = r.cls;
+      r.vals.forEach((t, i) => {
         const td = document.createElement('td');
         const sp = div('c' + (i ? ' r' : ''), t);
-        if (i === 0) sp.style.paddingLeft = (((0.16 + 0.16 * (r.isTotal ? 0 : r.depth)) * state.fs) * 72 - 9 * state.fs) + 'px';
-        if (i === 0) sp.style.whiteSpace = 'normal';
+        if (i === 0) {
+          sp.style.paddingLeft = (r.pad0 != null ? r.pad0 : 0.16 * state.fs) * 72 + 'px';
+          sp.style.whiteSpace = 'normal';
+        }
         td.appendChild(sp);
         tr.appendChild(td);
       });
       tb.appendChild(tr);
     });
     table.appendChild(tb);
+    return table;
+  }
+  function miniSlide(page, model) {
+    const root = div('slide-mini');
+    const nums = summaryNumbers(model);
+    const fs = state.fs;
+    if (page.type === 'cover') {
+      const CL = coverLayout(fs);
+      const put = (cls, text, b) => {
+        const el = miniPos(div('m-abs ' + cls, text), b.x, b.y, b.w, b.h);
+        el.style.fontSize = (b.pt * b.f) + 'px';
+        root.appendChild(el);
+        return el;
+      };
+      root.classList.add('m-cover');
+      root.appendChild(miniPos(div('m-abs m-band'), 8.15, 1.45, 0.012, 4.85));
+      put('dept', '덕신교회  ·  재정부', CL.dept);
+      put('yr', model.year + '년도', CL.year);
+      put('qt', model.quarter + '분기 재정 보고', CL.quarter);
+      root.appendChild(miniPos(div('m-abs rule'), CL.rule.x, CL.rule.y, 1.32, 0.045));
+      put('period', model.period, CL.period);
+      const qb = put('qbig', model.quarter + '/4', CL.qbig);
+      qb.style.display = 'flex'; qb.style.alignItems = 'flex-end'; qb.style.justifyContent = 'flex-end';
+      put('qlab', 'QUARTERLY REPORT', CL.qlabel);
+      root.appendChild(miniPos(div('m-abs m-band'), 1.05, 6.50, 11.28, 0.012));
+      put('foot', '덕신교회  ' + model.year + '년도  ' + model.quarter + '분기 재정 보고', CL.foot);
+      return root;
+    }
+    if (page.type === 'summary') {
+      const SL = summaryLayout(model, nums, fs);
+      const G = SL.G;
+      root.appendChild(miniHeader('총괄 요약', model.year + '년도 ' + model.quarter + '분기 재정 보고', G, fs));
+      const cards = [
+        ['전년도 이월', fmtNum(nums.carryT), (model.year - 1) + '년도 결산 이월'],
+        ['수입 누계', fmtNum(nums.incT), pctText(nums.incT, nums.incB, nums.incRate)],
+        ['지출 누계', fmtNum(nums.expT), pctText(nums.expT, nums.expB, nums.expRate)],
+        ['차기 이월', fmtNum(nums.nextT), model.quarter + '분기 말 잔액']
+      ];
+      cards.forEach((c, i) => {
+        const x = G.x + i * (SL.cw + SL.gap);
+        const box = miniPos(div('m-abs m-kpi'), x, SL.cardY, SL.cw, SL.cardH);
+        box.appendChild(miniPos(div('bar'), 0, 0, 0.035, SL.cardH));
+        const inner = miniPos(div(), 0.22, 0.14, SL.cw - 0.44, SL.cardH - 0.22);
+        const k = div('k', c[0]); k.style.fontSize = (9.5 * SL.fk) + 'px';
+        const v = div('v', c[1]); v.style.fontSize = (18 * SL.fv) + 'px';
+        const s = div('s', c[2]); s.style.fontSize = (8.5 * SL.fk) + 'px';
+        inner.appendChild(k); inner.appendChild(v); inner.appendChild(s);
+        box.appendChild(inner);
+        root.appendChild(box);
+      });
+      const rows = [
+        ['전년도 이월', cleanNumStr(model.summary.carry.budget), cleanNumStr(model.summary.carry.mid), cleanNumStr(model.summary.carry.total)],
+        ['수입', cleanNumStr(model.summary.income.budget), cleanNumStr(model.summary.income.mid), cleanNumStr(model.summary.income.total)],
+        ['지출', cleanNumStr(model.summary.expense.budget), cleanNumStr(model.summary.expense.mid), cleanNumStr(model.summary.expense.total)],
+        ['차기 이월 (계산)', fmtNum(nums.nextT), fmtNum(nums.nextM), fmtNum(nums.nextT)]
+      ];
+      const tblRows = rows.map((r, i) => ({ vals: r, cls: i === 3 ? 'tot' : '', pad0: 0.16, h: SL.rowT }));
+      const table = miniTable({ x: G.x, top: SL.tableTop, w: G.w }, SL.cols, SL.headT, tblRows, SL.heads);
+      root.appendChild(table);
+      const note = miniPos(div('m-abs m-note', noteText(model)), G.x, SL.noteY, G.w, SL.noteH);
+      note.style.fontSize = (8.5 * SL.noteF) + 'px';
+      root.appendChild(note);
+      root.appendChild(miniFooter(G, '', fs));
+      return root;
+    }
+    // detail
+    const lay = page.lay || geom(fs);
+    const cols = page.cols || lay.cols;
+    root.appendChild(miniHeader(page.page + ' / ' + page.pages, page.title, lay, fs));
+    const rows = page.rows.map(r => ({
+      vals: [r.name, cleanNumStr(r.budget), cleanNumStr(r.mid), cleanNumStr(r.total), fmtRate(r.rate)],
+      cls: r.isTotal ? 'tot' : ('d' + r.depth),
+      h: r.h,
+      pad0: ((0.16 + 0.16 * (r.isTotal ? 0 : r.depth)) * state.fs) * 72 - 9 * state.fs
+    }));
+    const table = miniTable({ x: lay.x, top: lay.top, w: lay.w }, cols, headHeight(fs),
+      rows.map(r => ({ vals: r.vals, cls: r.cls, pad0: r.pad0 / 72, h: r.h })),
+      [LABELS.item, LABELS.budget, LABELS.mid, LABELS.total, page.rateLabel]);
     root.appendChild(table);
-    root.appendChild(miniFooter(model, model.year + '년도 ' + model.quarter + '분기 재정 보고'));
+    root.appendChild(miniFooter(lay, model.year + '년도 ' + model.quarter + '분기 재정 보고', fs));
     return root;
   }
 
@@ -2121,6 +2371,9 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     $$('#fontSeg button').forEach(b => b.addEventListener('click', () => setFont(b.getAttribute('data-font'))));
     $('#fsDown').addEventListener('click', () => setFs(state.fs - FS_STEP));
     $('#fsUp').addEventListener('click', () => setFs(state.fs + FS_STEP));
+    const big = $('#fsBig'), max = $('#fsMax');
+    if (big) big.addEventListener('click', () => setFs(FS_BIG));
+    if (max) max.addEventListener('click', () => setFs(FS_MAX));
     $('#fsReset').addEventListener('click', () => {
       state.font = FONTS[0]; state.fs = 1;
       applyTypeStyle(); savePrefs();
