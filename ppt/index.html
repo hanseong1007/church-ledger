@@ -2865,6 +2865,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     syncPushTimer = setTimeout(() => syncPush('edit'), ms || 2200);
   }
 
+  let syncVisBound = false;
   function startSyncPolling() {
     if (!SYNC_ON) return;
     clearInterval(syncPollTimer);
@@ -2872,9 +2873,12 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       if (document.hidden || state.locked || !state.key) return;
       syncPull({ manual: false });
     }, 25000);
-    document.addEventListener('visibilitychange', () => {
-      if (!document.hidden && !state.locked) syncPull({ manual: false });
-    });
+    if (!syncVisBound) {
+      syncVisBound = true;
+      document.addEventListener('visibilitychange', () => {
+        if (!document.hidden && !state.locked && state.key) syncPull({ manual: false });
+      });
+    }
   }
 
   function saveCurrentLocal() {
