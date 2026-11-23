@@ -1069,7 +1069,13 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       if (need[i - 1] != null) cols[i] = Math.max(cols[i], need[i - 1]);
     }
     const sum = cols.slice(1).reduce((a, b) => a + b, 0);
-    cols[0] = Math.round((W - sum) * 100) / 100;
+    let first = W - sum;
+    if (first < 1.4) {   // 숫자가 너무 길어도 이름 칸이 사라지지 않게
+      const k = Math.max(0.1, (W - 1.4) / sum);
+      for (let i = 1; i < cols.length; i++) cols[i] = Math.round(cols[i] * k * 100) / 100;
+      first = W - cols.slice(1).reduce((a, b) => a + b, 0);
+    }
+    cols[0] = Math.round(first * 100) / 100;
     return cols;
   }
 
