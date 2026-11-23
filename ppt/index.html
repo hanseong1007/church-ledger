@@ -773,7 +773,10 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     if (qm) quarter = Number(qm[1]);
 
     // ---- 표 순회: 총괄 / 수입 / 지출 ----
-    const big = tables.slice().sort((a, b) => b.rows.length - a.rows.length)[0];
+    const hasMarker = (t, re) => t.rows.some(r => r.some(c => re.test(c.text)));
+    const big = tables.find(t => hasMarker(t, /수입\s*세부\s*내역|지출\s*세부\s*내역/))
+      || tables.find(t => hasMarker(t, /^분류항목$/))
+      || tables.slice().sort((a, b) => b.rows.length - a.rows.length)[0];
     const rows = big.rows;
     const cellAt = (r, i) => (r[i] ? r[i].text : '');
 
@@ -822,6 +825,21 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       }
     }
 
+    if (!incomeRows.length && !expenseRows.length) {
+      // 표에 '세부내역' 표제가 없을 때: '분류항목' 머리글 뒤 5열 행을 수입/지출로 읽는다
+      let mode = null;
+      for (const r of rows) {
+        const joined = r.map(c => c.text).join(' ');
+        if (/^분류항목/.test(cellAt(r, 0))) { mode = /집행률/.test(joined) ? 'expense' : 'income'; continue; }
+        if (mode && r.length >= 5 && cellAt(r, 0)) {
+          const item = {
+            name: cellAt(r, 0), budget: cellAt(r, 1), mid: cellAt(r, 2), total: cellAt(r, 3), rate: cellAt(r, 4),
+            indent: indentWidth(r[0].raw || ''), isTotal: /(총계|총액|이월)\s*$/.test(cellAt(r, 0).replace(/\s/g, ''))
+          };
+          (mode === 'income' ? incomeRows : expenseRows).push(item);
+        }
+      }
+    }
     const incTotalRow = incomeRows.find(r => /수입부총계/.test(r.name));
     const expTotalRow = expenseRows.find(r => /지출부총계/.test(r.name));
     if (!summary.income.mid && incTotalRow) summary.income = { budget: incTotalRow.budget, mid: incTotalRow.mid, total: incTotalRow.total };
