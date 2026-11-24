@@ -2185,8 +2185,14 @@ function setTab(t) {
   const v = $('#view-' + t);
   if (v) v.classList.remove('hidden');
   $$('#tabs button, #mtabs button').forEach(b => b.classList.toggle('on', b.dataset.tab === t));
-  if (t === 'design') renderDesign();
-  if (t === 'fonts') renderFonts();
+  if (t === 'design') {
+    renderDesign();
+    requestAnimationFrame(() => paintMini('#miniBg', '#miniText', '#miniLayer', '#miniPos', '#pvLabel'));
+  }
+  if (t === 'fonts') {
+    renderFonts();
+    requestAnimationFrame(() => paintMini('#miniBg2', '#miniText2', '#miniLayer2', '#miniPos2', '#pvLabel2'));
+  }
   if (t === 'data') renderData();
   if (t === 'users') renderUsers();
   if (t === 'slides') { fitStage(); }
