@@ -3224,7 +3224,7 @@ function wire() {
     const s = cur().slides[state.sel];
     if (s.kind === 'opening') cur().openingLabel = $('#edLabel').value;
     else cur().closingLabel = $('#edLabel').value;
-    touchMonth(); renderStage();
+    touchMonth(); renderSlideList(); renderStage();
   });
   ed('#edPart', () => { cur().slides[state.sel].text = $('#edPart').value; touchMonth(); renderStage(); });
   ['#edPart'].forEach(sel => { const n = $(sel); if (n) n.addEventListener('blur', () => renderSlideList()); });
