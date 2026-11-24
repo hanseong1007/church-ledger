@@ -1148,7 +1148,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   }
   function headHeight(fs) { return 0.40 + Math.max(0, fs - 1) * 0.14; }
   function rowBaseH(fs, lines) {
-    return Math.max(BASE_ROW * fs, lines * LINE_H * fs + PAD * fs + Math.max(0, fs - 1) * 0.05);
+    return Math.max(rowMinH(fs), Math.max(1, lines || 1) * LINE_H * fs + PAD);
   }
 
   // 숫자·머리글이 두 줄로 깨지지 않도록 실제 글자 폭으로 숫자 열 너비를 계산합니다.
@@ -1195,21 +1195,42 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     const w = SLIDE_W - 2 * x;
     return { x: x, w: w, top: 1.05, bottom: 6.85, cols: fitCols(w, need, NAT_DETAIL) };
   }
-  function rowHeightFor(r, fs, nameCol) {
-    const ind = r.isTotal ? 0 : r.depth;
-    const nameW = nameCol - (0.16 + 0.16 * ind) * fs - 0.20 * fs;
-    const lines = Math.max(1, wrapCountRich(r.name, 10 * fs, nameW * 0.88));
-    let h = rowBaseH(fs, lines);
-    if (lines > 1) h += LINE_H * fs * 0.46 * (lines - 1);   // 이름이 여러 줄일 때 여유
-    if (r.isTotal) h += 0.03 * fs;
-    return h;
-  }
   function nameBrk(r, fs, nameCol) {
     const ind = r.isTotal ? 0 : r.depth;
     const nameW = nameCol - (0.16 + 0.16 * ind) * fs - 0.20 * fs;
     return parenBreakAt(r.name, 10 * fs, nameW * 0.88);
   }
 
+  /* ================= 행 높이 균등화 =================
+     페이지마다 행 수가 달라도 표가 들쭉날쭉해 보이지 않도록, 머리행·데이터 행 높이를
+     지금 배율(fs)에서 하나로 정해 모든 수입·지출 장에 똑같이 씁니다.
+     - 행 높이는 글자 크기에 따라 완만하게만 커집니다(글자를 키워도 9~10행이 한 장에 남도록).
+     - 한 장에 담는 행 수는 위 상한을 넘지 않게 나누고(머리행은 새 장 위에 다시), 그래도 넘치면 그 항을 나눕니다. */
+  const MAX_ROWS_PER_PAGE = 10;
+  function rowMinH(fs) { return Math.max(BASE_ROW + Math.max(0, fs - 1) * 0.13, LINE_H * fs + PAD + 0.02); }
+  function rowTwoLineH(fs) { return 2 * LINE_H * fs + PAD + 0.02; }
+
+  function rowMetrics(fs, maxRows) {
+    const headH = headHeight(fs);
+    const avail = (6.85 - 1.05) - headH;
+    const minH = rowMinH(fs);
+    const n = Math.max(1, Math.min(maxRows || MAX_ROWS_PER_PAGE, pageCapacity(fs)));
+    let h = Math.min((avail * 0.995) / n, rowTwoLineH(fs));
+    h = Math.round(Math.max(h - 0.02, minH) * 1000) / 1000;   // 행마다 붙는 테두리 두께만큼 빼 둡니다
+    // 두 줄 높이가 행 높이와 거의 같으면 두 줄까지 그대로 두고(그 행만 1~2px 높아짐), 아니면 한 줄로 맞춥니다.
+    let lineCap = 1;
+    for (let L = 2; L <= 3; L++) if (rowBaseH(fs, L) <= h * 1.10 + 1e-9) lineCap = L;
+    return { headH: headH, avail: avail, minH: minH, perPage: n, rowH: h, lineCap: lineCap };
+  }
+  /* 한 장에 물리적으로 들어갈 수 있는 최대 데이터 행 수 */
+  function pageCapacity(fs) {
+    const avail = (6.85 - 1.05) - headHeight(fs);
+    return Math.max(1, Math.min(14, Math.floor(avail / rowMinH(fs))));
+  }
+
+  /* 행 이름이 정해진 행 높이 안에 들어오도록 맞춥니다.
+     자리가 조금 모자라면 그 칸의 글자만 82%까지 줄여 한 줄에 맞추고,
+     그래도 안 되는 아주 긴 이름만 그 행만 두 줄 높이로 둡니다(표·다른 행은 그대로). */
   /* 표지: 글자를 키운 만큼 아래 요소를 밀어 겹치지 않게 다시 앉힙니다. */
   function coverLayout(fs) {
     const CF = k => coverF(k, fs);
@@ -1254,8 +1275,9 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     const fn = Math.min(fs, 1.5);
     const noteH = lin(8.5, fn) + 0.06;
     const headMin = lin(10, fs) + 0.10, rowMin = lin(10.5, fs) + 0.10;
-    let headT = Math.max(0.40, lin(10, fs) + 0.20);
-    let rowT = Math.max(0.56, lin(10.5, fs) + 0.17);
+    // 수입·지출 상세 표와 같은 행 높이를 쓰고, 글자가 커져 필요하면 그만큼만 늘립니다.
+    let headT = Math.max(headHeight(fs), lin(10, fs) + 0.20);
+    let rowT = Math.max(state.rowH || 0.56, lin(10.5, fs) + 0.17);
     const availH = G.bottom - 0.08 - noteH - 0.10 - tableTop;
     if (headT + 4 * rowT > availH) {
       rowT = Math.max(rowMin, (availH - headT) / 4);
@@ -1305,23 +1327,24 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     if (!out.length) out.push({ t: s, p: false });
     return out;
   }
-  function wrapCountRich(name, pt, widthIn) {
+  function wrapCountRich(name, pt, widthIn, brk) {
     if (!name) return 1;
     const limit = widthIn * 96;
     let lines = 1, cur = 0;
-    for (const seg of parenSegs(name)) {
+    parenSegs(name).forEach((seg, si) => {
       const spt = seg.p ? pt * PAREN_K : pt;
-      // 괄호 설명은 글자 중간에서 끊기지 않게 괄호 앞에서 다음 줄로 넘깁니다.
       const segW = measureWidth(seg.t, spt);
+      if (si === brk && cur > 0) { lines++; cur = 0; }   // 괄호 앞에서 줄을 바꾸는 자리
+      // 괄호 설명은 글자 중간에서 끊기지 않게 괄호 앞에서 다음 줄로 넘깁니다.
       if (cur > 0 && cur + segW > limit) { lines++; cur = 0; }
-      if (cur + segW <= limit) { cur += segW; continue; }
+      if (cur + segW <= limit) { cur += segW; return; }
       for (const ch of seg.t) {
         const w = measureWidth(ch, spt);
         if (cur + w <= limit) { cur += w; continue; }
         lines++;
         cur = ch === ' ' ? 0 : w;
       }
-    }
+    });
     return lines;
   }
   /* 괄호 설명이 첫 줄에 다 들어가지 않으면 그 괄호 앞에서 줄을 바꿉니다.
@@ -1341,6 +1364,45 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     }
     return -1;
   }
+
+  /* 행 이름이 정해진 행 높이 안에 들어오도록 맞춥니다.
+     자리가 조금 모자라면 그 칸의 글자만 82%까지 줄여 한 줄에 맞추고,
+     그래도 안 되는 아주 긴 이름만 두 줄까지(글자 60%까지) 두어 행이 지나치게 높아지지 않게 합니다. */
+  const MIN_CELL_K = 0.82, MIN_CELL_K2 = 0.6;
+  function fitRow(r, fs, lay, met) {
+    const ind = r.isTotal ? 0 : r.depth;
+    const nameW = lay.cols[0] - (0.16 + 0.16 * ind) * fs - 0.20 * fs;
+    const width = nameW * 0.88;
+    const pt = 10 * fs;
+    let brk = parenBreakAt(r.name, pt, width);
+    let k = 1;
+    const search = (lo0, lines, b) => {
+      if (wrapCountRich(r.name, pt * lo0, width, b) > lines) return 0;
+      let lo = lo0, hi = 1, best = 0;
+      for (let i = 0; i < 16; i++) {
+        const mid = (lo + hi) / 2;
+        if (wrapCountRich(r.name, pt * mid, width, b) <= lines) { best = mid; lo = mid; } else hi = mid;
+      }
+      return best || lo0;
+    };
+    let lines = wrapCountRich(r.name, pt, width, brk);
+    if (lines > met.lineCap) {
+      let best = search(MIN_CELL_K, met.lineCap, brk);
+      if (!best) { brk = -1; best = search(MIN_CELL_K, met.lineCap, brk); }
+      if (!best) {
+        brk = parenBreakAt(r.name, pt * MIN_CELL_K2, width);
+        best = search(MIN_CELL_K2, 2, brk);
+        if (!best) { brk = -1; best = search(MIN_CELL_K2, 2, brk); }
+        k = best || MIN_CELL_K2;
+      } else {
+        k = best;
+      }
+      lines = wrapCountRich(r.name, pt * k, width, brk);
+    }
+    const needH = Math.max(1, lines) * LINE_H * fs * k + PAD + 0.02;
+    return { ...r, h: Math.max(met.rowH, Math.round(needH * 1000) / 1000), brk: brk, k: Math.round(k * 1000) / 1000 };
+  }
+
   /* ================= 관항목(그룹) 단위 페이지 나누기 =================
      - 관(depth 0) 아래에 항(depth 1)이 있으면 항마다 한 장씩 나누고,
        그 장 맨 위에 상위 관 행을 다시 보여 줍니다(항이 바뀌면 반드시 새 장).
@@ -1383,134 +1445,132 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     return blocks;
   }
 
-  function measureRows(rows, fsE, rateLabel) {
-    const lay = detailLayout(rows, fsE, rateLabel);
-    const hs = rows.map(r => rowHeightFor(r, fsE, lay.cols[0]));
-    const total = hs.reduce((a, b) => a + b, 0);
-    return {
-      rows: rows.map((r, i) => ({ ...r, h: hs[i], brk: nameBrk(r, fsE, lay.cols[0]) })),
-      lay: lay, total: total, fsE: fsE
-    };
-  }
-  function availH(lay, fsE) { return (lay.bottom - lay.top) - headHeight(fsE); }
-
-  /* 배율 1로 안 들어가면 이 장만 배율을 낮춰 딱 맞춥니다(내릴 수 있는 데까지). */
-  function fitRows(rows, fs, rateLabel) {
-    if (!rows.length) return null;
-    const m1 = measureRows(rows, fs, rateLabel);
-    m1.s = 1;
-    if (m1.total <= availH(m1.lay, fs)) return m1;
-    let lo = Math.max(0.3, SCALE_FLOOR_PT / (10 * fs)), hi = 1, best = 0;
-    for (let i = 0; i < 20; i++) {
-      const mid = (lo + hi) / 2;
-      const m = measureRows(rows, fs * mid, rateLabel);
-      if (m.total <= availH(m.lay, fs * mid)) { best = mid; lo = mid; } else hi = mid;
-    }
-    if (!best) return null;
-    const m = measureRows(rows, fs * best, rateLabel);
-    m.s = best;
-    return m;
-  }
-
-  function evenOutRows(rows, fsE, lay) {
-    if (!rows.length) return rows;
-    const usable = lay.bottom - lay.top;
-    const used = rows.reduce((a, r) => a + r.h, 0) + headHeight(fsE);
-    const extra = usable - used;
-    if (extra <= 0.4) return rows;
-    // 행이 적은 장은 남는 높이를 고르게 나눠 표가 장을 채우게 합니다(너무 두꺼워지지 않게 상한).
-    const cap = Math.min(1.35, Math.max(0.72 + Math.max(0, fsE - 1) * 0.25, usable / rows.length * 0.92));
-    const add = Math.min(extra * 0.9, rows.length * cap) / rows.length;
-    rows.forEach(r => { r.h = Math.max(r.h, Math.min(cap, r.h + add)); });
-    return rows;
-  }
-
-  function pageFromBlocks(items, fs, rateLabel, pages, forceShrink) {
-    const flat = [];
-    items.forEach(it => flat.push.apply(flat, it.rows));
-    const fit = fitRows(flat, fs, rateLabel);
-    if (!fit) { splitBlocks(items, fs, rateLabel, pages); return; }
-    pages.push(makePage(items, fit));
-  }
-  /* 여러 묶음을 한 장에 담아 보고, 안 되면 minS까지만 줄여 봅니다(작은 관들 + 합계가 헤어지지 않게). */
-  function packBlocks(items, fs, rateLabel, pages, minS) {
-    const flat = [];
-    items.forEach(it => flat.push.apply(flat, it.rows));
-    const fit = fitRows(flat, fs, rateLabel);
-    if (fit && fit.s >= minS) { pages.push(makePage(items, fit)); return true; }
-    return false;
-  }
-  function makePage(items, fit) {
-    const rows = evenOutRows(fit.rows, fit.fsE, fit.lay);
-    return {
-      rows: rows, lay: fit.lay, fsE: fit.fsE, s: fit.s,
+  /* 한 장에 담는 묶음들을 표 한 장으로 만듭니다. 행 높이는 장부 전체에서 정한 하나(met.rowH)로 같습니다. */
+  function makePage(items, lay, met, fs) {
+    const rows = [];
+    let heads = 0;
+    items.forEach((it, i) => {
+      rows.push.apply(rows, it.rows);
+      if (i === 0 && it.kind === 'group') heads = Math.min(it.heads || 1, it.rows.length);
+    });
+    const fitted = rows.map(r => fitRow(r, fs, lay, met));
+    const pg = {
+      rows: fitted, lay: lay, fsE: fs, s: 1, heads: heads,
       names: items.filter(it => it.kind === 'group').map(it =>
         (it.hang && it.hang !== it.kwan) ? it.kwan + ' — ' + it.hang : it.name),
       hasTotals: items.some(it => it.kind === 'totals'),
-      shrunk: fit.s < 0.995
+      shrunk: false
     };
+    return pageFits(pg, met) ? [pg] : splitTallPage(pg, met);
   }
-
-  /* 정말로 한 장에 담기지 않는 큰 관항목만, 세부항목 경계에서 나누고 머리행(관·항)을 다시 보여 줍니다. */
-  function splitBlocks(items, fs, rateLabel, pages, depth) {
-    depth = depth || 0;
-    if (items.length > 1 && depth < 4) {
-      const mid = Math.ceil(items.length / 2);
-      splitBlocks(items.slice(0, mid), fs, rateLabel, pages, depth + 1);
-      splitBlocks(items.slice(mid), fs, rateLabel, pages, depth + 1);
-      return;
+  function pageFits(pg, met) {
+    const sum = pg.rows.reduce((a, r) => a + r.h, 0);
+    return sum <= met.avail + 1e-6;
+  }
+  /* 아주 긴 이름 때문에 행 하나가 두 줄로 높아져 한 장을 넘기면, 머리행(관·항)을 다시 두고
+     넘치는 행을 다음 장으로 고르게 나눕니다(한 장에 한 줄만 남지 않게). */
+  function splitTallPage(pg, met) {
+    const hn = Math.min(pg.heads || 1, pg.rows.length);
+    const head = pg.rows.slice(0, hn), kids = pg.rows.slice(hn);
+    const headH = head.reduce((a, r) => a + r.h, 0);
+    const total = kids.reduce((a, r) => a + r.h, 0);
+    for (let n = Math.max(2, Math.ceil((headH + total) / met.avail)); n <= kids.length; n++) {
+      const groups = [];
+      for (let i = 0; i < n; i++) groups.push(head.slice());
+      let acc = 0;
+      kids.forEach(r => {
+        const g = Math.min(n - 1, Math.floor((acc / (total || 1)) * n));
+        groups[g].push(r);
+        acc += r.h;
+      });
+      const used = groups.filter(g => g.length > hn);
+      const fits = used.every(g => g.reduce((a, r) => a + r.h, 0) <= met.avail + 1e-6);
+      if (fits) return used.map(rows => ({ ...pg, rows: rows }));
     }
-    const b = items[0];
+    return [pg];
+  }
+  function groupWithRows(b, rows) {
+    return { kind: 'group', name: b.name, kwan: b.kwan, hang: b.hang, heads: Math.min(b.heads || 1, rows.length), rows: rows };
+  }
+  /* 한 묶음이 한 장 분량(행 수)을 넘으면 관·항 머리행을 새 장 위에 다시 두고 행을 고르게 나눕니다. */
+  function pushBlockPages(b, fs, lay, met, pages) {
+    if (b.rows.length <= met.perPage) { pages.push.apply(pages, makePage([b], lay, met, fs)); return; }
     const hn = Math.min(b.heads || 1, b.rows.length);
     const head = b.rows.slice(0, hn), kids = b.rows.slice(hn);
-    const groupOf = rs => ({ kind: 'group', name: b.name, kwan: b.kwan, hang: b.hang, heads: hn, rows: rs });
-    if (kids.length < 2 || depth >= 4) {
-      const fit = fitRows(b.rows, fs, rateLabel);
-      const m = fit || measureRows(b.rows, Math.max(0.3, SCALE_FLOOR_PT / (10 * fs)), rateLabel);
-      pages.push(makePage([b], m));
-      return;
+    const room = Math.max(1, met.perPage - hn);
+    const chunks = Math.max(1, Math.ceil(kids.length / room));
+    const per = Math.ceil(kids.length / chunks);
+    for (let i = 0; i < kids.length; i += per) {
+      pages.push.apply(pages, makePage([groupWithRows(b, head.concat(kids.slice(i, i + per)))], lay, met, fs));
     }
-    const mid = Math.ceil(kids.length / 2);
-    [groupOf(head.concat(kids.slice(0, mid))), groupOf(head.concat(kids.slice(mid)))].forEach(g => {
-      const fit = fitRows(g.rows, fs, rateLabel);
-      if (fit) pages.push(makePage([g], fit));
-      else splitBlocks([g], fs, rateLabel, pages, depth + 1);
-    });
   }
 
-  function sectionPages(rows, fs, rateLabel) {
-    const pages = [];
-    if (!rows.length) return pages;
+  /* 장부 하나를 장 단위로 계획합니다(행 높이는 나중에 장부 전체에서 하나로 정합니다). */
+  function planSection(rows, fs, rateLabel, cap) {
+    const lay = detailLayout(rows, fs, rateLabel);
+    const plans = [];
+    if (!rows.length) return { lay: lay, plans: plans, maxRows: 0 };
     // 항(관 아래 한 단계 더 들어간 머리행)이 있는 장부에서만 항 단위로 나눕니다.
     const hangMode = rows.some(r => !r.isTotal && r.depth >= 2);
     const blocks = groupBlocks(rows, hangMode);
-    const full = availH(detailLayout(rows.slice(0, 1), fs, rateLabel), fs);
-    let cur = [], curH = 0;
-    const flush = () => { if (cur.length) pageFromBlocks(cur, fs, rateLabel, pages); cur = []; curH = 0; };
+    const runs = [];
+    let run = [];
     blocks.forEach(b => {
-      const m = measureRows(b.rows, fs, rateLabel);
-      if (b.forceBreak) {
-        // 항이 바뀔 때는 작더라도 반드시 새 장 (앞 장과 합치지 않음)
-        flush();
-        pageFromBlocks([b], fs, rateLabel, pages, true);
-        flush();
-        return;
-      }
-      if (m.total <= full) {
-        if (cur.length && curH + m.total > full) {
-          // 합계는 앞 장의 작은 관들과 같은 장에 붙입니다(글씨가 너무 작아지지 않을 때만).
-          if (b.kind === 'totals' && packBlocks(cur.concat([b]), fs, rateLabel, pages, 0.7)) { cur = []; curH = 0; return; }
-          flush();
-        }
-        cur.push(b); curH += m.total;
-        return;
-      }
-      // 관 하나가 한 장을 넘는 경우 → 앞 장을 끊고 그 관만 축소해 한 장에 담기
-      flush();
-      pageFromBlocks([b], fs, rateLabel, pages, true);
+      if (b.forceBreak) { if (run.length) runs.push(run); runs.push([b]); run = []; }
+      else run.push(b);
     });
-    flush();
+    if (run.length) runs.push(run);
+    runs.forEach(runBlocks => {
+      if (runBlocks.length === 1 && runBlocks[0].forceBreak) {
+        pushBlockPlans(runBlocks[0], cap, plans);     // 항 단위: 한 장에 담고, 넘치면 행을 나눈다
+        return;
+      }
+      // 일반 묶음: 장 수가 가장 적게 나뉘는 행 수(P)를 고른다(같으면 행이 두꺼운 쪽).
+      const maxBlock = Math.max.apply(null, runBlocks.map(b => b.rows.length));
+      let best = null;
+      for (let P = Math.min(maxBlock, cap); P <= cap; P++) {
+        const seq = packSeq(runBlocks, P);
+        if (!best || seq.length < best.pages.length || (seq.length === best.pages.length && P < best.P)) {
+          best = { P: P, pages: seq };
+        }
+      }
+      best.pages.forEach(p => plans.push(p));
+    });
+    const maxRows = plans.reduce((a, p) => Math.max(a, p.reduce((x, b) => x + b.rows.length, 0)), 0);
+    return { lay: lay, plans: plans, maxRows: maxRows };
+  }
+  function packSeq(blocks, P) {
+    const pages = [];
+    let cur = [], curRows = 0;
+    blocks.forEach(b => {
+      const n = b.rows.length;
+      if (n > P) {
+        if (cur.length) { pages.push(cur); cur = []; curRows = 0; }
+        pages.push([b]);
+        return;
+      }
+      if (cur.length && curRows + n > P) { pages.push(cur); cur = []; curRows = 0; }
+      cur.push(b); curRows += n;
+    });
+    if (cur.length) pages.push(cur);
     return pages;
+  }
+  /* 한 묶음이 한 장 분량(행 수)을 넘으면 관·항 머리행을 새 장 위에 다시 두고 행을 고르게 나눕니다. */
+  function pushBlockPlans(b, cap, plans) {
+    if (b.rows.length <= cap) { plans.push([b]); return; }
+    const hn = Math.min(b.heads || 1, b.rows.length);
+    const head = b.rows.slice(0, hn), kids = b.rows.slice(hn);
+    const room = Math.max(1, cap - hn);
+    const chunks = Math.max(1, Math.ceil(kids.length / room));
+    const per = Math.ceil(kids.length / chunks);
+    for (let i = 0; i < kids.length; i += per) {
+      plans.push([groupWithRows(b, head.concat(kids.slice(i, i + per)))]);
+    }
+  }
+  function materialize(plan, fs, met) {
+    const out = [];
+    plan.plans.forEach(items => out.push.apply(out, makePage(items, plan.lay, met, fs)));
+    return out;
   }
 
   function detailTitle(pg) {
@@ -1523,21 +1583,28 @@ https://github.com/nodeca/pako/blob/main/LICENSE
 
   function buildPages(model) {
     const fs = state.fs;
-    const inc = sectionPages(model.income, fs, '달성률');
-    const exp = sectionPages(model.expense, fs, '집행률');
+    const cap = pageCapacity(fs);
+    const incPlan = planSection(model.income, fs, '달성률', cap);
+    const expPlan = planSection(model.expense, fs, '집행률', cap);
+    const maxRows = Math.max(1, incPlan.maxRows, expPlan.maxRows);
+    const met = rowMetrics(fs, maxRows);
+    const inc = materialize(incPlan, fs, met);
+    const exp = materialize(expPlan, fs, met);
     const pages = [{ type: 'cover' }, { type: 'summary' }];
-    const add = (list, section, title, rateLabel) => {
+    const add = (list, section, title, rateLabel, lay) => {
       if (!list.length) {
-        list.push({ rows: [], lay: detailLayout(model[section].slice(0, 1), fs, rateLabel), fsE: fs, s: 1, names: [] });
+        list.push({ rows: [], lay: lay, fsE: fs, s: 1, names: [] });
       }
       list.forEach((p, i) => pages.push({
         type: 'detail', section: section, title: title, rateLabel: rateLabel,
         rows: p.rows, page: i + 1, pages: list.length,
-        lay: p.lay, cols: p.lay.cols, fsE: p.fsE, s: p.s, names: p.names || []
+        lay: p.lay, cols: p.lay.cols, fsE: p.fsE, s: p.s, names: p.names || [],
+        rowH: met.rowH, headH: met.headH
       }));
     };
-    add(inc, 'income', '수입 세부내역', '달성률');
-    add(exp, 'expense', '지출 세부내역', '집행률');
+    add(inc, 'income', '수입 세부내역', '달성률', incPlan.lay);
+    add(exp, 'expense', '지출 세부내역', '집행률', expPlan.lay);
+    state.rowH = met.rowH;
     state.sectionCounts = { income: inc.length, expense: exp.length };
     return pages;
   }
@@ -1677,6 +1744,26 @@ https://github.com/nodeca/pako/blob/main/LICENSE
           const v = el.getAttribute('sz');
           if (!v) return;
           el.setAttribute('sz', String(Math.max(100, Math.round(Number(v) * s / 10) * 10)));
+        });
+      });
+    });
+  }
+
+  /* 행 높이를 넘는 긴 이름만 그 칸의 글자를 줄입니다(미리보기와 같은 배율). */
+  function scaleRowNameCells(doc, rows) {
+    const tbl = doc.getElementsByTagNameNS(NS_A, 'tbl')[0];
+    if (!tbl) return;
+    const trs = kids(tbl, 'tr').slice(1);   // 머리행 제외
+    trs.forEach((tr, i) => {
+      const r = rows[i];
+      if (!r || !r.k || r.k > 0.995) return;
+      const tc = kids(tr, 'tc')[0];
+      if (!tc) return;
+      ['rPr', 'endParaRPr'].forEach(t => {
+        Array.prototype.slice.call(tc.getElementsByTagNameNS(NS_A, t)).forEach(el => {
+          const v = el.getAttribute('sz');
+          if (!v) return;
+          el.setAttribute('sz', String(Math.max(100, Math.round(Number(v) * r.k / 10) * 10)));
         });
       });
     });
@@ -1963,6 +2050,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       buildDetailTable(d, pg);
       applySlideStyle(d, fs, { t_title: CAP_TITLE, t_page: CAP_SMALL, t_fright: CAP_FOOT, t_ffoot: CAP_FOOT });
       scaleTableRuns(d, pg.s || 1);
+      scaleRowNameCells(d, pg.rows);
       detailXmls.push({ section: pg.section, first: pg.page === 1, xml: ser(d) });
     }
 
@@ -2149,6 +2237,8 @@ https://github.com/nodeca/pako/blob/main/LICENSE
         if (i === 0) {
           sp.style.paddingLeft = (r.pad0 != null ? r.pad0 : 0.16 * state.fs) * 72 + 'px';
           sp.style.whiteSpace = 'normal';
+          // 행 높이를 넘는 긴 이름은 그 칸 글자만 조금 줄여 한 줄에 맞춥니다(행 높이는 그대로).
+          if (r.k && r.k < 0.995) sp.style.fontSize = 'calc(10px * var(--fsx, 1) * ' + r.k + ')';
         }
         td.appendChild(sp);
         tr.appendChild(td);
@@ -2230,12 +2320,13 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       vals: [r.name, cleanNumStr(r.budget), cleanNumStr(r.mid), cleanNumStr(r.total), fmtRate(r.rate)],
       segs: parenSegs(r.name),
       brk: r.brk,
+      k: r.k || 1,
       cls: r.isTotal ? 'tot' : ('d' + r.depth),
       h: r.h,
       pad0: ((0.16 + 0.16 * (r.isTotal ? 0 : r.depth)) * fsE) * 72 - 9 * fsE
     }));
-    const table = miniTable({ x: lay.x, top: lay.top, w: lay.w }, cols, headHeight(fsE),
-      rows.map(r => ({ vals: r.vals, segs: r.segs, brk: r.brk, cls: r.cls, pad0: r.pad0 / 72, h: r.h })),
+    const table = miniTable({ x: lay.x, top: lay.top, w: lay.w }, cols, page.headH || headHeight(fsE),
+      rows.map(r => ({ vals: r.vals, segs: r.segs, brk: r.brk, k: r.k, cls: r.cls, pad0: r.pad0 / 72, h: r.h })),
       [LABELS.item, LABELS.budget, LABELS.mid, LABELS.total, page.rateLabel]);
     if (Math.abs(fsE - fs) > 0.005) table.style.setProperty('--fsx', String(fsE));
     root.appendChild(table);
