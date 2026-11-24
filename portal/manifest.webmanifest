@@ -1,0 +1,43 @@
+{
+  "id": "./",
+  "name": "덕신교회 통합 포털",
+  "short_name": "덕신교회",
+  "description": "금전출납부 · 재정보고 변환 · 중보기도문 변환을 한 곳에서 여는 덕신교회 행정 포털",
+  "lang": "ko",
+  "dir": "ltr",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "display_override": ["standalone", "minimal-ui", "browser"],
+  "orientation": "any",
+  "background_color": "#f7f4ea",
+  "theme_color": "#101b31",
+  "categories": ["productivity", "education"],
+  "prefer_related_applications": false,
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" },
+    { "src": "icons/apple-touch-icon.png", "sizes": "180x180", "type": "image/png", "purpose": "any" }
+  ],
+  "shortcuts": [
+    {
+      "name": "금전출납부",
+      "short_name": "출납부",
+      "url": "./../",
+      "icons": [{ "src": "icons/icon-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "재정보고 변환",
+      "short_name": "재정보고",
+      "url": "./../ppt/",
+      "icons": [{ "src": "icons/icon-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "중보기도문 변환",
+      "short_name": "중보기도",
+      "url": "./../prayer/",
+      "icons": [{ "src": "icons/icon-192.png", "sizes": "192x192" }]
+    }
+  ]
+}
