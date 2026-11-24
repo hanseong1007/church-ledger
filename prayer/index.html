@@ -1263,8 +1263,8 @@ function roundRect(ctx, x, y, w, h, r) {
 function paintCard(ctx, W, H, m, v) {
   const s = SEASON[m];
   const U = W / SLW;
-  const x = 0.72 * U, y = 0.5 * U;
-  const w = W - 2 * 0.72 * U, h = H - 1.0 * U;
+  const x = 1.0 * U, y = 0.58 * U;
+  const w = W - 2 * 1.0 * U, h = H - 1.16 * U;
   ctx.save();
   if (v === 2) {
     ctx.shadowColor = 'rgba(0,0,0,.5)'; ctx.shadowBlur = 0.42 * (W / SLW); ctx.shadowOffsetY = 0.12 * (W / SLW);
@@ -1304,6 +1304,20 @@ function paintCard(ctx, W, H, m, v) {
   ctx.restore();
 }
 
+function paintWatermark(ctx, W, H, m, v, rand) {
+  const s = SEASON[m];
+  const U = W / SLW;
+  const dark = v === 2;
+  const col = dark ? 'rgba(216,192,138,1)' : s.accent;
+  const spots = [
+    { x: 0.13 * W, y: 0.20 * H, s: 1.9 * U, a: 0.055, r: -0.4 },
+    { x: 0.88 * W, y: 0.80 * H, s: 2.2 * U, a: 0.05, r: 2.2 },
+    { x: 0.10 * W, y: 0.88 * H, s: 1.3 * U, a: 0.04, r: 1.1 }
+  ];
+  if (v === 1) spots.forEach(p => { p.a *= 0.7; });
+  spots.forEach(p => motifAt(ctx, s.motif, p.x, p.y, p.s, p.r, col, p.a, dark));
+}
+
 function paintOrnament(ctx, W, H, m, v) {
   const s = SEASON[m];
   const gold = v === 2 ? 'rgba(216,192,138,.75)' : 'rgba(150,120,64,.55)';
@@ -1336,7 +1350,7 @@ function paintFrameEdges(ctx, W, H, m, v) {
   // 모서리 장식
   const c = v === 2 ? 'rgba(216,192,138,.45)' : 'rgba(150,120,64,.30)';
   const U = W / SLW;
-  const L = 0.44 * U, inset = 0.72 * U + 0.18 * U;
+  const L = 0.44 * U, inset = 1.0 * U + 0.14 * U;
   ctx.save(); ctx.strokeStyle = c; ctx.lineWidth = Math.max(1, U * 0.0085);
   const corners = [[inset, inset, 1, 1], [W - inset, inset, -1, 1], [inset, H - inset, 1, -1], [W - inset, H - inset, -1, -1]];
   corners.forEach(([x, y, dx, dy]) => {
@@ -1374,7 +1388,7 @@ function paintMotifs(ctx, W, H, m, v, rand) {
   const col1 = dark ? 'rgba(216,192,138,1)' : s.accent;
   const col2 = dark ? 'rgba(226,208,168,1)' : s.accent2;
   // 글자가 올라가는 안전 영역(카드 안쪽)에서는 모티프를 흐리게
-  const safe = { x: 1.02 * U, y: 0.75 * U, w: W - 2.04 * U, h: H - 1.5 * U };
+  const safe = { x: 1.28 * U, y: 0.86 * U, w: W - 2.56 * U, h: H - 1.72 * U };
   const soften = (x, y, a) => (x > safe.x && x < safe.x + safe.w && y > safe.y && y < safe.y + safe.h) ? a * 0.34 : a;
 
   if (type === 'wave') {
@@ -1392,7 +1406,7 @@ function paintMotifs(ctx, W, H, m, v, rand) {
     { cx: W - 0.5 * U, cy: 0.52 * U, n: 5, sc: 0.9, spread: 0.22 * U, rot: -2.0, a: 0.65 },
     { cx: W * 0.5, cy: 0.42 * U, n: 3, sc: 0.7, spread: 0.12 * U, rot: 0.3, a: 0.4 }
   ];
-  const baseA = dark ? 0.30 : (v === 1 ? 0.16 : 0.46);
+  const baseA = dark ? 0.30 : (v === 1 ? 0.18 : 0.55);
   clusters.forEach((cl, ci) => {
     if (type === 'wave' && ci > 1) return;
     if (type === 'sun' && ci % 2) return;
@@ -1435,6 +1449,7 @@ function renderBackgroundCanvas(month, variant, W, H) {
   paintTexture(ctx, W, H, variant);
   paintFrameEdges(ctx, W, H, month, variant);
   paintCard(ctx, W, H, month, variant);
+  paintWatermark(ctx, W, H, month, variant, rand);
   paintOrnament(ctx, W, H, month, variant);
   return c;
 }
