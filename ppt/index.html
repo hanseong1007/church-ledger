@@ -51,6 +51,8 @@ h1,h2,h3,p{margin:0}
 .btn-sm{height:36px;padding:0 13px;font-size:13px;border-radius:9px}
 .lock-note{margin-top:16px;font-size:11.5px;color:var(--muted);line-height:1.6;text-align:center}
 .lock-err{margin-top:10px;font-size:12.5px;color:var(--warn);min-height:18px;text-align:center}
+.lock-reset{display:block;width:100%;margin-top:12px;padding:8px 0;font-size:12.5px;color:var(--gray);text-decoration:underline;text-underline-offset:3px;text-decoration-color:#C9D3E0}
+.lock-reset:hover{color:var(--navy);text-decoration-color:var(--navy)}
 .shake{animation:shake .35s}
 @keyframes shake{0%,100%{transform:translateX(0)}25%{transform:translateX(-6px)}75%{transform:translateX(6px)}}
 
@@ -351,16 +353,17 @@ main{flex:1;max-width:1180px;width:100%;margin:0 auto;padding:26px 20px 120px}
     <div class="lock-sub" id="lockSub">한글 재정 보고서를 파워포인트로 바꾸는 개인 금고입니다.<br>이 브라우저에 저장된 이력은 비밀번호로만 열립니다.</div>
     <form id="lockForm" autocomplete="on">
       <div class="field">
-        <input id="pw" type="password" inputmode="text" autocomplete="current-password" placeholder="비밀번호" aria-label="비밀번호">
+        <input id="pw" type="password" inputmode="text" autocomplete="current-password" autocapitalize="none" autocorrect="off" spellcheck="false" placeholder="비밀번호" aria-label="비밀번호">
         <button type="button" class="eye" id="eyeBtn" aria-label="비밀번호 표시"></button>
       </div>
       <div class="field hidden" id="pw2Wrap">
-        <input id="pw2" type="password" autocomplete="new-password" placeholder="비밀번호 확인" aria-label="비밀번호 확인">
+        <input id="pw2" type="password" autocomplete="new-password" autocapitalize="none" autocorrect="off" spellcheck="false" placeholder="비밀번호 확인" aria-label="비밀번호 확인">
       </div>
       <button class="btn btn-primary btn-block" id="lockBtn" type="submit">잠금 해제</button>
     </form>
     <div class="lock-err" id="lockErr"></div>
     <div class="lock-note">한글 파일은 서버로 전송되지 않습니다 · 작업 내용은 비밀번호로 암호화되어 내 구글 계정에 동기화됩니다</div>
+    <button type="button" class="lock-reset hidden" id="btnResetVault">비밀번호 초기화 (처음부터 다시 열기)</button>
   </div>
 </div>
 
@@ -566,7 +569,7 @@ main{flex:1;max-width:1180px;width:100%;margin:0 auto;padding:26px 20px 120px}
     <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">
       <button class="btn btn-primary btn-sm" id="btnExport" style="height:42px;padding:0 16px">파일로 내보내기</button>
     </div>
-    <div class="field" style="margin-bottom:10px"><input id="impPw" type="password" placeholder="백업 파일의 비밀번호"></div>
+    <div class="field" style="margin-bottom:10px"><input id="impPw" type="password" placeholder="백업 파일의 비밀번호" autocapitalize="none" autocorrect="off" spellcheck="false"></div>
     <div style="display:flex;gap:8px;flex-wrap:wrap">
       <div class="filebtn">
         <span class="btn btn-ghost btn-sm" style="height:42px;padding:0 16px">파일 가져오기</span>
@@ -583,9 +586,9 @@ main{flex:1;max-width:1180px;width:100%;margin:0 auto;padding:26px 20px 120px}
   <div class="modal-card">
     <h3>비밀번호 변경</h3>
     <p>바꾸면 이 기기의 이력이 새 비밀번호로 다시 암호화됩니다. 백업 파일은 예전 비밀번호 그대로 열립니다.</p>
-    <div class="field"><input id="curPw" type="password" placeholder="지금 비밀번호" autocomplete="current-password"></div>
-    <div class="field"><input id="newPw" type="password" placeholder="새 비밀번호 (6자 이상)" autocomplete="new-password"></div>
-    <div class="field"><input id="newPw2" type="password" placeholder="새 비밀번호 확인" autocomplete="new-password"></div>
+    <div class="field"><input id="curPw" type="password" placeholder="지금 비밀번호" autocomplete="current-password" autocapitalize="none" autocorrect="off" spellcheck="false"></div>
+    <div class="field"><input id="newPw" type="password" placeholder="새 비밀번호 (6자 이상)" autocomplete="new-password" autocapitalize="none" autocorrect="off" spellcheck="false"></div>
+    <div class="field"><input id="newPw2" type="password" placeholder="새 비밀번호 확인" autocomplete="new-password" autocapitalize="none" autocorrect="off" spellcheck="false"></div>
     <div class="lock-err" id="keyErr" style="text-align:left"></div>
     <div class="modal-actions">
       <button class="btn btn-ghost btn-sm" data-close="keyModal">취소</button>
@@ -808,15 +811,37 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       $('#lockBtn').textContent = '이 비밀번호로 시작';
       $('#pw2Wrap').classList.remove('hidden');
     }
+    // 이 기기에 금고가 이미 있을 때만 ‘비밀번호 초기화’를 보여 줍니다.
+    const resetBtn = $('#btnResetVault');
+    if (resetBtn) resetBtn.classList.toggle('hidden', !(mode === 'unlock' && !first));
     $('#lockErr').textContent = '';
     $('#pw').value = '';
     $('#pw2').value = '';
     $('#pw').focus();
   }
 
+  /* 비밀번호를 잊었거나 이 기기의 금고가 다른 비밀번호로 잠겨 있을 때:
+     이 기기에 저장된 금고만 지우고 처음 상태로 돌아갑니다. 구글 시트에 동기화된 자료는
+     지우지 않으므로, 같은 비밀번호로 다시 들어가면 그대로 다시 받아옵니다. */
+  function resetVault() {
+    const has = !!localStorage.getItem(VAULT_KEY);
+    const msg = has
+      ? '이 기기에 저장된 금고(비밀번호와 작업 이력)를 지우고 처음부터 다시 시작할까요?\n\n'
+        + '· 이 기기에만 있던 이력은 사라집니다.\n'
+        + '· 구글 계정에 동기화된 자료는 그대로 남아 있어, 같은 비밀번호로 다시 들어가면 이어집니다.\n'
+        + '· 그 뒤에는 처음 정했던 비밀번호(또는 새 비밀번호)로 새 금고를 만들면 됩니다.'
+      : '이 브라우저에서 처음부터 다시 시작합니다.';
+    if (!window.confirm(msg)) return;
+    try { localStorage.removeItem(VAULT_KEY); } catch (e) { /* 무시 */ }
+    state.key = null; state.vault = null; state.data = null;
+    setLockMode('setup');
+  }
+
   async function handleStart(e) {
     e.preventDefault();
-    const pw = $('#pw').value;
+    // 스마트폰 키보드가 앞뒤 공백을 넣거나 첫 글자를 대문자로 바꾸는 경우를 막기 위해
+    // 입력값의 앞뒤 공백을 지우고(trim) 비교합니다. (입력칸에도 autocapitalize="none")
+    const pw = $('#pw').value.trim();
     const err = $('#lockErr');
     err.textContent = '';
     const hasVault = !!localStorage.getItem(VAULT_KEY);
@@ -826,7 +851,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       const r = await tryUnlock(pw);
       $('#lockBtn').disabled = false;
       if (!r.ok) {
-        err.textContent = '비밀번호가 맞지 않습니다.';
+        err.textContent = '비밀번호가 맞지 않습니다. 계속 안 되면 아래 ‘비밀번호 초기화’를 눌러 처음부터 다시 열 수 있습니다.';
         $('.lock-card').classList.add('shake');
         setTimeout(() => $('.lock-card').classList.remove('shake'), 400);
         return;
@@ -853,7 +878,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       return;
     }
     if (lockMode === 'confirm') {
-      if ($('#pw2').value !== pw) {
+      if ($('#pw2').value.trim() !== pw) {
         err.textContent = '두 비밀번호가 다릅니다.';
         $('#pw2').value = '';
         $('#pw2').focus();
@@ -2702,7 +2727,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   }
 
   async function changePassword() {
-    const cur = $('#curPw').value, n1 = $('#newPw').value, n2 = $('#newPw2').value;
+    const cur = $('#curPw').value.trim(), n1 = $('#newPw').value.trim(), n2 = $('#newPw2').value.trim();
     const err = $('#keyErr');
     err.textContent = '';
     if (!cur || !n1) { err.textContent = '모두 입력해 주세요.'; return; }
@@ -2984,6 +3009,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   /* ================= 이벤트 ================= */
   function bind() {
     $('#lockForm').addEventListener('submit', handleStart);
+    $('#btnResetVault').addEventListener('click', resetVault);
     $('#eyeBtn').addEventListener('click', () => {
       const p = $('#pw');
       p.type = p.type === 'password' ? 'text' : 'password';
