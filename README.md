@@ -170,3 +170,15 @@
 
 - 수입/지출 등록·수정·삭제, 줄별 누계, 월간·연간 이월, CSV·JSON 백업·복원, A4 인쇄 — 통과
 - 기기A↔기기B 공유, 20초 자동 새로고침, 기기에만 있던 기록 자동 업로드, 오프라인 후 재연결 — 통과
+
+---
+
+## 함께 쓰는 앱
+
+이 저장소의 `gh-pages`에는 같은 교회에서 쓰는 다른 앱도 함께 올라가 있습니다.
+
+| 주소 | 앱 |
+|---|---|
+| https://hanseong1007.github.io/church-ledger/ | 교회·모임 금전출납부 (이 문서) |
+| https://hanseong1007.github.io/church-ledger/ppt/ | 교회 재정 보고 변환 (한글 .hwpx → 파워포인트) |
+| https://hanseong1007.github.io/church-ledger/prayer/ | 덕신교회 중보기도문 변환 (한글 .hwpx → 예배용 파워포인트) |
