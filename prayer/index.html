@@ -1043,7 +1043,7 @@ const SEASON = [
 const VARIANTS = [
   { name: '수채화 · 감성', desc: '따뜻한 물감 번짐과 계절 일러스트' },
   { name: '크림 · 골드 프레임', desc: '밝은 크림 바탕에 금색 이중 테두리' },
-  { name: '네이비 · 모던', desc: '깊은 남색 바탕에 절제된 금선' }
+  { name: '딥톤 · 모던', desc: '깊은 색 바탕에 절제된 금선' }
 ];
 
 function mulberry32(a) {
@@ -2399,9 +2399,9 @@ function renderDesign() {
   tg.innerHTML = '';
   VARIANTS.forEach((v, vi) => {
     const card = el('button', { class: 'tpl' + (d.variant === vi && !d.customBg ? ' on' : '') });
-    const cv = el('canvas', { class: 'cv', width: 480, height: 270 });
+    const cv = el('canvas', { class: 'cv', width: 720, height: 405 });
     const ctx = cv.getContext('2d');
-    const src = renderBackgroundCanvas(d.month, vi, 480, 270);
+    const src = renderBackgroundCanvas(d.month, vi, 720, 405);
     ctx.drawImage(src, 0, 0);
     card.append(cv, el('span', { class: 'nm' }, v.name));
     card.onclick = () => {
