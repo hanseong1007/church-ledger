@@ -1527,6 +1527,22 @@ const GEO = {
     body: [1.35, 2.02, 10.6, 4.45]
   }
 };
+const BODY_BOTTOM = 6.47;
+/* 소제목이 길거나 글자가 크면 두 줄이 되므로, 소제목 높이에 맞춰 규칙선·본문 위치를 내린다.
+   (크기를 줄이지 않고도 소제목과 본문이 겹치지 않게) */
+function bodyGeom(catText, C) {
+  const lines = Math.max(1, wrapRanges(catText || '', 10.6 * 72, C.size, C.font, C.bold, C.italic).length);
+  const catH = Math.max(0.78, lines * (C.size * LINE.cat) / 72 + 0.16);
+  const catY = 0.80;
+  const ruleY = catY + catH + 0.16;
+  const bodyY = ruleY + 0.28;
+  const bodyH = Math.max(1.2, BODY_BOTTOM - bodyY);
+  return {
+    cat: [1.35, catY, 10.6, catH],
+    rule: [1.36, ruleY, 0.9, 0.032],
+    body: [1.35, bodyY, 10.6, bodyH]
+  };
+}
 const LINE = { title: 1.25, verse: 1.7, part: 1.85, cat: 1.2, body: 1.8 };
 const GOLD = '#B89B5E';
 
@@ -1727,8 +1743,9 @@ function paginateMonth(month, area) {
       }));
     } else if (s.kind === 'body') {
       const B = A.body;
-      const key = 'B|' + [B.size, B.font, B.bold, B.italic].join('|') + '|' + (s.text || '');
-      const pages = cachedPages(key, () => splitToPages(s.text, GEO.body.body, B.size, B.font, B.bold, B.italic, LINE.body));
+      const key = 'B|' + [B.size, B.font, B.bold, B.italic, s.cat || ''].join('|') + '|' + (s.text || '');
+      const box = bodyGeom(s.cat, A.cat).body;
+      const pages = cachedPages(key, () => splitToPages(s.text, box, B.size, B.font, B.bold, B.italic, LINE.body));
       pages.forEach((txt, pi) => out.push({
         si: si, pi: pi, n: pages.length,
         slide: Object.assign({}, s, { text: txt, cont: pi > 0 })
@@ -1774,7 +1791,7 @@ function slideKindName(kind) {
 /* 슬라이드 하나의 텍스트 배치 정보를 만든다 (미리보기·PPTX 공용) */
 function layoutSlide(slide, month, area) {
   const A = area || state.ws.areas;
-  const out = { items: [], scales: {} };
+  const out = { items: [], scales: {}, rule: null };
   if (!slide) return out;
   if (slide.kind === 'title') {
     const t = A.title;
@@ -1782,6 +1799,7 @@ function layoutSlide(slide, month, area) {
     const ts = fitScale(slide.text || month.title, GEO.title.title[2], GEO.title.title[3], t.size, t.font, t.bold, t.italic, LINE.title);
     const vs = fitScale(month.verse, GEO.title.verse[2], GEO.title.verse[3], verseSize, t.font, false, t.italic, LINE.verse);
     out.scales.title = ts; out.scales.verse = vs;
+    out.rule = GEO.title.rule;
     out.items.push({ box: GEO.title.title, text: slide.text || month.title || '', size: t.size * ts, font: t.font, bold: t.bold, italic: t.italic, color: t.color, align: 'center', spacing: LINE.title, anchor: 'middle' });
     out.items.push({ box: GEO.title.verse, text: month.verse || '', size: verseSize * vs, font: t.font, bold: false, italic: t.italic, color: t.color, align: 'center', spacing: LINE.verse, kl: true });
   } else if (slide.kind === 'opening' || slide.kind === 'closing') {
@@ -1789,8 +1807,10 @@ function layoutSlide(slide, month, area) {
     out.items.push({ box: GEO.part.body, text: slide.text || '', size: t.size, font: t.font, bold: t.bold, italic: t.italic, color: t.color, align: 'justify', spacing: LINE.part, kl: true });
   } else {
     const C = A.cat, B = A.body;
-    out.items.push({ box: GEO.body.cat, text: slide.cat || '', size: C.size, font: C.font, bold: C.bold, italic: C.italic, color: C.color, align: 'left', spacing: LINE.cat, anchor: 'middle' });
-    out.items.push({ box: GEO.body.body, text: slide.text || '', size: B.size, font: B.font, bold: B.bold, italic: B.italic, color: B.color, align: 'justify', spacing: LINE.body, kl: true });
+    const g = bodyGeom(slide.cat, C);
+    out.rule = g.rule;
+    out.items.push({ box: g.cat, text: slide.cat || '', size: C.size, font: C.font, bold: C.bold, italic: C.italic, color: C.color, align: 'left', spacing: LINE.cat, anchor: 'middle' });
+    out.items.push({ box: g.body, text: slide.text || '', size: B.size, font: B.font, bold: B.bold, italic: B.italic, color: B.color, align: 'justify', spacing: LINE.body, kl: true });
   }
   return out;
 }
@@ -1844,7 +1864,7 @@ function paintSlide(bgEl, textEl, slide, opt) {
     textEl.append(n);
   });
   // 황금 규칙선
-  const ruleGrp = slide.kind === 'title' ? GEO.title.rule : (slide.kind === 'body' ? GEO.body.rule : null);
+  const ruleGrp = L.rule;
   if (ruleGrp) {
     const r = document.createElement('div');
     r.style.position = 'absolute';
@@ -2039,8 +2059,10 @@ async function buildPptx() {
     }
     const d = parseXml(s3);
     removeShape(d, 't_pleft'); removeShape(d, 't_pright');
-    setShapeGeom(d, 't_cat', GEO.body.cat);
-    setShapeGeom(d, 't_body', GEO.body.body);
+    const g = bodyGeom(s.cat, A.cat);
+    setShapeGeom(d, 't_cat', g.cat);
+    setShapeGeom(d, 't_crule', g.rule);
+    setShapeGeom(d, 't_body', g.body);
     setShapeText(d, 't_cat', s.cat || '', { size: A.cat.size, bold: A.cat.bold, italic: A.cat.italic, color: A.cat.color, font: A.cat.font, align: 'left', spacing: LINE.cat, anchor: 'middle' });
     setShapeText(d, 't_body', s.text || '', { size: A.body.size, bold: A.body.bold, italic: A.body.italic, color: A.body.color, font: A.body.font, align: 'justify', spacing: LINE.body });
     return serXml(d);
