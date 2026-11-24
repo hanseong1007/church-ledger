@@ -2209,7 +2209,7 @@ function refreshAll(keepSel) {
   renderStage();
   renderEditor();
   if (state.tab === 'design') { renderDesign(); paintMini('#miniBg', '#miniText', '#miniLayer', '#miniPos', '#pvLabel'); }
-  if (state.tab === 'fonts') { renderFonts(); paintMini('#miniBg2', '#miniText2', '#miniLayer2', '#miniPos2', '#pvLabel2'); }
+  if (state.tab === 'fonts') { paintMini('#miniBg2', '#miniText2', '#miniLayer2', '#miniPos2', '#pvLabel2'); }
   if (state.tab === 'data') renderData();
   if (state.tab === 'users') renderUsers();
 }
