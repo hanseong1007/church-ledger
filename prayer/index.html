@@ -1789,7 +1789,7 @@ function txBodyXml(text, st) {
   const anchor = st.anchor === 'middle' ? 'ctr' : 't';
   const sz = Math.max(600, Math.round(st.size * 100));
   const spc = st.spacing ? '<a:lnSpc><a:spcPct val="' + Math.round(st.spacing * 100000) + '"/></a:lnSpc>' : '';
-  const letter = st.ls ? ' spc="' + Math.round(st.ls * 100 * 100) + '"' : '';
+  const letter = st.ls ? ' spc="' + Math.max(0, Math.round(st.ls * st.size * 100)) + '"' : '';
   const font = xmlEscape(st.font || '맑은 고딕');
   const paras = String(text == null ? '' : text).split('\n');
   const body = paras.map(t => {
@@ -1855,12 +1855,17 @@ async function buildPptx() {
   const footStyle = { size: 9.5, bold: false, italic: false, color: footColor(), font: A.cat.font, align: 'center' };
 
   const slideXmls = slides.map((s, idx) => {
+    const lay = layoutSlide(s, month);
+    const sc = lay.scales || {};
+    const k = (x) => (typeof x === 'number' ? x : 1);
     if (s.kind === 'title') {
       const d = parseXml(s1);
       const t = A.title;
+      const tSize = t.size * k(sc.title);
+      const vSize = Math.round(t.size * 0.45 * 10) / 10 * k(sc.verse);
       setShapeText(d, 't_kicker', design.kicker || '', { size: 11, bold: false, italic: false, color: GOLD, font: t.font, align: 'center', spacing: 1.4, ls: 0.22 });
-      setShapeText(d, 't_title', s.text || month.title || '', { size: t.size, bold: t.bold, italic: t.italic, color: t.color, font: t.font, align: 'center', spacing: LINE.title, anchor: 'middle' });
-      setShapeText(d, 't_verse', month.verse || '', { size: Math.round(t.size * 0.45 * 10) / 10, bold: false, italic: t.italic, color: t.color, font: t.font, align: 'center', spacing: LINE.verse });
+      setShapeText(d, 't_title', s.text || month.title || '', { size: tSize, bold: t.bold, italic: t.italic, color: t.color, font: t.font, align: 'center', spacing: LINE.title, anchor: 'middle' });
+      setShapeText(d, 't_verse', month.verse || '', { size: vSize, bold: false, italic: t.italic, color: t.color, font: t.font, align: 'center', spacing: LINE.verse });
       setShapeText(d, 't_foot', footer, footStyle);
       return serXml(d);
     }
@@ -1868,14 +1873,15 @@ async function buildPptx() {
       const d = parseXml(s2);
       const t = A.part;
       const label = s.kind === 'opening' ? (month.openingLabel || '여는 기도') : (month.closingLabel || '마무리 기도');
-      setShapeText(d, 't_pill', label, { size: Math.round(t.size * 0.57 * 10) / 10, bold: t.bold, italic: t.italic, color: GOLD, font: t.font, align: 'center', spacing: 1.2, anchor: 'middle' });
-      setShapeText(d, 't_body', s.text || '', { size: t.size, bold: t.bold, italic: t.italic, color: t.color, font: t.font, align: 'justify', spacing: LINE.part });
+      const pSize = t.size * k(sc.body);
+      setShapeText(d, 't_pill', label, { size: Math.round(t.size * 0.57 * k(sc.body) * 10) / 10, bold: t.bold, italic: t.italic, color: GOLD, font: t.font, align: 'center', spacing: 1.2, anchor: 'middle' });
+      setShapeText(d, 't_body', s.text || '', { size: pSize, bold: t.bold, italic: t.italic, color: t.color, font: t.font, align: 'justify', spacing: LINE.part });
       setShapeText(d, 't_foot', footer, footStyle);
       return serXml(d);
     }
     const d = parseXml(s3);
-    setShapeText(d, 't_cat', s.cat || '', { size: A.cat.size, bold: A.cat.bold, italic: A.cat.italic, color: A.cat.color, font: A.cat.font, align: 'left', spacing: LINE.cat, anchor: 'middle' });
-    setShapeText(d, 't_body', s.text || '', { size: A.body.size, bold: A.body.bold, italic: A.body.italic, color: A.body.color, font: A.body.font, align: 'justify', spacing: LINE.body });
+    setShapeText(d, 't_cat', s.cat || '', { size: A.cat.size * k(sc.cat), bold: A.cat.bold, italic: A.cat.italic, color: A.cat.color, font: A.cat.font, align: 'left', spacing: LINE.cat, anchor: 'middle' });
+    setShapeText(d, 't_body', s.text || '', { size: A.body.size * k(sc.body), bold: A.body.bold, italic: A.body.italic, color: A.body.color, font: A.body.font, align: 'justify', spacing: LINE.body });
     setShapeText(d, 't_pleft', footer + ' · ' + monthLabel(month.key), { size: 9, bold: false, italic: false, color: footColor(), font: A.cat.font, align: 'left' });
     setShapeText(d, 't_pright', (idx + 1) + ' / ' + total, { size: 9, bold: false, italic: false, color: footColor(), font: A.cat.font, align: 'center' });
     return serXml(d);
