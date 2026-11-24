@@ -832,8 +832,14 @@ https://github.com/nodeca/pako/blob/main/LICENSE
         + '· 그 뒤에는 처음 정했던 비밀번호(또는 새 비밀번호)로 새 금고를 만들면 됩니다.'
       : '이 브라우저에서 처음부터 다시 시작합니다.';
     if (!window.confirm(msg)) return;
-    try { localStorage.removeItem(VAULT_KEY); } catch (e) { /* 무시 */ }
+    try {
+      localStorage.removeItem(VAULT_KEY);
+      // 동기화 장부(마지막 저장 시각 등)는 예전 비밀번호의 슬롯 기준이므로 함께 지웁니다.
+      // 남아 있으면 새 비밀번호로 들어와도 “이미 맞춰져 있다”고 판단해 구글 시트의 자료를 받아오지 않을 수 있습니다.
+      localStorage.removeItem(SYNC_KEY);
+    } catch (e) { /* 무시 */ }
     state.key = null; state.vault = null; state.data = null;
+    state.dirtyAt = 0;
     setLockMode('setup');
   }
 
@@ -851,7 +857,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       const r = await tryUnlock(pw);
       $('#lockBtn').disabled = false;
       if (!r.ok) {
-        err.textContent = '비밀번호가 맞지 않습니다. 계속 안 되면 아래 ‘비밀번호 초기화’를 눌러 처음부터 다시 열 수 있습니다.';
+        err.textContent = '비밀번호가 맞지 않습니다. 스마트폰에서 첫 글자가 대문자로 바뀌지 않았는지 확인하거나, 아래 ‘비밀번호 초기화’로 처음부터 다시 열 수 있습니다.';
         $('.lock-card').classList.add('shake');
         setTimeout(() => $('.lock-card').classList.remove('shake'), 400);
         return;
