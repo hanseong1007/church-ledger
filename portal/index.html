@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>덕신교회 통합 포털</title>
-<meta name="description" content="덕신교회 금전출납부 · 재정보고 변환 · 중보기도문 변환을 한 곳에서 여는 교회 행정 포털.">
+<meta name="description" content="덕신교회 금전출납부 · 재정보고 변환 · 중보기도문 변환을 한 번의 로그인으로 여는 교회 행정 포털.">
 <meta name="robots" content="noindex, nofollow">
 <meta name="color-scheme" content="light">
 <meta name="theme-color" content="#101b31">
@@ -12,6 +12,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="덕신교회">
+<meta name="format-detection" content="telephone=no">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icons/favicon-32.png" sizes="32x32" type="image/png">
 <link rel="apple-touch-icon" href="icons/apple-touch-icon.png" sizes="180x180">
@@ -22,17 +23,21 @@
     --navy-3:#1e2f51;
     --ivory:#f7f4ea;
     --ivory-2:#fffdf6;
-    --ivory-3:#efe9d9;
     --gold:#c2a058;
     --gold-2:#a8863f;
     --gold-soft:#e7d9b8;
     --ink:#1b2434;
+    --ink-2:#3a4453;
     --muted:#6c7383;
     --line:#e3dccb;
+    --line-2:#efe9db;
+    --danger:#b4463b;
+    --ok:#4d6b43;
     --shadow:0 1px 2px rgba(16,27,49,.06), 0 12px 30px -18px rgba(16,27,49,.35);
     --radius:18px;
+    --safe-b:env(safe-area-inset-bottom,0px);
   }
-  *{box-sizing:border-box}
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
   html{-webkit-text-size-adjust:100%}
   body{
     margin:0;
@@ -48,265 +53,176 @@
     -webkit-font-smoothing:antialiased;
   }
   a{color:inherit}
-  .wrap{max-width:1080px;margin:0 auto;padding:0 20px}
+  button{font:inherit;color:inherit}
+  [hidden]{display:none !important}
+  .wrap{max-width:1040px;margin:0 auto;padding:0 18px}
 
-  /* ── 머리말 ───────────────────────────────────────────── */
+  /* ── 로그인 ─────────────────────────────────────────── */
+  #gate,#setup{min-height:100vh;min-height:100dvh;display:flex;align-items:center;justify-content:center;
+        padding:30px 16px calc(30px + var(--safe-b))}
+  .gate-card{width:100%;max-width:420px}
+  .gate-brand{display:flex;align-items:center;gap:13px;margin:0 0 16px}
+  .mark{width:50px;height:50px;flex:none;border-radius:14px;
+        background:linear-gradient(160deg,#23345a,#101b31);
+        border:1px solid rgba(194,160,88,.55);display:grid;place-items:center;
+        box-shadow:inset 0 1px 0 rgba(255,255,255,.10), 0 6px 18px -10px rgba(0,0,0,.7)}
+  .mark svg{width:28px;height:28px;display:block}
+  .gate-brand .kicker{font-size:11.5px;letter-spacing:.32em;text-transform:uppercase;color:var(--gold-2);margin:0 0 2px;font-weight:700}
+  .gate-brand h1{margin:0;font-size:20px;font-weight:800;letter-spacing:-.01em;color:var(--navy)}
+  .card{background:linear-gradient(180deg,var(--ivory-2),#fffdf9 62%,#fcfaf2);border:1px solid var(--line);
+        border-radius:20px;box-shadow:var(--shadow);padding:22px}
+  .authcard h2{margin:0 0 4px;font-size:17px;letter-spacing:-.01em;color:var(--navy)}
+  .authcard .lead{margin:0 0 16px;font-size:13px;color:var(--muted);line-height:1.55}
+  .field{margin-bottom:11px}
+  .lbl{display:block;font-size:12px;font-weight:800;color:var(--ink-2);margin-bottom:6px}
+  .inp{width:100%;height:48px;border:1px solid var(--line);border-radius:12px;padding:0 13px;
+       background:#fbfcfb;outline:none;font-size:16px;color:var(--ink)}
+  .inp:focus{border-color:var(--gold);background:#fff;box-shadow:0 0 0 3px rgba(194,160,88,.16)}
+  .inp.sm{height:42px;font-size:15px;border-radius:10px}
+  select.inp{height:44px;padding:0 10px}
+  .authrow{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:4px 0 10px;font-size:13px}
+  .keep{display:inline-flex;align-items:center;gap:7px;color:var(--ink-2);font-weight:700;font-size:12.5px}
+  .keep input{width:17px;height:17px;accent-color:var(--gold-2)}
+  .authmsg{min-height:19px;font-size:12.5px;font-weight:800;color:var(--danger);margin:0 0 8px;line-height:1.4}
+  .authmsg.ok{color:var(--ok);font-weight:700}
+  .syncnote{font-size:11.5px;font-weight:600;color:#6b7280;text-align:center;margin-top:8px;line-height:1.45}
+  .btn{appearance:none;border:0;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:6px;
+       border-radius:12px;padding:0 16px;height:46px;font-size:14px;font-weight:800;text-decoration:none;white-space:nowrap}
+  .btn.primary{width:100%;background:linear-gradient(160deg,var(--navy-3),var(--navy));color:var(--ivory);
+               border:1px solid rgba(16,27,49,.9);box-shadow:0 8px 18px -12px rgba(16,27,49,.9)}
+  .btn.line{background:#f5f0e3;color:#4d5464;border:1px solid var(--line)}
+  .btn.soft{background:#efe9d9;color:#5a5033;border:1px solid #e2d9c3}
+  .btn.danger{background:#fbeceb;color:var(--danger);border:1px solid #f0d2cf}
+  .btn:disabled{opacity:.6;cursor:default}
+  .btn.xs{height:34px;border-radius:9px;padding:0 11px;font-size:12.5px;font-weight:700}
+  .btn-icon{width:38px;height:38px;padding:0;border-radius:11px;background:#f3eee1;color:#6a6f7c;border:1px solid var(--line)}
+  .btn:focus-visible,.inp:focus-visible{outline:2px solid var(--gold-2);outline-offset:2px}
+
+  /* ── 상단 ───────────────────────────────────────────── */
   header.masthead{
     background:
       radial-gradient(700px 260px at 78% -40%, rgba(194,160,88,.28), transparent 65%),
       linear-gradient(160deg, var(--navy-2) 0%, var(--navy) 58%, #0b1425 100%);
-    color:var(--ivory);
-    padding:34px 0 30px;
-    border-bottom:1px solid rgba(194,160,88,.42);
-    position:relative;
-  }
-  header.masthead::after{
-    content:"";position:absolute;left:0;right:0;bottom:0;height:3px;
-    background:linear-gradient(90deg,transparent,var(--gold) 22%,#efdcaf 50%,var(--gold) 78%,transparent);
-    opacity:.85;
-  }
-  .brand{display:flex;align-items:center;gap:15px}
-  .mark{
-    width:52px;height:52px;flex:none;border-radius:14px;
-    background:linear-gradient(160deg,#23345a,#101b31);
-    border:1px solid rgba(194,160,88,.55);
-    display:grid;place-items:center;
-    box-shadow:inset 0 1px 0 rgba(255,255,255,.10), 0 6px 18px -10px rgba(0,0,0,.7);
-  }
-  .mark svg{width:30px;height:30px;display:block}
-  .brand .kicker{
-    font-size:12.5px;letter-spacing:.34em;text-transform:uppercase;
-    color:var(--gold-soft);margin:0 0 3px;font-weight:600;
-  }
-  .brand h1{margin:0;font-size:clamp(24px,4.2vw,32px);font-weight:700;letter-spacing:-.01em;line-height:1.25}
+    color:var(--ivory);padding:22px 0;border-bottom:1px solid rgba(194,160,88,.42);position:relative}
+  header.masthead::after{content:"";position:absolute;left:0;right:0;bottom:0;height:3px;
+    background:linear-gradient(90deg,transparent,var(--gold) 22%,#efdcaf 50%,var(--gold) 78%,transparent);opacity:.85}
+  .mast-in{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+  .mast-in .brand{display:flex;align-items:center;gap:12px;min-width:0;flex:1}
+  .brand h1{margin:0;font-size:19px;font-weight:800;letter-spacing:-.01em;line-height:1.25}
   .brand h1 .thin{font-weight:400;color:#cfd6e4}
-  .lede{margin:12px 0 0;color:#c3cbdb;font-size:14.5px;max-width:62ch}
-  .masthead-meta{
-    margin-top:18px;display:flex;flex-wrap:wrap;gap:8px 10px;align-items:center;
-    font-size:12.5px;color:#aeb8cc;
-  }
-  .chip{
-    display:inline-flex;align-items:center;gap:6px;
-    padding:4px 11px;border-radius:999px;
-    border:1px solid rgba(194,160,88,.38);
-    background:rgba(194,160,88,.10);color:var(--gold-soft);
-    font-size:12px;font-weight:600;letter-spacing:.02em;
-  }
-  .chip.plain{border-color:rgba(255,255,255,.16);background:rgba(255,255,255,.05);color:#c9d1e0;font-weight:500}
+  .brand .kicker{font-size:11px;letter-spacing:.3em;text-transform:uppercase;color:var(--gold-soft);margin:0 0 2px;font-weight:700}
+  .who{display:flex;align-items:center;gap:9px;flex-wrap:wrap}
+  .who .av{width:36px;height:36px;border-radius:11px;display:grid;place-items:center;font-weight:800;
+           background:rgba(194,160,88,.18);border:1px solid rgba(194,160,88,.5);color:var(--gold-soft)}
+  .who .nm{font-size:13.5px;font-weight:800;color:var(--ivory)}
+  .who .tag{font-size:11px;font-weight:700;padding:2px 8px;border-radius:999px;background:rgba(194,160,88,.16);
+            border:1px solid rgba(194,160,88,.42);color:var(--gold-soft)}
+  .who .tag.gray{background:rgba(255,255,255,.07);border-color:rgba(255,255,255,.16);color:#c9d1e0}
+  .mast-in .btn.small{height:36px;padding:0 12px;font-size:12.5px;background:rgba(255,255,255,.08);
+                      border:1px solid rgba(255,255,255,.2);color:#e6e9f0;font-weight:700}
 
-  /* ── 본문 ─────────────────────────────────────────────── */
-  main{padding:30px 0 10px}
-  .toolbar{
-    display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between;
-    margin-bottom:18px;
-  }
-  .toolbar h2{
-    margin:0;font-size:15px;font-weight:700;letter-spacing:.01em;color:#2a3446;
-    display:flex;align-items:center;gap:9px;
-  }
-  .toolbar h2::before{
-    content:"";width:4px;height:16px;border-radius:2px;
-    background:linear-gradient(180deg,var(--gold),var(--gold-2));
-  }
-  .switch{
-    display:inline-flex;align-items:center;gap:2px;
-    padding:3px;border-radius:999px;background:#ede7d8;border:1px solid var(--line);
-  }
-  .switch button{
-    appearance:none;border:0;background:transparent;cursor:pointer;
-    font:inherit;font-size:12.5px;font-weight:600;color:#6a6f7c;
-    padding:6px 13px;border-radius:999px;transition:background .15s,color .15s,box-shadow .15s;
-    display:inline-flex;align-items:center;gap:5px;white-space:nowrap;
-  }
-  .switch button[aria-pressed="true"]{
-    background:var(--ivory-2);color:var(--navy);
-    box-shadow:0 1px 3px rgba(16,27,49,.16);
-  }
-  .switch button:focus-visible{outline:2px solid var(--gold-2);outline-offset:2px}
+  /* ── 본문 ───────────────────────────────────────────── */
+  main{padding:26px 0 12px}
+  .toolbar{display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between;margin-bottom:16px}
+  .toolbar h2{margin:0;font-size:15px;font-weight:800;color:#2a3446;display:flex;align-items:center;gap:9px}
+  .toolbar h2::before{content:"";width:4px;height:16px;border-radius:2px;background:linear-gradient(180deg,var(--gold),var(--gold-2))}
+  .switch{display:inline-flex;align-items:center;gap:2px;padding:3px;border-radius:999px;background:#ede7d8;border:1px solid var(--line)}
+  .switch button{appearance:none;border:0;background:transparent;cursor:pointer;font-size:12.5px;font-weight:700;color:#6a6f7c;
+                 padding:6px 13px;border-radius:999px;white-space:nowrap}
+  .switch button[aria-pressed="true"]{background:var(--ivory-2);color:var(--navy);box-shadow:0 1px 3px rgba(16,27,49,.16)}
 
   .grid{display:grid;gap:18px;grid-template-columns:repeat(3,minmax(0,1fr))}
-  .card{
-    position:relative;display:flex;flex-direction:column;
-    background:linear-gradient(180deg,var(--ivory-2),#fffdf9 60%,#fcfaf2);
-    border:1px solid var(--line);
-    border-radius:var(--radius);
-    padding:22px 22px 18px;
-    box-shadow:var(--shadow);
-    transition:transform .18s ease, box-shadow .18s ease, border-color .18s ease;
-    overflow:hidden;
-  }
-  .card::before{
-    content:"";position:absolute;inset:0 0 auto 0;height:3px;
-    background:linear-gradient(90deg,var(--gold-2),var(--gold) 45%,var(--gold-soft));
-    opacity:.9;
-  }
-  .card:hover{transform:translateY(-3px);border-color:var(--gold-soft);box-shadow:0 2px 4px rgba(16,27,49,.06),0 20px 38px -22px rgba(16,27,49,.5)}
-  .card:focus-within{border-color:var(--gold)}
-  .card .ic{
-    width:48px;height:48px;border-radius:13px;
-    background:linear-gradient(155deg,var(--navy-3),var(--navy));
-    display:grid;place-items:center;flex:none;
-    box-shadow:inset 0 1px 0 rgba(255,255,255,.12);
-    margin-bottom:14px;
-  }
-  .card .ic svg{width:25px;height:25px;display:block}
-  .card h3{margin:0 0 6px;font-size:17.5px;font-weight:700;letter-spacing:-.01em;color:var(--navy)}
-  .card .path{
-    font-size:11.5px;color:var(--gold-2);font-weight:600;letter-spacing:.06em;
-    text-transform:uppercase;margin:0 0 10px;
-  }
-  .card p.desc{margin:0 0 16px;font-size:13.5px;color:#4d5567;line-height:1.62;flex:1}
-  .card .foot{
-    display:flex;align-items:center;justify-content:space-between;gap:10px;
-    padding-top:13px;border-top:1px solid #efe9db;
-  }
-  .recent{
-    font-size:12px;color:var(--muted);display:inline-flex;align-items:center;gap:6px;
-    min-width:0;
-  }
+  .appcard{position:relative;display:flex;flex-direction:column;background:linear-gradient(180deg,var(--ivory-2),#fffdf9 60%,#fcfaf2);
+    border:1px solid var(--line);border-radius:var(--radius);padding:22px 22px 18px;box-shadow:var(--shadow);overflow:hidden;
+    transition:transform .18s ease,box-shadow .18s ease,border-color .18s ease}
+  .appcard::before{content:"";position:absolute;inset:0 0 auto 0;height:3px;
+    background:linear-gradient(90deg,var(--gold-2),var(--gold) 45%,var(--gold-soft));opacity:.9}
+  .appcard:hover{transform:translateY(-3px);border-color:var(--gold-soft);box-shadow:0 2px 4px rgba(16,27,49,.06),0 20px 38px -22px rgba(16,27,49,.5)}
+  .appcard .ic{width:48px;height:48px;border-radius:13px;background:linear-gradient(155deg,var(--navy-3),var(--navy));
+    display:grid;place-items:center;flex:none;box-shadow:inset 0 1px 0 rgba(255,255,255,.12);margin-bottom:14px}
+  .appcard .ic svg{width:25px;height:25px;display:block}
+  .appcard h3{margin:0 0 6px;font-size:17.5px;font-weight:800;letter-spacing:-.01em;color:var(--navy)}
+  .appcard .path{font-size:11.5px;color:var(--gold-2);font-weight:800;letter-spacing:.06em;text-transform:uppercase;margin:0 0 10px}
+  .appcard p.desc{margin:0 0 16px;font-size:13.5px;color:#4d5567;line-height:1.62;flex:1}
+  .appcard .foot{display:flex;align-items:center;justify-content:space-between;gap:10px;padding-top:13px;border-top:1px solid var(--line-2)}
+  .appcard .open{background:linear-gradient(160deg,var(--navy-3),var(--navy));color:var(--ivory);font-weight:800;
+    border:1px solid rgba(16,27,49,.9);border-radius:11px;height:38px;padding:0 18px;font-size:13.5px}
+  .recent{font-size:12px;color:var(--muted);display:inline-flex;align-items:center;gap:6px;min-width:0}
   .recent .dot{width:6px;height:6px;border-radius:50%;background:#c9c2b0;flex:none}
   .recent.has{color:#5b6b52}
   .recent.has .dot{background:#7d9a63;box-shadow:0 0 0 3px rgba(125,154,99,.16)}
-  .recent span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-  .card-actions{display:flex;align-items:center;gap:7px;flex:none}
-  .btn{
-    appearance:none;border:0;cursor:pointer;font:inherit;text-decoration:none;
-    display:inline-flex;align-items:center;justify-content:center;gap:6px;
-    border-radius:11px;padding:9px 16px;font-size:13.5px;font-weight:700;
-    transition:background .15s,color .15s,box-shadow .15s,transform .12s;
-    white-space:nowrap;
-  }
-  .btn-open{
-    background:linear-gradient(160deg,var(--navy-3),var(--navy));
-    color:var(--ivory);box-shadow:0 6px 14px -9px rgba(16,27,49,.85);
-    border:1px solid rgba(16,27,49,.9);
-  }
-  .btn-open:hover{background:linear-gradient(160deg,#26406e,#16233f)}
-  .btn-open:active{transform:translateY(1px)}
-  .btn-icon{
-    width:36px;height:36px;padding:0;border-radius:10px;
-    background:#f3eee1;color:#6a6f7c;border:1px solid var(--line);
-  }
-  .btn-icon:hover{background:#ece5d4;color:var(--navy)}
-  .btn:focus-visible{outline:2px solid var(--gold-2);outline-offset:2px}
-  .btn-icon svg{width:16px;height:16px;display:block}
+  .empty-note{background:rgba(255,253,246,.8);border:1px dashed var(--line);border-radius:14px;padding:22px;text-align:center;color:var(--muted);font-size:13.5px}
 
-  /* ── 안내 ─────────────────────────────────────────────── */
-  .guide{margin-top:30px;display:grid;gap:16px;grid-template-columns:repeat(3,minmax(0,1fr))}
-  .panel{
-    background:rgba(255,253,246,.78);
-    border:1px solid var(--line);border-radius:15px;padding:18px 18px 16px;
-  }
-  .panel h3{
-    margin:0 0 9px;font-size:13.5px;font-weight:700;color:var(--navy);
-    display:flex;align-items:center;gap:8px;
-  }
-  .panel h3 svg{width:17px;height:17px;flex:none;color:var(--gold-2)}
-  .panel p{margin:0 0 8px;font-size:12.8px;color:#535b6c;line-height:1.68}
+  section.block{margin-top:26px}
+  .panel{background:rgba(255,253,246,.86);border:1px solid var(--line);border-radius:16px;padding:18px}
+  .panel-h{display:flex;flex-wrap:wrap;gap:8px 12px;align-items:center;justify-content:space-between;margin-bottom:12px}
+  .panel-h h3{margin:0;font-size:14px;font-weight:800;color:var(--navy);display:flex;align-items:center;gap:8px}
+  .panel-h h3 svg{width:17px;height:17px;color:var(--gold-2)}
+  .panel-h .sub{font-size:12px;color:var(--muted)}
+  .panel p{margin:0 0 8px;font-size:12.9px;color:#535b6c;line-height:1.68}
   .panel p:last-child{margin-bottom:0}
-  .panel ol,.panel ul{margin:0;padding-left:17px;font-size:12.8px;color:#535b6c;line-height:1.72}
-  .panel li{margin:2px 0}
-  .panel code{
-    background:#f0ead9;border:1px solid #e6dfcb;border-radius:5px;
-    padding:1px 5px;font-size:11.8px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;color:#5a5033;
-  }
+  .hint{font-size:12px;color:var(--muted);line-height:1.6}
 
-  .links{margin-top:18px;background:linear-gradient(180deg,#fffdf6,#fbf8ef);border:1px solid var(--line);border-radius:15px;overflow:hidden}
-  .links .head{
-    display:flex;flex-wrap:wrap;gap:8px 12px;align-items:baseline;justify-content:space-between;
-    padding:15px 18px 13px;border-bottom:1px solid #efe9db;
-  }
-  .links .head h3{
-    margin:0;font-size:13.5px;font-weight:700;color:var(--navy);
-    display:flex;align-items:center;gap:8px;
-  }
-  .links .head h3 svg{width:17px;height:17px;color:var(--gold-2)}
-  .links .head span{font-size:12px;color:var(--muted)}
-  .links ul{list-style:none;margin:0;padding:0}
-  .links li{
-    display:flex;align-items:center;gap:12px;
-    padding:11px 18px;border-top:1px solid #f1ecdf;font-size:13px;
-  }
-  .links li:first-child{border-top:0}
-  .links li .nm{font-weight:700;color:#2b3548;flex:none;min-width:132px}
-  .links li .url{
-    flex:1;min-width:0;color:#6a7180;font-size:12px;
-    font-family:ui-monospace,SFMono-Regular,Menlo,monospace;
-    overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
-  }
-  .copy{
-    appearance:none;cursor:pointer;font:inherit;font-size:11.5px;font-weight:700;
-    border:1px solid var(--line);background:#f5f0e3;color:#5f6473;
-    border-radius:8px;padding:5px 10px;white-space:nowrap;transition:background .15s,color .15s,border-color .15s;
-  }
-  .copy:hover{background:#ece5d4;color:var(--navy)}
-  .copy.done{background:#eaf1e4;border-color:#c8d9ba;color:#46603a}
+  /* 사용자 관리 */
+  .urow{border:1px solid var(--line-2);border-radius:13px;background:var(--ivory-2);padding:12px 13px;margin-bottom:9px}
+  .urow.me{border-color:var(--gold-soft);background:#fffdf5}
+  .urow .ut{display:flex;align-items:center;gap:7px;flex-wrap:wrap}
+  .urow .ut b{font-size:14px;color:var(--navy)}
+  .urow .uid{font-size:11.5px;color:var(--muted);font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
+  .tag{font-size:11px;font-weight:800;padding:2px 8px;border-radius:999px;background:#eaf1e4;border:1px solid #c8d9ba;color:#46603a}
+  .tag.gray{background:#f1eee6;border-color:#e3dccb;color:#6b7080}
+  .tag.warn{background:#fdf3e2;border-color:#efdcb8;color:#8a6a24}
+  .menusel{display:flex;flex-wrap:wrap;gap:4px 12px;margin-top:8px}
+  .mopt{display:inline-flex;align-items:center;gap:6px;font-size:12.5px;font-weight:700;color:var(--ink-2)}
+  .mopt input{width:16px;height:16px;accent-color:var(--gold-2)}
+  .acts{display:flex;flex-wrap:wrap;gap:6px;margin-top:9px}
+  .ureset{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+  .ureset .inp{flex:1;min-width:150px}
+  .addbox{margin-top:14px;border-top:1px dashed var(--line);padding-top:14px}
+  .addbox .row2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  .addbox .row3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-top:8px}
+  .addbox .lab{margin-top:10px}
+  .credrow{display:grid;grid-template-columns:96px 1fr 1fr;gap:6px;align-items:center;margin-top:6px}
+  .credrow .cn{font-size:12px;font-weight:800;color:var(--ink-2)}
+  details.adv{margin-top:10px}
+  details.adv summary{cursor:pointer;font-size:12.5px;font-weight:800;color:#5a5033}
+  .statusline{font-size:11.5px;color:var(--muted);margin-top:8px}
 
-  footer.site{
-    margin-top:30px;padding:22px 0 34px;border-top:1px solid #e7e1d2;
-    display:flex;flex-wrap:wrap;gap:8px 16px;align-items:center;justify-content:space-between;
-    font-size:12px;color:#8b8f9a;
-  }
-  footer.site .sig{display:inline-flex;align-items:center;gap:7px}
-  footer.site .sig svg{width:14px;height:14px;color:var(--gold-2)}
+  footer.site{margin-top:26px;padding:20px 0 34px;border-top:1px solid #e7e1d2;display:flex;flex-wrap:wrap;gap:8px 16px;
+    align-items:center;justify-content:space-between;font-size:12px;color:#8b8f9a}
 
-  /* 설치 버튼 (브라우저가 설치를 제안할 때만) */
-  .install{
-    position:fixed;right:18px;bottom:18px;z-index:20;
-    display:none;align-items:center;gap:8px;
-    background:linear-gradient(160deg,var(--navy-3),var(--navy));color:var(--ivory);
-    border:1px solid rgba(194,160,88,.6);border-radius:999px;
-    padding:11px 18px;font-size:13px;font-weight:700;cursor:pointer;
-    box-shadow:0 14px 30px -14px rgba(16,27,49,.9);
-  }
-  .install.show{display:inline-flex}
-  .install svg{width:16px;height:16px;color:var(--gold-soft)}
-
-  .toast{
-    position:fixed;left:50%;bottom:26px;transform:translate(-50%,14px);
-    background:rgba(16,27,49,.95);color:#f6f2e6;border:1px solid rgba(194,160,88,.45);
-    padding:10px 18px;border-radius:11px;font-size:13px;font-weight:600;
-    opacity:0;pointer-events:none;transition:opacity .2s,transform .2s;z-index:30;
-    max-width:calc(100% - 40px);
-  }
+  .toast{position:fixed;left:50%;bottom:24px;transform:translate(-50%,14px);background:rgba(16,27,49,.95);color:#f6f2e6;
+    border:1px solid rgba(194,160,88,.45);padding:10px 18px;border-radius:11px;font-size:13px;font-weight:700;
+    opacity:0;pointer-events:none;transition:opacity .2s,transform .2s;z-index:40;max-width:calc(100% - 40px);text-align:center}
   .toast.show{opacity:1;transform:translate(-50%,0)}
+  .toast.err{background:rgba(122,38,32,.96);border-color:rgba(255,190,180,.5)}
 
-  @media (max-width:900px){
-    .grid{grid-template-columns:repeat(2,minmax(0,1fr))}
-    .guide{grid-template-columns:1fr}
-  }
+  .permblock{position:fixed;inset:0;z-index:60;display:none;align-items:center;justify-content:center;padding:24px;
+    background:rgba(16,27,49,.86)}
+  .permblock.on{display:flex}
+  .permblock .box{max-width:380px;background:var(--ivory-2);border:1px solid var(--gold);border-radius:18px;padding:24px;text-align:center}
+  .permblock h3{margin:0 0 8px;font-size:17px;color:var(--navy)}
+  .permblock p{margin:0 0 16px;font-size:13px;color:#535b6c;line-height:1.6}
+
+  @media (max-width:900px){ .grid{grid-template-columns:repeat(2,minmax(0,1fr))} }
   @media (max-width:640px){
-    header.masthead{padding:26px 0 24px}
-    .mark{width:46px;height:46px;border-radius:12px}
-    .mark svg{width:26px;height:26px}
-    .brand h1{font-size:23px}
-    .lede{font-size:13.5px}
-    main{padding:22px 0 6px}
     .grid{grid-template-columns:1fr;gap:14px}
-    .card{padding:18px 17px 16px}
-    .card .foot{flex-wrap:wrap;row-gap:11px}
-    .card-actions{width:100%;justify-content:flex-end}
-    .btn-open{flex:1;justify-content:center;padding:11px 16px;font-size:14px}
-    .btn-icon{width:42px;height:42px}
-    .links li{flex-wrap:wrap;gap:6px 10px}
-    .links li .nm{min-width:0;flex:1}
-    .links li .url{order:3;flex-basis:100%}
-    .toolbar{gap:10px}
-    .switch{width:100%;justify-content:space-between}
-    .switch button{flex:1;justify-content:center}
+    .appcard{padding:18px 17px 16px}
+    .mast-in{gap:10px}
+    .who{width:100%}
+    .addbox .row2,.addbox .row3{grid-template-columns:1fr}
+    .credrow{grid-template-columns:1fr;gap:4px}
     footer.site{flex-direction:column;align-items:flex-start}
-    .install{right:14px;bottom:14px;padding:10px 15px;font-size:12.5px}
   }
-  @media (prefers-reduced-motion:reduce){
-    *{transition:none!important;animation:none!important}
-  }
+  @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
 </style>
 </head>
-<body>
+<body data-view="gate">
 
-<header class="masthead">
-  <div class="wrap">
-    <div class="brand">
+<!-- ══════════════════ 로그인 ══════════════════ -->
+<div id="gate">
+  <div class="gate-card">
+    <div class="gate-brand">
       <div class="mark" aria-hidden="true">
         <svg viewBox="0 0 32 32" fill="none" aria-hidden="true">
           <path d="M16 4.5v23" stroke="#e7d9b8" stroke-width="2.1" stroke-linecap="round"/>
@@ -316,407 +232,1276 @@
       </div>
       <div>
         <p class="kicker">Deoksin Church</p>
-        <h1>덕신교회 <span class="thin">통합 포털</span></h1>
+        <h1>덕신교회 통합 로그인</h1>
       </div>
     </div>
-    <p class="lede">금전출납부 · 재정보고 변환 · 중보기도문 변환 — 교회 행정에 쓰는 세 가지 도구를 한 화면에서 엽니다.</p>
-    <div class="masthead-meta">
-      <span class="chip">3개 도구 연결됨</span>
-      <span class="chip plain" id="today">오늘</span>
-      <span class="chip plain">PC · 스마트폰 함께 사용</span>
+    <div class="card authcard">
+      <h2 id="gate-title">로그인</h2>
+      <p class="lead" id="gate-lead">한 번 로그인하면 허용된 교회 도구가 비밀번호 없이 열립니다.</p>
+      <form id="login-form" autocomplete="on">
+        <div class="field">
+          <label class="lbl" for="login-id">아이디</label>
+          <input class="inp" id="login-id" name="username" type="text" autocomplete="username"
+                 autocapitalize="none" autocorrect="off" spellcheck="false" placeholder="아이디">
+        </div>
+        <div class="field">
+          <label class="lbl" for="login-pw">비밀번호</label>
+          <input class="inp" id="login-pw" name="password" type="password" autocomplete="current-password"
+                 autocapitalize="none" autocorrect="off" spellcheck="false" placeholder="비밀번호">
+        </div>
+        <div class="authrow">
+          <label class="keep"><input type="checkbox" id="login-keep" checked> 이 기기에서 계속</label>
+        </div>
+        <p class="authmsg" id="login-msg" role="alert"></p>
+        <button class="btn primary" type="submit" id="login-btn">로그인</button>
+      </form>
+      <p class="syncnote" id="sync-note"></p>
     </div>
+    <p class="hint" style="text-align:center;margin-top:14px">계정은 교회 관리자에게 받으세요.</p>
   </div>
-</header>
+</div>
 
-<main class="wrap">
-  <div class="toolbar">
-    <h2>교회 행정 도구</h2>
-    <div class="switch" role="group" aria-label="앱을 여는 방식">
-      <button type="button" id="prefNew" aria-pressed="true" title="새 탭에서 열기">
-        <svg viewBox="0 0 16 16" width="13" height="13" fill="none" aria-hidden="true"><path d="M6.5 3H3.8A1.8 1.8 0 0 0 2 4.8v7.4A1.8 1.8 0 0 0 3.8 14h7.4A1.8 1.8 0 0 0 13 12.2V9.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><path d="M9.5 2.5H13.5V6.5M13 3l-5.4 5.4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
-        새 탭
-      </button>
-      <button type="button" id="prefSame" aria-pressed="false" title="지금 창에서 열기">
-        <svg viewBox="0 0 16 16" width="13" height="13" fill="none" aria-hidden="true"><rect x="2" y="3.2" width="12" height="9.6" rx="1.8" stroke="currentColor" stroke-width="1.5"/><path d="M2 6.4h12" stroke="currentColor" stroke-width="1.5"/></svg>
-        현재 창
-      </button>
-    </div>
-  </div>
-
-  <div class="grid" id="apps">
-
-    <article class="card" data-app="ledger">
-      <div class="ic" aria-hidden="true">
-        <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
-          <path d="M6 3.2h9.2L19 7v13.8H6z" stroke="#e7d9b8" stroke-width="1.5" stroke-linejoin="round"/>
-          <path d="M14.6 3.4V7.4H19" stroke="#c2a058" stroke-width="1.4" stroke-linejoin="round"/>
-          <path d="M8.8 11.2h7.4M8.8 14.2h7.4M8.8 17.2h4.6" stroke="#e7d9b8" stroke-width="1.4" stroke-linecap="round"/>
+<!-- ══════════════════ 처음 설정 (관리자 확인) ══════════════════ -->
+<div id="setup" hidden>
+  <div class="gate-card">
+    <div class="gate-brand">
+      <div class="mark" aria-hidden="true">
+        <svg viewBox="0 0 32 32" fill="none" aria-hidden="true">
+          <path d="M16 4.5v23" stroke="#e7d9b8" stroke-width="2.1" stroke-linecap="round"/>
+          <path d="M9.5 12.2h13" stroke="#e7d9b8" stroke-width="2.1" stroke-linecap="round"/>
+          <path d="M8 27.5c0-4.4 3.6-8 8-8s8 3.6 8 8" stroke="#c2a058" stroke-width="1.6" stroke-linecap="round" opacity=".85"/>
         </svg>
       </div>
-      <h3>금전출납부</h3>
-      <p class="path">장부 · 영수증 · 출력</p>
-      <p class="desc">수입·지출 기록과 영수증 사진, 월별 출납부표 인쇄까지 한 곳에서. 여러 기기가 같은 장부를 봅니다.</p>
-      <div class="foot">
-        <div class="recent" data-recent="ledger"><span class="dot" aria-hidden="true"></span><span class="txt">아직 열지 않음</span></div>
-        <div class="card-actions">
-          <a class="btn btn-icon" data-open="ledger" href="../" target="_blank" rel="noopener" aria-label="금전출납부를 새 탭에서 열기" title="새 탭에서 열기">
-            <svg viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M6.5 3H3.8A1.8 1.8 0 0 0 2 4.8v7.4A1.8 1.8 0 0 0 3.8 14h7.4A1.8 1.8 0 0 0 13 12.2V9.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><path d="M9.5 2.5H13.5V6.5M13 3l-5.4 5.4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
-          </a>
-          <a class="btn btn-open" data-open="ledger" data-main href="../">열기</a>
+      <div>
+        <p class="kicker">Deoksin Church</p>
+        <h1>덕신교회 통합 로그인</h1>
+      </div>
+    </div>
+    <div class="card authcard">
+      <h2>처음 설정</h2>
+      <p class="lead">금전출납부 관리자로 확인한 뒤, 통합 포털의 관리자 계정을 만듭니다.</p>
+      <form id="setup-form" autocomplete="on">
+        <div class="field">
+          <label class="lbl" for="su-id">금전출납부 관리자 아이디</label>
+          <input class="inp" id="su-id" type="text" value="admin" autocomplete="username"
+                 autocapitalize="none" autocorrect="off" spellcheck="false">
         </div>
-      </div>
-    </article>
-
-    <article class="card" data-app="ppt">
-      <div class="ic" aria-hidden="true">
-        <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
-          <rect x="3" y="4.5" width="18" height="12.4" rx="1.8" stroke="#e7d9b8" stroke-width="1.5"/>
-          <path d="M12 17v3M8.4 20.6h7.2" stroke="#e7d9b8" stroke-width="1.5" stroke-linecap="round"/>
-          <path d="M7.6 13.4V9.6M12 13.4V7.4M16.4 13.4V10.6" stroke="#c2a058" stroke-width="1.8" stroke-linecap="round"/>
-        </svg>
-      </div>
-      <h3>재정보고 변환</h3>
-      <p class="path">한글 → PPTX</p>
-      <p class="desc">분기별 한글 재정보고를 파워포인트로 바꿔 줍니다. 관·항 단위로 나누고 프로젝터용으로 크게 키웁니다.</p>
-      <div class="foot">
-        <div class="recent" data-recent="ppt"><span class="dot" aria-hidden="true"></span><span class="txt">아직 열지 않음</span></div>
-        <div class="card-actions">
-          <a class="btn btn-icon" data-open="ppt" href="../ppt/" target="_blank" rel="noopener" aria-label="재정보고 변환을 새 탭에서 열기" title="새 탭에서 열기">
-            <svg viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M6.5 3H3.8A1.8 1.8 0 0 0 2 4.8v7.4A1.8 1.8 0 0 0 3.8 14h7.4A1.8 1.8 0 0 0 13 12.2V9.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><path d="M9.5 2.5H13.5V6.5M13 3l-5.4 5.4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
-          </a>
-          <a class="btn btn-open" data-open="ppt" data-main href="../ppt/">열기</a>
+        <div class="field">
+          <label class="lbl" for="su-pw">금전출납부 관리자 비밀번호</label>
+          <input class="inp" id="su-pw" type="password" autocomplete="current-password"
+                 autocapitalize="none" autocorrect="off" spellcheck="false" placeholder="비밀번호">
         </div>
-      </div>
-    </article>
-
-    <article class="card" data-app="prayer">
-      <div class="ic" aria-hidden="true">
-        <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
-          <path d="M12 3.4c2.4 1.7 3.4 3.6 3.4 5.6 0 1.6-.7 2.9-1.4 4.1-.9 1.5-1.4 2.6-1.4 4.3V21h-1.2v-3.6c0-1.7-.5-2.8-1.4-4.3-.7-1.2-1.4-2.5-1.4-4.1 0-2 1-3.9 3.4-5.6Z" stroke="#e7d9b8" stroke-width="1.4" stroke-linejoin="round"/>
-          <path d="M4.4 13.6c1.6.2 2.8 1 3.6 2.2M19.6 13.6c-1.6.2-2.8 1-3.6 2.2" stroke="#c2a058" stroke-width="1.4" stroke-linecap="round"/>
-        </svg>
-      </div>
-      <h3>중보기도문 변환</h3>
-      <p class="path">한글 → PPTX</p>
-      <p class="desc">매월 공동체 중보기도문을 예배용 파워포인트로. 월별 배경 3종, 영역별 글꼴, 자동 쪽 나눔을 지원합니다.</p>
-      <div class="foot">
-        <div class="recent" data-recent="prayer"><span class="dot" aria-hidden="true"></span><span class="txt">아직 열지 않음</span></div>
-        <div class="card-actions">
-          <a class="btn btn-icon" data-open="prayer" href="../prayer/" target="_blank" rel="noopener" aria-label="중보기도문 변환을 새 탭에서 열기" title="새 탭에서 열기">
-            <svg viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M6.5 3H3.8A1.8 1.8 0 0 0 2 4.8v7.4A1.8 1.8 0 0 0 3.8 14h7.4A1.8 1.8 0 0 0 13 12.2V9.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><path d="M9.5 2.5H13.5V6.5M13 3l-5.4 5.4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
-          </a>
-          <a class="btn btn-open" data-open="prayer" data-main href="../prayer/">열기</a>
-        </div>
-      </div>
-    </article>
-
+        <p class="authmsg" id="su-msg" role="alert"></p>
+        <button class="btn primary" type="submit" id="su-btn">관리자로 확인하고 시작</button>
+      </form>
+      <p class="syncnote">이 비밀번호는 통합 포털 관리자 비밀번호로도 쓰입니다.</p>
+    </div>
+    <p class="hint" style="text-align:center;margin-top:14px">이미 계정이 있다면 <a href="#" id="setup-back">로그인 화면으로</a></p>
   </div>
+</div>
 
-  <section class="guide" aria-label="사용 안내">
-    <div class="panel">
-      <h3>
-        <svg viewBox="0 0 20 20" fill="none" aria-hidden="true"><circle cx="10" cy="7" r="3.2" stroke="currentColor" stroke-width="1.6"/><path d="M3.6 17c.6-3.2 3.1-5 6.4-5s5.8 1.8 6.4 5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
-        사용자·계정
-      </h3>
-      <p>포털은 도구로 가는 <strong>안내 화면</strong>이고, 실제 장부·자료는 각 도구의 로그인으로 보호됩니다.</p>
-      <p>처음 쓰는 분은 관리자(교회 회계 담당)에게 계정을 요청한 뒤, 받은 아이디로 각 도구에 들어가면 됩니다.</p>
-      <p>각 도구는 한 번 로그인하면 그 기기에서 계속 이어서 쓸 수 있습니다.</p>
+<!-- ══════════════════ 대시보드 ══════════════════ -->
+<div id="dash" hidden>
+  <header class="masthead">
+    <div class="wrap mast-in">
+      <div class="brand">
+        <div class="mark" aria-hidden="true">
+          <svg viewBox="0 0 32 32" fill="none" aria-hidden="true">
+            <path d="M16 4.5v23" stroke="#e7d9b8" stroke-width="2.1" stroke-linecap="round"/>
+            <path d="M9.5 12.2h13" stroke="#e7d9b8" stroke-width="2.1" stroke-linecap="round"/>
+            <path d="M8 27.5c0-4.4 3.6-8 8-8s8 3.6 8 8" stroke="#c2a058" stroke-width="1.6" stroke-linecap="round" opacity=".85"/>
+          </svg>
+        </div>
+        <div style="min-width:0">
+          <p class="kicker">Deoksin Church</p>
+          <h1>덕신교회 <span class="thin">통합 포털</span></h1>
+        </div>
+      </div>
+      <div class="who">
+        <span class="av" id="who-av">—</span>
+        <span class="nm" id="who-name">—</span>
+        <span class="tag gray" id="who-role">—</span>
+        <button class="btn small" type="button" id="btn-logout">로그아웃</button>
+      </div>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <div class="toolbar">
+      <h2>교회 행정 도구</h2>
+      <div class="switch" role="group" aria-label="앱을 여는 방식">
+        <button type="button" id="pref-new" aria-pressed="true">새 탭</button>
+        <button type="button" id="pref-same" aria-pressed="false">현재 창</button>
+      </div>
     </div>
 
-    <div class="panel">
-      <h3>
-        <svg viewBox="0 0 20 20" fill="none" aria-hidden="true"><rect x="5.6" y="2.4" width="8.8" height="15.2" rx="1.8" stroke="currentColor" stroke-width="1.6"/><path d="M8.6 15.2h2.8" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
-        홈 화면·바탕화면에 추가
-      </h3>
-      <ol>
-        <li><strong>안드로이드</strong> — Chrome 메뉴 <code>⋮</code> → <em>홈 화면에 추가</em></li>
-        <li><strong>아이폰</strong> — Safari <em>공유</em> → <em>홈 화면에 추가</em></li>
-        <li><strong>PC</strong> — 주소창 오른쪽 설치 아이콘 또는 메뉴 → <em>앱 → 설치</em></li>
-      </ol>
-      <p>한 번 추가해 두면 앱처럼 아이콘을 눌러 바로 열 수 있습니다.</p>
-    </div>
+    <div class="grid" id="apps"></div>
+    <div id="apps-none" class="empty-note" hidden>아직 사용할 수 있는 도구가 없습니다. 관리자에게 권한을 요청하세요.</div>
 
-    <div class="panel">
-      <h3>
-        <svg viewBox="0 0 20 20" fill="none" aria-hidden="true"><circle cx="10" cy="10" r="7.6" stroke="currentColor" stroke-width="1.6"/><path d="M10 6.2v4.2l2.8 1.8" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
-        최근 접속 표시
-      </h3>
-      <p>카드마다 <strong>마지막으로 연 때</strong>가 표시됩니다. 기록은 이 기기 브라우저에만 남고 어디로도 보내지 않습니다.</p>
-      <p>기기를 바꾸거나 브라우저 기록을 지우면 처음 상태(아직 열지 않음)로 돌아갑니다.</p>
-    </div>
-  </section>
+    <!-- 관리자: 사용자 관리 -->
+    <section class="block" id="sec-users" hidden>
+      <div class="panel">
+        <div class="panel-h">
+          <h3>
+            <svg viewBox="0 0 20 20" fill="none"><circle cx="10" cy="7" r="3.2" stroke="currentColor" stroke-width="1.6"/>
+            <path d="M3.6 17c.6-3.2 3.1-5 6.4-5s5.8 1.8 6.4 5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+            사용자 관리 <span class="sub" id="users-count"></span>
+          </h3>
+          <span class="sub">관리자 전용 · 앱마다 사용할 사람만 체크</span>
+        </div>
+        <div id="users-list"></div>
 
-  <section class="links" aria-label="도구별 주소">
-    <div class="head">
-      <h3>
-        <svg viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M8.2 11.8a3.4 3.4 0 0 0 4.8 0l2.2-2.2a3.4 3.4 0 0 0-4.8-4.8l-1 1" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><path d="M11.8 8.2a3.4 3.4 0 0 0-4.8 0l-2.2 2.2a3.4 3.4 0 0 0 4.8 4.8l1-1" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
-        도구별 주소
-      </h3>
-      <span>주소를 복사해 즐겨찾기나 메시지로 보낼 수 있습니다.</span>
-    </div>
-    <ul id="linkList"></ul>
-  </section>
+        <div class="addbox">
+          <h3 style="margin:0 0 10px;font-size:13.5px;color:var(--navy)">＋ 사용자 추가</h3>
+          <div class="row2">
+            <div><label class="lbl" for="nu-id">아이디</label>
+              <input class="inp sm" id="nu-id" type="text" autocomplete="off" autocapitalize="none" spellcheck="false" placeholder="영문·숫자 2~20자"></div>
+            <div><label class="lbl" for="nu-name">이름</label>
+              <input class="inp sm" id="nu-name" type="text" autocomplete="off" placeholder="예: 김집사"></div>
+          </div>
+          <div class="row3">
+            <div><label class="lbl" for="nu-pw">비밀번호</label>
+              <input class="inp sm" id="nu-pw" type="password" autocomplete="new-password" placeholder="6자 이상"></div>
+            <div><label class="lbl" for="nu-role">권한</label>
+              <select class="inp sm" id="nu-role">
+                <option value="user">사용자</option>
+                <option value="admin">관리자</option>
+              </select></div>
+            <div><label class="lbl">사용할 앱</label>
+              <div class="menusel" id="nu-apps" style="margin-top:2px"></div></div>
+          </div>
+          <details class="adv">
+            <summary>앱 비밀번호가 포털 비밀번호와 다를 때만 (선택)</summary>
+            <div class="credrow"><span class="cn">금전출납부</span>
+              <input class="inp sm" data-nucred="ledger" placeholder="아이디"><input class="inp sm" data-nucred="ledger-pw" placeholder="비밀번호"></div>
+            <div class="credrow"><span class="cn">재정보고 변환</span>
+              <input class="inp sm" data-nucred="ppt" placeholder="아이디"><input class="inp sm" data-nucred="ppt-pw" placeholder="비밀번호"></div>
+            <div class="credrow"><span class="cn">중보기도문 변환</span>
+              <input class="inp sm" data-nucred="prayer" placeholder="아이디"><input class="inp sm" data-nucred="prayer-pw" placeholder="비밀번호"></div>
+            <p class="hint" style="margin-top:8px">비워 두면 위 비밀번호를 그대로 씁니다. 금전출납부 계정은 포털이 같은 비밀번호로 함께 만들어 줍니다.</p>
+          </details>
+          <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap">
+            <button class="btn soft" type="button" id="btn-add-user" style="height:42px">사용자 추가</button>
+            <button class="btn line" type="button" id="btn-sync-pull" style="height:42px">☁️ 시트에서 새로 받기</button>
+            <button class="btn line" type="button" id="btn-sync-push" style="height:42px">☁️ 이 기기 기준으로 올리기</button>
+          </div>
+          <p class="statusline" id="sync-state"></p>
+        </div>
+      </div>
+    </section>
 
-  <footer class="site">
-    <span class="sig">
-      <svg viewBox="0 0 32 32" fill="none" aria-hidden="true"><path d="M16 4.5v23" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/><path d="M9.5 12.2h13" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>
-      덕신교회 · 교회 행정 도구 모음
-    </span>
-    <span>포털 v1.0 · 자료는 각 도구 안에서만 다룹니다</span>
-  </footer>
-</main>
+    <!-- 내 계정 -->
+    <section class="block" id="sec-account">
+      <div class="panel">
+        <div class="panel-h">
+          <h3>
+            <svg viewBox="0 0 20 20" fill="none"><circle cx="10" cy="7" r="3.2" stroke="currentColor" stroke-width="1.6"/>
+            <path d="M3.6 17c.6-3.2 3.1-5 6.4-5s5.8 1.8 6.4 5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+            내 계정
+          </h3>
+          <span class="sub" id="acc-apps"></span>
+        </div>
+        <p class="hint">아이디 <b id="acc-id">—</b> · 이름 <b id="acc-name">—</b></p>
+        <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap">
+          <button class="btn line xs" type="button" id="btn-pw-open" style="height:36px">비밀번호 변경</button>
+          <button class="btn line xs" type="button" id="btn-cred-open" style="height:36px">앱 비밀번호 설정</button>
+        </div>
 
-<button class="install" id="installBtn" type="button">
-  <svg viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M10 3v9.2M6.4 8.8 10 12.4l3.6-3.6" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/><path d="M3.8 14.4v1.4a1.4 1.4 0 0 0 1.4 1.4h9.6a1.4 1.4 0 0 0 1.4-1.4v-1.4" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>
-  홈 화면에 추가
-</button>
+        <div id="pw-panel" hidden style="margin-top:12px">
+          <div class="row3" style="display:grid;gap:8px;grid-template-columns:1fr 1fr 1fr">
+            <input class="inp sm" id="pw-cur" type="password" autocomplete="current-password" placeholder="지금 비밀번호">
+            <input class="inp sm" id="pw-new" type="password" autocomplete="new-password" placeholder="새 비밀번호 (6자 이상)">
+            <input class="inp sm" id="pw-new2" type="password" autocomplete="new-password" placeholder="새 비밀번호 확인">
+          </div>
+          <div style="margin-top:8px;display:flex;gap:8px;align-items:center">
+            <button class="btn soft xs" type="button" id="btn-pw-save" style="height:36px">저장</button>
+            <button class="btn line xs" type="button" id="btn-pw-close" style="height:36px">닫기</button>
+            <span class="hint" id="pw-msg" style="color:var(--danger)"></span>
+          </div>
+        </div>
+
+        <div id="cred-panel" hidden style="margin-top:12px">
+          <p class="hint" style="margin-bottom:8px">앱마다 지금 쓰는 비밀번호를 넣어 두면, 다음부터는 포털 로그인만으로 그 앱이 열립니다. (이 기기·다른 기기 모두)</p>
+          <div class="credrow"><span class="cn">금전출납부</span>
+            <input class="inp sm" id="cr-ledger-id" placeholder="아이디"><input class="inp sm" id="cr-ledger-pw" type="password" placeholder="비밀번호"></div>
+          <div class="credrow"><span class="cn">재정보고</span>
+            <input class="inp sm" id="cr-ppt-id" placeholder="아이디(없으면 공란)"><input class="inp sm" id="cr-ppt-pw" type="password" placeholder="비밀번호"></div>
+          <div class="credrow"><span class="cn">중보기도문</span>
+            <input class="inp sm" id="cr-prayer-id" placeholder="아이디"><input class="inp sm" id="cr-prayer-pw" type="password" placeholder="비밀번호"></div>
+          <div style="margin-top:8px">
+            <input class="inp sm" id="cred-pw-check" type="password" autocomplete="current-password"
+                   autocapitalize="none" placeholder="지금 쓰는 포털 비밀번호">
+          </div>
+          <div style="margin-top:8px;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+            <button class="btn soft xs" type="button" id="btn-cred-save" style="height:36px">저장</button>
+            <button class="btn line xs" type="button" id="btn-cred-close" style="height:36px">닫기</button>
+            <span class="hint" id="cred-msg" style="color:var(--danger)"></span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <footer class="site">
+      <span>덕신교회 · 교회 행정 도구 모음</span>
+      <span id="foot-ver">통합 포털 v2.0 · 계정과 권한은 암호화 시트로 기기 간 동기화</span>
+    </footer>
+  </main>
+</div>
+
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
+<div class="permblock" id="permblock">
+  <div class="box">
+    <h3>권한이 없는 도구입니다</h3>
+    <p id="permblock-msg">이 계정에는 이 도구를 쓸 권한이 없습니다.<br>관리자에게 요청하세요.</p>
+    <a class="btn primary" href="./" style="width:100%">⛪ 교회포털로 돌아가기</a>
+  </div>
+</div>
 
 <script>
 (function () {
   'use strict';
 
+  /* ═══════════════════════════════════════════════════════
+     0. 기본값
+     ═══════════════════════════════════════════════════════ */
   var APPS = [
-    { id: 'ledger', name: '금전출납부',        path: '../' },
-    { id: 'ppt',    name: '재정보고 변환',     path: '../ppt/' },
-    { id: 'prayer', name: '중보기도문 변환',   path: '../prayer/' }
+    { id:'ledger', name:'금전출납부',      path:'../',        kind:'장부 · 영수증 · 출력',
+      desc:'수입·지출 기록과 영수증 사진, 월별 출납부표 인쇄까지 한 곳에서. 여러 기기가 같은 장부를 봅니다.' },
+    { id:'ppt',    name:'재정보고 변환',   path:'../ppt/',    kind:'한글 → PPTX',
+      desc:'분기별 한글 재정보고를 파워포인트로 바꿔 줍니다. 관·항 단위로 나누고 프로젝터용으로 크게 키웁니다.' },
+    { id:'prayer', name:'중보기도문 변환', path:'../prayer/', kind:'한글 → PPTX',
+      desc:'매월 공동체 중보기도문을 예배용 파워포인트로. 월별 배경, 영역별 글꼴, 자동 쪽 나눔을 지원합니다.' }
   ];
+  var APP_IDS = APPS.map(function (a) { return a.id; });
+  var APP_LABEL = { ledger:'금전출납부', ppt:'재정보고 변환', prayer:'중보기도문 변환' };
 
-  /* ── 저장소 (이 기기에만) ─────────────────────────────── */
-  var K_RECENT = 'deoksin.portal.recent.v1';
-  var K_OPEN   = 'deoksin.portal.openNewTab.v1';
+  /* 계정·권한 문서를 두는 곳 — 기존 교회 암호화 시트(중보기도문 동기화)의 전용 슬롯.
+     · 비밀번호는 평문 없이 PBKDF2 해시만, 앱 입장 비밀번호는 사용자 비밀번호에서 뽑은 열쇠로 암호화해 둡니다.
+     · 모든 기기가 같은 문서를 읽으므로 사용자·권한이 기기마다 같습니다. */
+  var SYNC_URL = 'https://script.google.com/macros/s/AKfycbzITQche-urPlVaPyJUGNg4gJlHmK8cUnSSgJS6GKQIkZpItw6UmY-NSELSV4bjRdwO/exec';
+  var SLOT = 'portal-acct';
+  /* 금전출납부 계정·토큰 (같은 교회 서버) */
+  var LEDGER_URL = 'https://script.google.com/macros/s/AKfycbwyS5AWgCcTvLmvIHcpI_r_AoBE8Xx_mSvz_q_KJyg0nuyqHBP_xBJdhS1V1-F2kaHR/exec';
+  var LEDGER_AUTH_KEY = 'church-ledger-auth-v1';
 
-  function store(key, val) {
-    try { localStorage.setItem(key, JSON.stringify(val)); } catch (e) {}
+  var K_SSO = 'dkp.sso.v1';        /* 앱들이 읽는 통합 로그인 표 */
+  var K_SEAL = 'dkp.seal.v1';      /* 이 기기에서만 풀리는 앱 입장 열쇠 봉인 */
+  var K_SESS = 'dkp.sess.v1';      /* 포털 자체 세션(계속 쓰기) */
+  var K_DOC = 'dkp.doc.v1';        /* 마지막으로 받은 계정 문서(오프라인 대비) */
+  var K_RECENT = 'dkp.recent.v1';
+  var K_OPEN = 'dkp.opennew.v1';
+  var ITERS = 210000;
+  var BLOCK_SSO = 'dkp.block.v1';  /* 앱이 읽는 '권한 없음' 표시 */
+
+  /* ═══════════════════════════════════════════════════════
+     1. 작은 도구들
+     ═══════════════════════════════════════════════════════ */
+  function $(s) { return document.querySelector(s); }
+  function $$(s) { return Array.prototype.slice.call(document.querySelectorAll(s)); }
+  function esc(s) {
+    return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+      return { '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c];
+    });
   }
-  function load(key, fallback) {
+  function normId(v) { return String(v == null ? '' : v).trim().toLowerCase(); }
+  function toast(msg, isErr) {
+    var t = $('#toast');
+    if (!t) return;
+    t.textContent = msg;
+    t.className = 'toast show' + (isErr ? ' err' : '');
+    clearTimeout(toast._t);
+    toast._t = setTimeout(function () { t.className = 'toast' + (isErr ? ' err' : ''); }, 2800);
+  }
+  function setMsg(el, txt, ok) {
+    if (!el) return;
+    el.className = 'authmsg' + (txt && ok ? ' ok' : '');
+    el.textContent = txt || '';
+  }
+  function jget(k, d) {
+    try { var r = localStorage.getItem(k); return r === null ? d : JSON.parse(r); } catch (e) { return d; }
+  }
+  function jset(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} }
+  function jrm(k) { try { localStorage.removeItem(k); } catch (e) {} }
+
+  var b64 = {
+    enc: function (bytes) {
+      var s = '', a = new Uint8Array(bytes);
+      for (var i = 0; i < a.length; i++) s += String.fromCharCode(a[i]);
+      return btoa(s);
+    },
+    dec: function (str) {
+      var s = atob(String(str || '')), a = new Uint8Array(s.length);
+      for (var i = 0; i < s.length; i++) a[i] = s.charCodeAt(i);
+      return a;
+    }
+  };
+  function hex(buf) {
+    return Array.prototype.map.call(new Uint8Array(buf), function (b) {
+      return ('00' + b.toString(16)).slice(-2);
+    }).join('');
+  }
+  function enc(s) { return new TextEncoder().encode(s); }
+  function dec(b) { return new TextDecoder().decode(b); }
+
+  var HAS_CRYPTO = !!(window.crypto && crypto.subtle);
+
+  async function pbkdf2Bits(pw, saltStr, iters) {
+    var base = await crypto.subtle.importKey('raw', enc(String(pw)), 'PBKDF2', false, ['deriveBits']);
+    var bits = await crypto.subtle.deriveBits(
+      { name:'PBKDF2', salt:enc(String(saltStr)), iterations:iters || ITERS, hash:'SHA-256' }, base, 256);
+    return new Uint8Array(bits);
+  }
+  async function pbkdf2Hex(pw, saltStr) { return hex(await pbkdf2Bits(pw, saltStr)); }
+  async function keyFromBits(bits) {
+    return crypto.subtle.importKey('raw', bits, { name:'AES-GCM' }, false, ['encrypt', 'decrypt']);
+  }
+  async function aesEnc(key, obj) {
+    var iv = crypto.getRandomValues(new Uint8Array(12));
+    var ct = await crypto.subtle.encrypt({ name:'AES-GCM', iv:iv }, key, enc(JSON.stringify(obj)));
+    return { iv: b64.enc(iv), ct: b64.enc(ct) };
+  }
+  async function aesDec(key, box) {
+    var pt = await crypto.subtle.decrypt(
+      { name:'AES-GCM', iv:b64.dec(box.iv) }, key, b64.dec(box.ct));
+    return JSON.parse(dec(pt));
+  }
+  function newSalt() { return hex(crypto.getRandomValues(new Uint8Array(16))); }
+
+  /* 이 기기 전용 열쇠 (IndexedDB · 꺼낼 수 없는 CryptoKey) */
+  var DB_NAME = 'dkp-dev', STORE = 'k', DEV_ID = 'dev';
+  function dbOpen() {
+    return new Promise(function (res, rej) {
+      var rq = indexedDB.open(DB_NAME, 1);
+      rq.onupgradeneeded = function () {
+        if (!rq.result.objectStoreNames.contains(STORE)) rq.result.createObjectStore(STORE);
+      };
+      rq.onsuccess = function () { res(rq.result); };
+      rq.onerror = function () { rej(rq.error); };
+    });
+  }
+  async function devKey(create) {
+    var db = await dbOpen();
+    var got = await new Promise(function (res) {
+      var tx = db.transaction(STORE, 'readonly');
+      var rq = tx.objectStore(STORE).get(DEV_ID);
+      rq.onsuccess = function () { res(rq.result || null); };
+      rq.onerror = function () { res(null); };
+    });
+    if (got && got.key) return got.key;
+    if (!create) return null;
+    var key = await crypto.subtle.generateKey({ name:'AES-GCM', length:256 }, false, ['encrypt', 'decrypt']);
+    await new Promise(function (res) {
+      var tx = db.transaction(STORE, 'readwrite');
+      tx.objectStore(STORE).put({ key:key, at:Date.now() }, DEV_ID);
+      tx.oncomplete = function () { res(true); };
+      tx.onerror = function () { res(false); };
+    });
+    return key;
+  }
+
+  /* ═══════════════════════════════════════════════════════
+     2. 서버(구글 시트) · 금전출납부 계정
+     ═══════════════════════════════════════════════════════ */
+  function postJSON(url, payload, ms) {
+    var ctl = (typeof AbortController !== 'undefined') ? new AbortController() : null;
+    var t = setTimeout(function () { if (ctl) ctl.abort(); }, ms || 15000);
+    return fetch(url, {
+      method:'POST', cache:'no-store', redirect:'follow',
+      headers:{ 'Content-Type':'text/plain;charset=utf-8' },
+      body: JSON.stringify(payload),
+      signal: ctl ? ctl.signal : undefined
+    }).then(function (r) {
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      return r.text();
+    }).then(function (txt) {
+      clearTimeout(t);
+      var j = null;
+      try { j = JSON.parse(txt); } catch (e) { throw new Error('응답을 읽지 못했습니다'); }
+      return j;
+    }).catch(function (e) { clearTimeout(t); throw e; });
+  }
+
+  function docPull() {
+    return postJSON(SYNC_URL, { action:'pull', slot:SLOT }, 15000).then(function (j) {
+      if (!j || j.ok !== true) throw new Error((j && (j.message || j.error)) || '시트를 읽지 못했습니다');
+      var rows = j.rows || [];
+      if (!rows.length) return null;
+      try { return JSON.parse(rows[0].data); } catch (e) { return null; }
+    });
+  }
+  function docPush(doc) {
+    return postJSON(SYNC_URL, {
+      action:'push', slot:SLOT,
+      rows:[ { key:'main', data:JSON.stringify(doc), updatedAt:doc.updatedAt || Date.now() } ]
+    }, 20000).then(function (j) {
+      if (!j || j.ok !== true) throw new Error((j && (j.message || j.error)) || '시트에 올리지 못했습니다');
+      return j;
+    });
+  }
+
+  function ledgerCall(payload) {
+    return postJSON(LEDGER_URL, payload, 20000).then(function (j) {
+      if (!j) throw new Error('금전출납부 서버 응답이 비었습니다');
+      return j;
+    });
+  }
+
+  /* ═══════════════════════════════════════════════════════
+     3. 계정 문서
+     ═══════════════════════════════════════════════════════ */
+  var state = { doc:null, user:null, creds:null, adminTok:'', syncAt:0, syncErr:'', busy:false };
+
+  function cleanDoc(d) {
+    if (!d || typeof d !== 'object' || !Array.isArray(d.users)) return { v:2, users:[], deletedIds:[], updatedAt:0 };
+    d.v = 2;
+    if (!Array.isArray(d.deletedIds)) d.deletedIds = [];
+    d.usersRaw = null;
+    d.users = d.users.filter(function (u) {
+      if (!u || typeof u.id !== 'string' || !u.id) return false;
+      u.id = normId(u.id);
+      u.name = String(u.name || u.id).slice(0, 20);
+      u.role = (u.role === 'admin') ? 'admin' : 'user';
+      u.apps = Array.isArray(u.apps) ? u.apps.filter(function (a) { return APP_IDS.indexOf(a) >= 0; }) : [];
+      u.active = (u.active !== false);
+      u.updatedAt = Number(u.updatedAt) || 0;
+      return true;
+    });
+    return d;
+  }
+
+  async function loadDoc(opts) {
+    opts = opts || {};
+    var doc = null, err = '';
+    if (!opts.offlineOnly) {
+      try {
+        doc = cleanDoc(await docPull());
+        state.syncAt = Date.now();
+        state.syncErr = '';
+        if (doc && doc.users.length) jset(K_DOC, doc);
+      } catch (e) {
+        err = (e && e.message) || '시트에 연결하지 못했습니다';
+        state.syncErr = err;
+        doc = null;
+      }
+    }
+    if (!doc || !doc.users.length) {
+      var cache = jget(K_DOC, null);
+      if (cache) doc = cleanDoc(cache);
+    }
+    if (!doc) doc = { v:2, users:[], deletedIds:[], updatedAt:0 };
+    state.doc = doc;
+    paintSyncNote();
+    return doc;
+  }
+
+  function mergeDocs(local, remote) {
+    if (!remote || !Array.isArray(remote.users)) return local;
+    var byId = {}, i;
+    for (i = 0; i < remote.users.length; i++) byId[remote.users[i].id] = remote.users[i];
+    for (i = 0; i < local.users.length; i++) {
+      var lu = local.users[i], ru = byId[lu.id];
+      if (!ru || (lu.updatedAt || 0) >= (ru.updatedAt || 0)) byId[lu.id] = lu;
+    }
+    var del = {};
+    (local.deletedIds || []).concat(remote.deletedIds || []).forEach(function (x) { if (x) del[normId(x)] = 1; });
+    /* 이 기기에 다시 만들어 둔 계정은 삭제 목록보다 우선한다 */
+    (local.users || []).forEach(function (u) { if (u && u.id) delete del[u.id]; });
+    var out = Object.keys(byId).map(function (k) { return byId[k]; })
+      .filter(function (u) { return u && !del[u.id]; });
+    return cleanDoc({ v:2, users:out, deletedIds:Object.keys(del), updatedAt:Date.now() });
+  }
+
+  async function saveDoc(msgOk) {
+    state.doc = cleanDoc(state.doc);
+    state.doc.updatedAt = Date.now();
+    jset(K_DOC, state.doc);
     try {
-      var raw = localStorage.getItem(key);
-      return raw === null ? fallback : JSON.parse(raw);
-    } catch (e) { return fallback; }
+      var remote = null;
+      try { remote = await docPull(); } catch (e) {}
+      var merged = mergeDocs(state.doc, cleanDoc(remote));
+      merged.updatedAt = Date.now();
+      merged.deletedIds = (state.doc.deletedIds || []).slice();
+      // 합친 결과에서 사라진 사용자가 있으면 같은 삭제 목록을 유지한다
+      state.doc = merged;
+      await docPush(merged);
+      jset(K_DOC, merged);
+      state.syncAt = Date.now();
+      state.syncErr = '';
+      paintSyncNote();
+      if (msgOk) toast(msgOk);
+      return true;
+    } catch (e) {
+      state.syncErr = (e && e.message) || '시트에 올리지 못했습니다';
+      paintSyncNote();
+      toast('시트에 올리지 못했습니다 · 이 기기에는 저장했습니다', true);
+      return false;
+    }
   }
 
-  var recent = load(K_RECENT, {});
-  if (!recent || typeof recent !== 'object' || Array.isArray(recent)) recent = {};
+  function paintSyncNote() {
+    var el = $('#sync-state');
+    var note = $('#sync-note');
+    var txt = '';
+    if (state.syncErr) txt = '시트 연결 실패 · ' + state.syncErr;
+    else if (state.syncAt) txt = '계정 정보를 시트와 맞췄습니다 · ' + new Date(state.syncAt).toLocaleString('ko-KR');
+    if (el) el.textContent = txt;
+    if (note) {
+      if (!state.syncAt && !state.syncErr) note.textContent = '';
+      else if (state.syncErr) note.textContent = '계정 정보를 못 불러왔어요 · 이 기기에 저장된 계정으로 로그인할 수 있습니다';
+      else note.textContent = '';
+    }
+  }
 
-  /* ── 최근 접속 표시 ──────────────────────────────────── */
-  function pad(n) { return (n < 10 ? '0' : '') + n; }
+  function findUser(id) {
+    var n = normId(id);
+    if (!state.doc) return null;
+    for (var i = 0; i < state.doc.users.length; i++) {
+      if (state.doc.users[i].id === n) return state.doc.users[i];
+    }
+    return null;
+  }
 
-  function formatRecent(ts) {
+  /* ── 앱 입장 비밀번호 봉인 ────────────────────────────── */
+  function defaultCreds(u, pw) {
+    return {
+      ledger: { id:u.id, pw:pw },
+      ppt:    { id:u.id, pw:pw },
+      prayer: { id:u.id, pw:pw }
+    };
+  }
+  async function sealCreds(u, pw, creds) {
+    var k = await keyFromBits(await pbkdf2Bits(pw, 'dkp-seal|' + u.id));
+    return aesEnc(k, creds);
+  }
+  async function unsealCreds(u, pw) {
+    if (!u.seal || !u.seal.iv || !u.seal.ct) return null;
+    try {
+      var k = await keyFromBits(await pbkdf2Bits(pw, 'dkp-seal|' + u.id));
+      var c = await aesDec(k, u.seal);
+      if (!c) return null;
+      // 빠진 앱은 기본값으로 채운다
+      var out = defaultCreds(u, pw);
+      APP_IDS.forEach(function (a) {
+        if (c[a] && c[a].pw) out[a] = { id: String(c[a].id || u.id), pw: String(c[a].pw) };
+      });
+      return out;
+    } catch (e) { return null; }
+  }
+
+  /* ── 통합 로그인 표(SSO) · 이 기기 봉인 ───────────────── */
+  function ssoExp(keep) { return Date.now() + (keep ? 30 : 1) * 86400000; }
+
+  async function writeSeal(userId, exp, creds, extra) {
+    try {
+      var key = await devKey(true);
+      if (!key) return false;
+      var payload = { userId: userId, exp: exp, creds: creds, adminTok: (extra && extra.adminTok) || '' };
+      var box = await aesEnc(key, payload);
+      jset(K_SEAL, { v:1, iv:box.iv, ct:box.ct, at:Date.now(), exp:exp });
+      return true;
+    } catch (e) { return false; }
+  }
+
+  /* 이 기기의 봉인을 풀어 지금 세션의 앱 비밀번호·관리자 토큰을 되살린다 */
+  async function readSeal() {
+    var s = jget(K_SEAL, null);
+    if (!s || !s.iv || !s.ct || (s.exp && s.exp < Date.now())) return null;
+    try {
+      var key = await devKey(false);
+      if (!key) return null;
+      return await aesDec(key, s);
+    } catch (e) { return null; }
+  }
+
+  function writeSSO(u, keep) {
+    var sso = {
+      v:1, userId:u.id, name:u.name || u.id, role:(u.role === 'admin' ? 'admin' : 'user'),
+      apps:(u.apps || []).slice(), keep:!!keep, at:Date.now(), exp:ssoExp(keep),
+      portal:(location.pathname || '/').replace(/index\.html$/, '')
+    };
+    jset(K_SSO, sso);
+    // 권한이 사라진 앱에는 '막힘' 표시를 남긴다 (앱이 읽는다)
+    jset(BLOCK_SSO, { v:1, userId:u.id, apps:(u.apps || []).slice(), at:Date.now(), exp:sso.exp });
+    return sso;
+  }
+
+  function clearSession() {
+    jrm(K_SSO); jrm(K_SEAL); jrm(K_SESS); jrm(BLOCK_SSO);
+    try { sessionStorage.removeItem(K_SESS); } catch (e) {}
+    try { localStorage.removeItem(LEDGER_AUTH_KEY); } catch (e) {}
+  }
+
+  function currentSession() {
+    var s = jget(K_SESS, null);
+    if (!s || !s.userId) {
+      try { s = JSON.parse(sessionStorage.getItem(K_SESS) || 'null'); } catch (e) { s = null; }
+    }
+    if (!s || !s.userId || (s.exp && s.exp < Date.now())) return null;
+    return s;
+  }
+
+  /* ═══════════════════════════════════════════════════════
+     4. 로그인
+     ═══════════════════════════════════════════════════════ */
+  async function doLogin() {
+    if (state.busy) return;
+    var id = normId($('#login-id').value);
+    var pw = $('#login-pw').value;
+    var keep = $('#login-keep').checked;
+    var msg = $('#login-msg'), btn = $('#login-btn');
+    if (!id || !pw) { setMsg(msg, '아이디와 비밀번호를 넣어 주세요'); return; }
+    state.busy = true; btn.disabled = true;
+    setMsg(msg, '확인 중…', true);
+    try {
+      if (!state.doc || !state.doc.users.length) await loadDoc({});
+      var doc = state.doc;
+      if (!doc || !doc.users.length) { state.busy = false; btn.disabled = false; setMsg(msg, ''); showSetup(); return; }
+      var u = findUser(id);
+      if (!u) throw new Error('아이디 또는 비밀번호가 맞지 않습니다');
+      if (u.active === false) throw new Error('사용이 중지된 계정입니다 · 관리자에게 문의하세요');
+      var hash = await pbkdf2Hex(pw, u.salt);
+      if (hash !== u.hash) throw new Error('아이디 또는 비밀번호가 맞지 않습니다');
+
+      var creds = await unsealCreds(u, pw) || defaultCreds(u, pw);
+      var exp = ssoExp(keep);
+
+      /* 금전출납부 — 이 앱은 서버 로그인이 필요하므로 지금 토큰을 받아 둔다 */
+      var adminTok = '';
+      var ledgerNote = '';
+      if (hasApp(u, 'ledger')) {
+        var r = await ledgerLogin(creds.ledger.id, creds.ledger.pw);
+        if (r.ok) {
+          storeLedgerAuth(r);
+          if (r.user && r.user.role === 'admin') adminTok = r.token;
+        } else {
+          ledgerNote = r.message || '금전출납부 로그인 실패';
+          try { localStorage.removeItem(LEDGER_AUTH_KEY); } catch (e) {}
+        }
+      }
+
+      writeSSO(u, keep);
+      await writeSeal(u.id, exp, creds, { adminTok:adminTok });
+      var sess = { v:1, userId:u.id, name:u.name, role:u.role, at:Date.now(), exp:exp, keep:!!keep };
+      jset(K_SESS, sess);
+      try { sessionStorage.removeItem(K_SESS); } catch (e) {}
+      state.user = u; state.creds = creds; state.adminTok = adminTok;
+      $('#login-pw').value = '';
+      setMsg(msg, '');
+      openDash();
+      if (ledgerNote) toast('금전출납부 자동 로그인 실패 · ' + ledgerNote, true);
+      else toast((u.name || u.id) + '님, 반갑습니다');
+    } catch (e) {
+      setMsg(msg, (e && e.message) || '로그인하지 못했습니다');
+      $('#login-pw').value = '';
+      $('#login-pw').focus();
+    } finally {
+      state.busy = false; btn.disabled = false;
+    }
+  }
+
+  function hasApp(u, a) { return !!(u && Array.isArray(u.apps) && u.apps.indexOf(a) >= 0); }
+
+  function storeLedgerAuth(r) {
+    try {
+      localStorage.setItem(LEDGER_AUTH_KEY, JSON.stringify({
+        id: r.user.id, name: r.user.name, role: r.user.role,
+        token: r.token, authKey: r.authKey, expiresAt: r.expiresAt
+      }));
+    } catch (e) {}
+  }
+
+  async function ledgerLogin(id, pw) {
+    try {
+      var j = await ledgerCall({ action:'login', id:id, pw:pw });
+      if (j && j.ok === true && j.user && j.token) return j;
+      return { ok:false, message:(j && (j.message || j.error)) || '로그인하지 못했습니다' };
+    } catch (e) {
+      return { ok:false, message:'금전출납부 서버에 연결하지 못했습니다' };
+    }
+  }
+
+  /* 처음 설정 — 금전출납부 관리자로 확인한 뒤 포털 관리자를 만든다 */
+  async function doSetup() {
+    if (state.busy) return;
+    var id = normId($('#su-id').value);
+    var pw = $('#su-pw').value;
+    var msg = $('#su-msg'), btn = $('#su-btn');
+    if (!id || !pw) { setMsg(msg, '아이디와 비밀번호를 넣어 주세요'); return; }
+    if (pw.length < 6) { setMsg(msg, '비밀번호는 6자 이상이어야 합니다'); return; }
+    state.busy = true; btn.disabled = true;
+    setMsg(msg, '금전출납부 관리자로 확인하는 중…', true);
+    try {
+      var r = await ledgerLogin(id, pw);
+      if (!r.ok) throw new Error(r.message || '금전출납부 로그인에 실패했습니다');
+      if (!r.user || r.user.role !== 'admin') throw new Error('금전출납부 관리자 계정만 처음 설정을 할 수 있습니다');
+      if (!state.doc || !state.doc.users.length) await loadDoc({});
+      if (state.doc.users.length) { showGate('이미 계정이 있습니다 · 아이디와 비밀번호로 로그인하세요'); return; }
+      var salt = newSalt();
+      var u = {
+        id: id, name: r.user.name || id, role: 'admin', apps: APP_IDS.slice(), active: true,
+        salt: salt, hash: await pbkdf2Hex(pw, salt), createdAt: Date.now(), updatedAt: Date.now(),
+        credsNone: false
+      };
+      var creds = {
+        ledger: { id: r.user.id, pw: pw },
+        ppt:    { id: id, pw: pw },
+        prayer: { id: id, pw: pw }
+      };
+      u.seal = await sealCreds(u, pw, creds);
+      state.doc.users.push(u);
+      await saveDoc('');
+      storeLedgerAuth(r);
+      $('#su-pw').value = '';
+      setMsg(msg, '');
+      state.user = u; state.creds = creds;
+      state.adminTok = (r.user.role === 'admin') ? r.token : '';
+      writeSSO(u, true);
+      await writeSeal(u.id, ssoExp(true), creds, { adminTok:state.adminTok });
+      jset(K_SESS, { v:1, userId:u.id, name:u.name, role:u.role, at:Date.now(), exp:ssoExp(true), keep:true });
+      openDash();
+      toast('통합 포털 관리자를 만들었습니다');
+    } catch (e) {
+      setMsg(msg, (e && e.message) || '처음 설정을 마치지 못했습니다');
+    } finally {
+      state.busy = false; btn.disabled = false;
+    }
+  }
+
+  /* ═══════════════════════════════════════════════════════
+     5. 화면
+     ═══════════════════════════════════════════════════════ */
+  function showGate(msg) {
+    document.body.setAttribute('data-view', 'gate');
+    $('#gate').hidden = false; $('#setup').hidden = true; $('#dash').hidden = true;
+    setMsg($('#login-msg'), msg || '');
+  }
+  function showSetup() {
+    document.body.setAttribute('data-view', 'setup');
+    $('#gate').hidden = true; $('#setup').hidden = false; $('#dash').hidden = true;
+  }
+
+  function recentMap() {
+    var r = jget(K_RECENT, {});
+    return (r && typeof r === 'object' && !Array.isArray(r)) ? r : {};
+  }
+  function recentText(ts) {
     if (!ts) return '';
     var d = new Date(ts);
     if (isNaN(d.getTime())) return '';
     var now = new Date();
-    var hm = pad(d.getHours()) + ':' + pad(d.getMinutes());
-    var startToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
-    var startThat  = new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
-    var days = Math.round((startToday - startThat) / 86400000);
+    var hm = ('0' + d.getHours()).slice(-2) + ':' + ('0' + d.getMinutes()).slice(-2);
+    var a = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+    var b = new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+    var days = Math.round((a - b) / 86400000);
     if (days <= 0) return '오늘 ' + hm;
     if (days === 1) return '어제 ' + hm;
     if (days < 7) return days + '일 전';
-    if (d.getFullYear() === now.getFullYear()) return (d.getMonth() + 1) + '월 ' + d.getDate() + '일';
-    return d.getFullYear() + '.' + pad(d.getMonth() + 1) + '.' + pad(d.getDate());
+    return (d.getMonth() + 1) + '월 ' + d.getDate() + '일';
   }
 
-  function paintRecent() {
-    APPS.forEach(function (app) {
-      var box = document.querySelector('[data-recent="' + app.id + '"]');
-      if (!box) return;
-      var txt = box.querySelector('.txt');
-      // 카드 안에서만 남은 기록: localStorage + 이번 방문 클릭
-      var ts = recent[app.id];
-      if (ts) {
-        box.classList.add('has');
-        txt.textContent = '최근 접속 · ' + formatRecent(ts);
-        box.title = new Date(ts).toLocaleString('ko-KR');
-      } else {
-        box.classList.remove('has');
-        txt.textContent = '아직 열지 않음';
-        box.removeAttribute('title');
-      }
+  function iconOf(app) {
+    if (app === 'ledger') {
+      return '<svg viewBox="0 0 24 24" fill="none"><path d="M6 3.2h9.2L19 7v13.8H6z" stroke="#e7d9b8" stroke-width="1.5" stroke-linejoin="round"/>' +
+        '<path d="M14.6 3.4V7.4H19" stroke="#c2a058" stroke-width="1.4" stroke-linejoin="round"/>' +
+        '<path d="M8.8 11.2h7.4M8.8 14.2h7.4M8.8 17.2h4.6" stroke="#e7d9b8" stroke-width="1.4" stroke-linecap="round"/></svg>';
+    }
+    if (app === 'ppt') {
+      return '<svg viewBox="0 0 24 24" fill="none"><rect x="3" y="4.5" width="18" height="12.4" rx="1.8" stroke="#e7d9b8" stroke-width="1.5"/>' +
+        '<path d="M12 17v3M8.4 20.6h7.2" stroke="#e7d9b8" stroke-width="1.5" stroke-linecap="round"/>' +
+        '<path d="M7.6 13.4V9.6M12 13.4V7.4M16.4 13.4V10.6" stroke="#c2a058" stroke-width="1.8" stroke-linecap="round"/></svg>';
+    }
+    return '<svg viewBox="0 0 24 24" fill="none"><path d="M12 3.4c2.4 1.7 3.4 3.6 3.4 5.6 0 1.6-.7 2.9-1.4 4.1-.9 1.5-1.4 2.6-1.4 4.3V21h-1.2v-3.6c0-1.7-.5-2.8-1.4-4.3-.7-1.2-1.4-2.5-1.4-4.1 0-2 1-3.9 3.4-5.6Z" stroke="#e7d9b8" stroke-width="1.4" stroke-linejoin="round"/>' +
+      '<path d="M4.4 13.6c1.6.2 2.8 1 3.6 2.2M19.6 13.6c-1.6.2-2.8 1-3.6 2.2" stroke="#c2a058" stroke-width="1.4" stroke-linecap="round"/></svg>';
+  }
+
+  var openNew = true;
+  function paintApps(u) {
+    var box = $('#apps');
+    var rec = recentMap();
+    var list = APPS.filter(function (a) { return hasApp(u, a.id); });
+    $('#apps-none').hidden = list.length > 0;
+    if (!list.length) { box.innerHTML = ''; return; }
+    box.innerHTML = list.map(function (a) {
+      var ts = rec[a.id];
+      var tgt = openNew ? ' target="_blank" rel="noopener"' : '';
+      return '<article class="appcard" data-app="' + a.id + '">' +
+        '<div class="ic" aria-hidden="true">' + iconOf(a.id) + '</div>' +
+        '<h3>' + esc(a.name) + '</h3>' +
+        '<p class="path">' + esc(a.kind) + '</p>' +
+        '<p class="desc">' + esc(a.desc) + '</p>' +
+        '<div class="foot">' +
+          '<div class="recent' + (ts ? ' has' : '') + '"><span class="dot"></span><span class="txt">' +
+            (ts ? '최근 접속 · ' + recentText(ts) : '아직 열지 않음') + '</span></div>' +
+          '<button class="btn open" type="button" data-open="' + a.id + '">열기</button>' +
+        '</div>' +
+      '</article>';
+    }).join('');
+    $$('#apps [data-open]').forEach(function (b) {
+      b.addEventListener('click', function () { goApp(b.getAttribute('data-open')); });
+    });
+    // 카드 아무 곳이나 눌러도 열리게
+    $$('#apps .appcard').forEach(function (card) {
+      card.addEventListener('click', function (ev) {
+        if (ev.target.closest('[data-open]')) return;
+        goApp(card.getAttribute('data-app'));
+      });
     });
   }
 
-  function remember(id) {
-    recent[id] = Date.now();
-    store(K_RECENT, recent);
-    paintRecent();
+  function openAppUrl(appId) {
+    var a = null;
+    for (var i = 0; i < APPS.length; i++) if (APPS[i].id === appId) a = APPS[i];
+    if (!a) return;
+    var url = new URL(a.path, location.href).href;
+    if (openNew) window.open(url, '_blank', 'noopener');
+    else location.href = url;
   }
 
-  /* ── 여는 방식: 새 탭 / 현재 창 ──────────────────────── */
-  var openNew = load(K_OPEN, true);
-  if (typeof openNew !== 'boolean') openNew = true;
+  function goApp(appId) {
+    if (!state.user) { showGate(''); return; }
+    if (!hasApp(state.user, appId)) { toast('이 도구를 쓸 권한이 없습니다', true); return; }
+    var rec = recentMap();
+    rec[appId] = Date.now();
+    jset(K_RECENT, rec);
+    // 열기 직전에 통합 로그인 표를 한 번 더 확실히 남긴다
+    writeSSO(state.user, keepOf());
+    openAppUrl(appId);
+  }
 
-  var prefNew = document.getElementById('prefNew');
-  var prefSame = document.getElementById('prefSame');
+  function keepOf() {
+    var s = jget(K_SESS, null);
+    return !!(s && s.keep);
+  }
+
+  function openDash() {
+    var u = state.user || (function () {
+      var s = currentSession();
+      return s ? findUser(s.userId) : null;
+    })();
+    if (!u) { showGate(''); return; }
+    state.user = u;
+    document.body.setAttribute('data-view', 'dash');
+    $('#gate').hidden = true; $('#setup').hidden = true; $('#dash').hidden = false;
+    var nm = u.name || u.id;
+    $('#who-av').textContent = nm.slice(0, 1);
+    $('#who-name').textContent = nm;
+    $('#who-role').textContent = (u.role === 'admin') ? '관리자' : '사용자';
+    $('#who-role').className = 'tag' + (u.role === 'admin' ? '' : ' gray');
+    $('#acc-id').textContent = u.id;
+    $('#acc-name').textContent = nm;
+    $('#acc-apps').textContent = (u.apps && u.apps.length)
+      ? u.apps.map(function (a) { return APP_LABEL[a]; }).join(' · ')
+      : '사용할 수 있는 도구 없음';
+    $('#sec-users').hidden = (u.role !== 'admin');
+    paintApps(u);
+    if (u.role === 'admin') { renderUsers(); }
+  }
+
+  /* ── 사용자 목록 ─────────────────────────────────────── */
+  function renderUsers() {
+    if (!state.doc) return;
+    var list = state.doc.users.slice().sort(function (a, b) {
+      var ax = (a.id === 'admin' || a.role === 'admin') ? 0 : 1;
+      var bx = (b.id === 'admin' || b.role === 'admin') ? 0 : 1;
+      if (ax !== bx) return ax - bx;
+      return String(a.name || a.id).localeCompare(String(b.name || b.id), 'ko');
+    });
+    $('#users-count').textContent = '(' + list.length + '명)';
+    var me = state.user;
+    $('#users-list').innerHTML = list.map(function (u) {
+      var isAdmin = (u.role === 'admin');
+      var mine = me && me.id === u.id;
+      var off = (u.active === false);
+      return '<div class="urow' + (mine ? ' me' : '') + '" data-uid="' + esc(u.id) + '">' +
+        '<div class="ut">' +
+          '<b>' + esc(u.name || u.id) + '</b>' +
+          '<span class="uid">' + esc(u.id) + '</span>' +
+          '<span class="tag' + (isAdmin ? '' : ' gray') + '">' + (isAdmin ? '관리자' : '사용자') + '</span>' +
+          (off ? '<span class="tag warn">사용 중지</span>' : '') +
+          (mine ? '<span class="tag gray">나</span>' : '') +
+        '</div>' +
+        '<div class="menusel">' + APP_IDS.map(function (a) {
+          var on = (u.apps || []).indexOf(a) >= 0;
+          return '<label class="mopt"><input type="checkbox" data-menu="' + esc(u.id) + '" data-mkey="' + a + '"' +
+            (on ? ' checked' : '') + (isAdmin ? ' disabled' : '') + '> <span>' + APP_LABEL[a] + '</span></label>';
+        }).join('') + '</div>' +
+        (mine ? '' :
+          '<div class="acts">' +
+            '<button class="btn xs line" type="button" data-reset="' + esc(u.id) + '">비밀번호·앱 비밀번호 재설정</button>' +
+            '<button class="btn xs line" type="button" data-toggle="' + esc(u.id) + '">' + (off ? '사용 다시 켜기' : '사용 중지') + '</button>' +
+            '<button class="btn xs danger" type="button" data-del="' + esc(u.id) + '">삭제</button>' +
+          '</div>' +
+          '<div class="ureset" data-resetbox="' + esc(u.id) + '" hidden>' +
+            '<input class="inp sm" type="password" data-rpw="' + esc(u.id) + '" autocomplete="new-password" placeholder="새 포털 비밀번호 (6자 이상)">' +
+            '<input class="inp sm" type="password" data-rledger="' + esc(u.id) + '" placeholder="금전출납부 비밀번호 (비우면 위와 같음)">' +
+            '<input class="inp sm" type="password" data-rprayer="' + esc(u.id) + '" placeholder="중보기도문 비밀번호 (비우면 위와 같음)">' +
+            '<input class="inp sm" type="password" data-rppt="' + esc(u.id) + '" placeholder="재정보고 비밀번호 (비우면 위와 같음)">' +
+            '<button class="btn xs soft" type="button" data-rok="' + esc(u.id) + '">저장</button>' +
+          '</div>') +
+      '</div>';
+    }).join('');
+  }
+
+  function paintNuApps() {
+    $('#nu-apps').innerHTML = APP_IDS.map(function (a) {
+      var on = (a === 'ledger');
+      return '<label class="mopt"><input type="checkbox" value="' + a + '"' + (on ? ' checked' : '') + '> <span>' + APP_LABEL[a] + '</span></label>';
+    }).join('');
+  }
+
+  async function addUser() {
+    if (state.busy) return;
+    var id = normId($('#nu-id').value);
+    var name = String($('#nu-name').value || '').trim().slice(0, 20) || id;
+    var pw = $('#nu-pw').value;
+    var role = $('#nu-role').value === 'admin' ? 'admin' : 'user';
+    var apps = $$('#nu-apps input:checked').map(function (x) { return x.value; });
+    if (!/^[a-z0-9._-]{2,20}$/.test(id)) { toast('아이디는 영문 소문자·숫자 2~20자로 넣어 주세요', true); return; }
+    if (id === 'admin') { toast('admin 아이디는 새로 만들 수 없습니다', true); return; }
+    if (String(pw).length < 6) { toast('비밀번호는 6자 이상으로 넣어 주세요', true); return; }
+    if (findUser(id)) { toast('이미 있는 아이디입니다', true); return; }
+    if (!apps.length) { toast('사용할 앱을 하나 이상 체크해 주세요', true); return; }
+    state.busy = true;
+    try {
+      var cred = {};
+      APP_IDS.forEach(function (a) {
+        var cid = String(($('[data-nucred="' + a + '"]') || {}).value || '').trim();
+        var cpw = String(($('[data-nucred="' + a + '-pw"]') || {}).value || '');
+        cred[a] = { id: cid || id, pw: cpw || pw };
+      });
+      var salt = newSalt();
+      var u = {
+        id:id, name:name, role:role, apps:apps, active:true, salt:salt,
+        hash: await pbkdf2Hex(pw, salt), createdAt:Date.now(), updatedAt:Date.now(),
+        prov:{}
+      };
+      u.seal = await sealCreds(u, pw, cred);
+      state.doc.users.push(u);
+      /* 예전에 지운 같은 아이디를 다시 만들면 삭제 목록에서 뺀다 (다시 지워지지 않게) */
+      state.doc.deletedIds = (state.doc.deletedIds || []).filter(function (x) { return normId(x) !== id; });
+
+      /* 금전출납부 계정도 같은 비밀번호로 맞춰 둔다 (관리자 토큰이 있을 때만) */
+      var note = '';
+      if (apps.indexOf('ledger') >= 0) {
+        var p = await provisionLedger(u, cred.ledger);
+        if (p.ok) u.prov.ledger = true;
+        else if (p.needAdmin) note = ' · 금전출납부 계정은 관리자 로그인 후 자동으로 만들어집니다';
+        else note = ' · 금전출납부 계정: ' + (p.message || '확인 필요');
+        u.updatedAt = Date.now();
+      }
+      var ok = await saveDoc('');
+      if (!findUser(id)) {
+        toast('계정을 저장하지 못했습니다 · 잠시 뒤 다시 시도해 주세요', true);
+        return;
+      }
+      $('#nu-id').value = ''; $('#nu-name').value = ''; $('#nu-pw').value = '';
+      $$('[data-nucred]').forEach(function (x) { x.value = ''; });
+      renderUsers();
+      toast((ok ? '계정을 추가했습니다' : '이 기기에 계정을 추가했습니다') + ' · ' + apps.map(function (a) { return APP_LABEL[a]; }).join('·') + note, !ok);
+    } catch (e) {
+      toast((e && e.message) || '사용자를 추가하지 못했습니다', true);
+    } finally {
+      state.busy = false;
+    }
+  }
+
+  async function provisionLedger(u, cred) {
+    if (!state.adminTok) return { ok:false, needAdmin:true };
+    try {
+      var j = await ledgerCall({
+        action:'user_save', token:state.adminTok,
+        user:{ id:cred.id, name:u.name, role:(u.role === 'admin' ? 'admin' : 'member'), pw:cred.pw, active:true }
+      });
+      if (j && j.ok === true) return { ok:true };
+      if (j && (j.error === 'unauthorized' || j.error === 'forbidden')) return { ok:false, needAdmin:true, message:j.message };
+      return { ok:false, message:(j && (j.message || j.error)) || '계정을 만들지 못했습니다' };
+    } catch (e) {
+      return { ok:false, message:'금전출납부 서버에 연결하지 못했습니다' };
+    }
+  }
+
+  async function resetUser(id) {
+    var u = findUser(id);
+    if (!u) return;
+    var pw = String(($('[data-rpw="' + id + '"]') || {}).value || '');
+    if (String(pw).length < 6) { toast('새 비밀번호는 6자 이상으로 넣어 주세요', true); return; }
+    var rl = String(($('[data-rledger="' + id + '"]') || {}).value || '');
+    var rp = String(($('[data-rprayer="' + id + '"]') || {}).value || '');
+    var rt = String(($('[data-rppt="' + id + '"]') || {}).value || '');
+    var old = await unsealCreds(u, pw);
+    var cred = {
+      ledger: { id:(u.seal && old ? old.ledger.id : u.id), pw: rl || pw },
+      ppt:    { id:(u.seal && old ? old.ppt.id : u.id),    pw: rt || pw },
+      prayer: { id:(u.seal && old ? old.prayer.id : u.id), pw: rp || pw }
+    };
+    u.salt = newSalt();
+    u.hash = await pbkdf2Hex(pw, u.salt);
+    u.seal = await sealCreds(u, pw, cred);
+    u.updatedAt = Date.now();
+    var note = '';
+    if (hasApp(u, 'ledger')) {
+      var p = await provisionLedger(u, cred.ledger);
+      if (p.ok) u.prov.ledger = true;
+      else note = ' · 금전출납부: ' + (p.message || '관리자 로그인 후 다시 시도');
+    }
+    await saveDoc('');
+    renderUsers();
+    toast((u.name || id) + ' 비밀번호를 바꿨습니다' + note, !!note);
+  }
+
+  async function toggleUser(id) {
+    var u = findUser(id);
+    if (!u) return;
+    u.active = (u.active === false);
+    u.updatedAt = Date.now();
+    if (hasApp(u, 'ledger') && state.adminTok) {
+      var cred = (state.creds && u.id === (state.user && state.user.id)) ? state.creds.ledger : null;
+      var cid = u.id;
+      try {
+        await ledgerCall({ action:'user_save', token:state.adminTok,
+          user:{ id:cid, name:u.name, role:(u.role === 'admin' ? 'admin' : 'member'), active:u.active } });
+      } catch (e) {}
+    }
+    await saveDoc('');
+    renderUsers();
+    toast((u.name || id) + (u.active ? ' 사용을 다시 켰습니다' : ' 사용을 중지했습니다'));
+  }
+
+  async function deleteUser(id) {
+    var u = findUser(id);
+    if (!u) return;
+    state.doc.users = state.doc.users.filter(function (x) { return x.id !== id; });
+    var del = {};
+    (state.doc.deletedIds || []).forEach(function (x) { del[normId(x)] = 1; });
+    del[id] = 1;
+    delete del['admin'];
+    state.doc.deletedIds = Object.keys(del);
+    if (u.prov && u.prov.ledger && state.adminTok) {
+      try { await ledgerCall({ action:'user_delete', token:state.adminTok, id:id }); } catch (e) {}
+    }
+    await saveDoc('');
+    renderUsers();
+    toast((u.name || id) + ' 계정을 삭제했습니다');
+  }
+
+  async function setUserApps(id, apps) {
+    var u = findUser(id);
+    if (!u) return;
+    u.apps = apps;
+    u.updatedAt = Date.now();
+    await saveDoc('');
+    renderUsers();
+    toast((u.name || id) + ' 사용 앱: ' + (apps.length ? apps.map(function (a) { return APP_LABEL[a]; }).join('·') : '없음'));
+  }
+
+  async function changeOwnPassword() {
+    var me = state.user;
+    if (!me) return;
+    var cur = $('#pw-cur').value, np = $('#pw-new').value, np2 = $('#pw-new2').value;
+    var msg = $('#pw-msg');
+    msg.textContent = '';
+    if (!cur || !np) { msg.textContent = '비밀번호를 모두 넣어 주세요'; return; }
+    if (np.length < 6) { msg.textContent = '새 비밀번호는 6자 이상이어야 합니다'; return; }
+    if (np !== np2) { msg.textContent = '새 비밀번호가 서로 다릅니다'; return; }
+    var hash = await pbkdf2Hex(cur, me.salt);
+    if (hash !== me.hash) { msg.textContent = '지금 비밀번호가 맞지 않습니다'; return; }
+    var cred = await unsealCreds(me, cur) || defaultCreds(me, cur);
+    me.salt = newSalt();
+    me.hash = await pbkdf2Hex(np, me.salt);
+    me.seal = await sealCreds(me, np, cred);
+    me.updatedAt = Date.now();
+    await saveDoc('');
+    $('#pw-cur').value = ''; $('#pw-new').value = ''; $('#pw-new2').value = '';
+    $('#pw-panel').hidden = true;
+    writeSSO(me, keepOf());
+    await writeSeal(me.id, ssoExp(keepOf()), cred, { adminTok:state.adminTok });
+    toast('비밀번호를 바꿨습니다');
+    openDash();
+  }
+
+  async function saveOwnCreds() {
+    var me = state.user;
+    if (!me) return;
+    var s = jget(K_SESS, null);
+    var msg = $('#cred-msg');
+    msg.textContent = '';
+    // 봉인 열쇠는 '지금 비밀번호'에서 나오므로 비밀번호를 한 번 확인한다
+    var pw = $('#cred-pw-check') ? $('#cred-pw-check').value : '';
+    if (!pw) { msg.textContent = '지금 쓰는 포털 비밀번호를 넣어 주세요'; return; }
+    var hash = await pbkdf2Hex(pw, me.salt);
+    if (hash !== me.hash) { msg.textContent = '포털 비밀번호가 맞지 않습니다'; return; }
+    var lid = String($('#cr-ledger-id').value || '').trim() || me.id;
+    var lpw = String($('#cr-ledger-pw').value || '') || pw;
+    var tid = String($('#cr-ppt-id').value || '').trim() || me.id;
+    var tpw = String($('#cr-ppt-pw').value || '') || pw;
+    var pid = String($('#cr-prayer-id').value || '').trim() || me.id;
+    var ppw = String($('#cr-prayer-pw').value || '') || pw;
+    var cred = { ledger:{ id:lid, pw:lpw }, ppt:{ id:tid, pw:tpw }, prayer:{ id:pid, pw:ppw } };
+    me.seal = await sealCreds(me, pw, cred);
+    me.updatedAt = Date.now();
+    await saveDoc('');
+    state.creds = cred;
+    // 바로 확인: 금전출납부
+    var note = '';
+    if (hasApp(me, 'ledger')) {
+      var r = await ledgerLogin(lid, lpw);
+      if (r.ok) { storeLedgerAuth(r); if (r.user.role === 'admin') state.adminTok = r.token; }
+      else note = ' · 금전출납부 로그인 실패: ' + (r.message || '');
+    }
+    await writeSeal(me.id, ssoExp(keepOf()), cred, { adminTok:state.adminTok });
+    writeSSO(me, keepOf());
+    $('#cred-panel').hidden = true;
+    toast('앱 비밀번호를 저장했습니다' + note, !!note);
+  }
+
+  async function logout() {
+    clearSession();
+    state.user = null; state.creds = null; state.adminTok = '';
+    showGate('');
+    toast('로그아웃했습니다');
+  }
+
+  /* ═══════════════════════════════════════════════════════
+     6. 이벤트
+     ═══════════════════════════════════════════════════════ */
+  function bind() {
+    $('#login-form').addEventListener('submit', function (e) { e.preventDefault(); doLogin(); });
+    $('#setup-form').addEventListener('submit', function (e) { e.preventDefault(); doSetup(); });
+    $('#setup-back').addEventListener('click', function (e) { e.preventDefault(); showGate(''); });
+    $('#btn-logout').addEventListener('click', logout);
+    $('#btn-add-user').addEventListener('click', addUser);
+    $('#btn-sync-pull').addEventListener('click', async function () {
+      await loadDoc({});
+      renderUsers();
+      toast('시트에서 계정 정보를 새로 받았습니다');
+    });
+    $('#btn-sync-push').addEventListener('click', async function () {
+      var b = this;
+      if (b.getAttribute('data-arm') !== '1') {
+        b.setAttribute('data-arm', '1');
+        b.textContent = '정말 이 기기 기준으로 올릴까요? (한 번 더)';
+        setTimeout(function () { b.removeAttribute('data-arm'); b.textContent = '☁️ 이 기기 기준으로 올리기'; }, 4000);
+        return;
+      }
+      b.removeAttribute('data-arm');
+      b.textContent = '☁️ 이 기기 기준으로 올리기';
+      state.doc.deletedIds = [];
+      var ok = await saveDoc('이 기기 계정 ' + state.doc.users.length + '개로 시트를 맞췄습니다');
+      if (!ok) renderUsers();
+    });
+    $('#btn-pw-open').addEventListener('click', function () { $('#pw-panel').hidden = false; $('#pw-cur').focus(); });
+    $('#btn-pw-close').addEventListener('click', function () { $('#pw-panel').hidden = true; $('#pw-msg').textContent = ''; });
+    $('#btn-pw-save').addEventListener('click', changeOwnPassword);
+    $('#btn-cred-open').addEventListener('click', async function () {
+      var me = state.user;
+      var c = state.creds || defaultCreds(me, '');
+      $('#cr-ledger-id').value = c.ledger ? c.ledger.id : '';
+      $('#cr-ppt-id').value = c.ppt ? c.ppt.id : '';
+      $('#cr-prayer-id').value = c.prayer ? c.prayer.id : '';
+      $('#cred-panel').hidden = false;
+    });
+    $('#btn-cred-close').addEventListener('click', function () { $('#cred-panel').hidden = true; $('#cred-msg').textContent = ''; });
+    $('#btn-cred-save').addEventListener('click', saveOwnCreds);
+
+    $('#users-list').addEventListener('change', function (e) {
+      var box = e.target.closest('input[data-menu]');
+      if (!box) return;
+      var uid = box.getAttribute('data-menu');
+      var picked = $$('#users-list input[data-menu]').filter(function (x) {
+        return x.getAttribute('data-menu') === uid && x.checked;
+      }).map(function (x) { return x.getAttribute('data-mkey'); });
+      setUserApps(uid, picked);
+    });
+    $('#users-list').addEventListener('click', async function (e) {
+      var t = e.target.closest('[data-reset],[data-toggle],[data-del],[data-rok]');
+      if (!t) return;
+      if (t.hasAttribute('data-rok')) { await resetUser(t.getAttribute('data-rok')); return; }
+      if (t.hasAttribute('data-reset')) {
+        var id = t.getAttribute('data-reset');
+        var box = $('[data-resetbox="' + id + '"]');
+        if (box) {
+          box.hidden = !box.hidden;
+          if (!box.hidden) { var i = box.querySelector('input'); if (i) i.focus(); }
+        }
+        return;
+      }
+      if (t.hasAttribute('data-toggle')) { await toggleUser(t.getAttribute('data-toggle')); return; }
+      if (t.hasAttribute('data-del')) {
+        var id2 = t.getAttribute('data-del');
+        if (t.getAttribute('data-arm') === '1') { await deleteUser(id2); return; }
+        t.setAttribute('data-arm', '1');
+        t.textContent = '정말 삭제? (한 번 더)';
+        setTimeout(function () {
+          if (t && t.isConnected) { t.removeAttribute('data-arm'); t.textContent = '삭제'; }
+        }, 4000);
+      }
+    });
+
+    $('#pref-new').addEventListener('click', function () { openNew = true; jset(K_OPEN, true); paintPref(); if (state.user) paintApps(state.user); });
+    $('#pref-same').addEventListener('click', function () { openNew = false; jset(K_OPEN, false); paintPref(); if (state.user) paintApps(state.user); });
+  }
 
   function paintPref() {
-    prefNew.setAttribute('aria-pressed', openNew ? 'true' : 'false');
-    prefSame.setAttribute('aria-pressed', openNew ? 'false' : 'true');
-    // '열기' 버튼은 선택한 방식을 그대로 따릅니다.
-    document.querySelectorAll('[data-open]:not(.btn-icon)').forEach(function (a) {
-      if (openNew) {
-        a.setAttribute('target', '_blank');
-        a.setAttribute('rel', 'noopener');
-      } else {
-        a.removeAttribute('target');
-        a.removeAttribute('rel');
-      }
-    });
+    $('#pref-new').setAttribute('aria-pressed', openNew ? 'true' : 'false');
+    $('#pref-same').setAttribute('aria-pressed', openNew ? 'false' : 'true');
   }
-  function setPref(next) {
-    openNew = !!next;
-    store(K_OPEN, openNew);
+
+  /* ═══════════════════════════════════════════════════════
+     7. 시작
+     ═══════════════════════════════════════════════════════ */
+  async function init() {
+    openNew = (jget(K_OPEN, true) !== false);
     paintPref();
-  }
-  prefNew.addEventListener('click', function () { setPref(true); });
-  prefSame.addEventListener('click', function () { setPref(false); });
-  paintPref();
+    paintNuApps();
+    bind();
 
-  /* ── 카드 안 링크 ────────────────────────────────────── */
-  document.querySelectorAll('[data-open]').forEach(function (a) {
-    var id = a.getAttribute('data-open');
-    var isIcon = a.classList.contains('btn-icon');
+    // 이 기기에서만 풀리는 봉인이 만료됐으면 지운다
+    var seal = jget(K_SEAL, null);
+    if (seal && seal.exp && seal.exp < Date.now()) jrm(K_SEAL);
 
-    a.addEventListener('click', function (ev) {
-      if (ev.metaKey || ev.ctrlKey || ev.shiftKey || ev.button !== 0) { remember(id); return; }
-      remember(id);
-      if (!isIcon && !openNew) {
-        // 현재 창에서 열기: 기록을 저장한 뒤 이동합니다.
-        ev.preventDefault();
-        var href = a.getAttribute('href');
-        setTimeout(function () { window.location.href = href; }, 40);
+    var sess = currentSession();
+    if (sess) {
+      await loadDoc({});
+      var u = findUser(sess.userId);
+      if (u && u.active !== false) {
+        state.user = u;
+        var sealNow = await readSeal();
+        // 봉인이 없으면 다시 로그인해야 앱이 열리므로 로그인 화면으로
+        if (sealNow && sealNow.userId === u.id) {
+          state.creds = sealNow.creds || null;
+          state.adminTok = sealNow.adminTok || '';
+          if (!u.apps) u.apps = [];
+          writeSSO(u, !!(sess.keep));
+          openDash();
+          document.documentElement.setAttribute('data-ready', '1');
+          return;
+        }
       }
-    });
-  });
-
-  /* ── 도구별 주소 ────────────────────────────────────── */
-  var list = document.getElementById('linkList');
-  var abs = {};
-  APPS.forEach(function (app) {
-    var url = new URL(app.path, window.location.href).href;
-    abs[app.id] = url;
-
-    var li = document.createElement('li');
-    var nm = document.createElement('span');
-    nm.className = 'nm';
-    nm.textContent = app.name;
-
-    var u = document.createElement('span');
-    u.className = 'url';
-    u.textContent = url.replace(/^https?:\/\//, '');
-    u.title = url;
-
-    var btn = document.createElement('button');
-    btn.type = 'button';
-    btn.className = 'copy';
-    btn.textContent = '주소 복사';
-    btn.addEventListener('click', function () { copyText(url, btn); });
-
-    li.appendChild(nm);
-    li.appendChild(u);
-    li.appendChild(btn);
-    list.appendChild(li);
-  });
-
-  function toast(msg) {
-    var t = document.getElementById('toast');
-    t.textContent = msg;
-    t.classList.add('show');
-    clearTimeout(toast._t);
-    toast._t = setTimeout(function () { t.classList.remove('show'); }, 1800);
+      jrm(K_SESS);
+    }
+    await loadDoc({});
+    if (!state.doc || !state.doc.users.length) { showSetup(); }
+    else { showGate(''); }
+    document.documentElement.setAttribute('data-ready', '1');
   }
 
-  function copyText(text, btn) {
-    var done = function () {
-      if (btn) {
-        btn.classList.add('done');
-        btn.textContent = '복사됨';
-        setTimeout(function () { btn.classList.remove('done'); btn.textContent = '주소 복사'; }, 1500);
-      }
-      toast('주소를 복사했습니다');
-    };
-    var fail = function () { toast('복사가 막혔습니다. 주소를 길게 눌러 복사해 주세요'); };
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
+  else init();
 
-    if (navigator.clipboard && window.isSecureContext) {
-      navigator.clipboard.writeText(text).then(done, function () { legacy(); });
-    } else {
-      legacy();
-    }
-    function legacy() {
-      try {
-        var ta = document.createElement('textarea');
-        ta.value = text;
-        ta.setAttribute('readonly', '');
-        ta.style.position = 'fixed';
-        ta.style.top = '-1000px';
-        ta.style.opacity = '0';
-        document.body.appendChild(ta);
-        ta.select();
-        ta.setSelectionRange(0, text.length);
-        var ok = document.execCommand('copy');
-        document.body.removeChild(ta);
-        ok ? done() : fail();
-      } catch (e) { fail(); }
-    }
-  }
-
-  /* ── 오늘 날짜 ───────────────────────────────────────── */
-  (function () {
-    var d = new Date();
-    var wd = ['일', '월', '화', '수', '목', '금', '토'][d.getDay()];
-    document.getElementById('today').textContent =
-      d.getFullYear() + '년 ' + (d.getMonth() + 1) + '월 ' + d.getDate() + '일 (' + wd + ')';
-  })();
-
-  /* ── PWA 설치 ────────────────────────────────────────── */
-  var installBtn = document.getElementById('installBtn');
-  var deferred = null;
-
-  window.addEventListener('beforeinstallprompt', function (e) {
-    e.preventDefault();
-    deferred = e;
-    installBtn.classList.add('show');
-  });
-  installBtn.addEventListener('click', function () {
-    if (!deferred) { installBtn.classList.remove('show'); return; }
-    deferred.prompt();
-    deferred.userChoice.then(function () {
-      deferred = null;
-      installBtn.classList.remove('show');
-    });
-  });
-  window.addEventListener('appinstalled', function () {
-    deferred = null;
-    installBtn.classList.remove('show');
-    toast('홈 화면에 추가했습니다');
-  });
-  if (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) {
-    document.documentElement.setAttribute('data-standalone', '1');
-  }
-
-  /* ── 서비스워커 (포털 화면만 캐시) ───────────────────── */
-  if ('serviceWorker' in navigator && window.isSecureContext) {
-    window.addEventListener('load', function () {
-      navigator.serviceWorker.register('sw.js').catch(function () {});
-    });
-  }
-
-  paintRecent();
-  // 다른 탭에서 돌아왔을 때 기록을 다시 읽습니다.
-  document.addEventListener('visibilitychange', function () {
-    if (document.visibilityState === 'visible') {
-      recent = load(K_RECENT, {});
-      if (!recent || typeof recent !== 'object' || Array.isArray(recent)) recent = {};
-      paintRecent();
-    }
-  });
-  window.addEventListener('storage', function (e) {
-    if (e.key === K_RECENT) {
-      recent = load(K_RECENT, {});
-      paintRecent();
-    }
-  });
+  /* 검증용 */
+  window.__dkp = {
+    state: function () { return { user: state.user ? { id:state.user.id, name:state.user.name, role:state.user.role, apps:state.user.apps } : null,
+      users: (state.doc ? state.doc.users : []).map(function (u) { return { id:u.id, name:u.name, role:u.role, apps:u.apps, active:u.active }; }),
+      syncAt: state.syncAt, syncErr: state.syncErr }; },
+    sso: function () { return jget(K_SSO, null); },
+    login: doLogin,
+    logout: logout,
+    addUser: addUser,
+    setUserApps: setUserApps,
+    deleteUser: deleteUser,
+    reload: function () { return loadDoc({}); },
+    creds: function () { return state.creds; }
+  };
 })();
 </script>
 </body>

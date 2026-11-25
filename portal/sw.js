@@ -2,7 +2,7 @@
  * 포털 화면(/portal/)만 다룹니다. 금전출납부·재정보고·중보기도문 앱과
  * 구글 시트 동기화 요청은 손대지 않습니다(범위가 /portal/ 밖이라 애초에 오지 않습니다).
  */
-const VERSION = 'deoksin-portal-v1.0.0';
+const VERSION = 'deoksin-portal-v2.0.0';
 const SHELL = [
   './',
   './index.html',

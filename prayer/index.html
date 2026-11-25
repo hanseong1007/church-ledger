@@ -3097,7 +3097,19 @@ async function doLogin() {
   }
 }
 
-function enterApp() {
+/* DKP-HOOK-START ── 교회 통합 포털 연동 (자동 생성) ── */
+  window.__dkpOpen = function(){ return !!(state.user && state.wk); };
+  window.__dkpEnter = async function (cred) {
+    if (!cred || !cred.id || !cred.pw) return false;
+    try {
+      const idEl = $('#loginId'), pwEl = $('#loginPw');
+      if (idEl) idEl.value = String(cred.id);
+      if (pwEl) pwEl.value = String(cred.pw);
+      await doLogin();
+      return !!(state.user && state.wk);
+    } catch (e) { return false; }
+  };
+  /* DKP-HOOK-END */function enterApp() {
   $('#lock').classList.add('hidden');
   $('#app').classList.remove('hidden');
   $('#whoName').textContent = state.user.name || state.user.id;
@@ -3378,5 +3390,200 @@ async function init() {
 document.addEventListener('DOMContentLoaded', init);
 
 </script>
+
+<!-- DKP-BRIDGE-START ══════════ 교회 통합 포털 연동 (자동 생성: _portal/inject_portal.py) ══════════ -->
+<style>
+  #dkpHome{display:inline-flex;align-items:center;gap:5px;height:34px;padding:0 10px;border-radius:9px;
+    border:1px solid rgba(128,128,128,.45);background:rgba(128,128,128,.14);color:inherit;font-size:12px;
+    font-weight:800;text-decoration:none;white-space:nowrap;opacity:.92}
+  #dkpHome:hover{opacity:1}
+  #dkpHome .ic{font-size:13px;line-height:1}
+  @media (max-width:560px){
+    #dkpHome{padding:0;width:34px;justify-content:center;gap:0}
+    #dkpHome .lbl{display:none}
+  }
+  .dkp-link-foot{display:inline-flex;align-items:center;gap:6px;margin-top:12px;font-size:12.5px;font-weight:700;
+    color:#7a6a45;text-decoration:none}
+  .dkp-ov{position:fixed;inset:0;z-index:99990;display:flex;align-items:center;justify-content:center;padding:24px;
+    background:rgba(16,27,49,.97);color:#f7f4ea}
+  .dkp-ov .dkp-box{max-width:400px;width:100%;background:#fffdf6;color:#1b2434;border-radius:18px;padding:26px;
+    text-align:center;box-shadow:0 24px 60px -20px rgba(0,0,0,.6)}
+  .dkp-ov .dkp-ico{font-size:30px;line-height:1;margin-bottom:8px}
+  .dkp-ov h3{margin:0 0 8px;font-size:17px;letter-spacing:-.01em}
+  .dkp-ov p{margin:0 0 18px;font-size:13px;line-height:1.65;color:#535b6c}
+  .dkp-ov .dkp-btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;width:100%;height:46px;
+    border-radius:12px;background:#101b31;color:#f7f4ea;font-size:14px;font-weight:800;text-decoration:none}
+  .dkp-ov .dkp-spin{width:22px;height:22px;border-radius:50%;border:3px solid #e3dccb;border-top-color:#a8863f;
+    margin:0 auto 12px;animation:dkpspin .9s linear infinite}
+  @keyframes dkpspin{to{transform:rotate(360deg)}}
+</style>
+<script>
+(function () {
+  'use strict';
+  var APP = 'prayer';                 /* ledger | ppt | prayer */
+  var PORTAL = '../portal/';           /* 포털 주소(상대) */
+  var K_SSO = 'dkp.sso.v1', K_SEAL = 'dkp.seal.v1';
+
+  function jget(k, d) {
+    try { var r = localStorage.getItem(k); return r === null ? d : JSON.parse(r); } catch (e) { return d; }
+  }
+  function sso() {
+    var s = jget(K_SSO, null);
+    if (!s || !s.userId) return null;
+    if (s.exp && s.exp < Date.now()) return null;
+    return s;
+  }
+  function allowed(s) {
+    if (!s || !Array.isArray(s.apps)) return false;
+    return s.apps.indexOf(APP) >= 0;
+  }
+  function esc(t) {
+    return String(t == null ? '' : t).replace(/[&<>"']/g, function (c) {
+      return { '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c];
+    });
+  }
+  function overlay(inner) {
+    var old = document.getElementById('dkpOverlay');
+    if (old) old.parentNode.removeChild(old);
+    var d = document.createElement('div');
+    d.id = 'dkpOverlay';
+    d.className = 'dkp-ov';
+    d.innerHTML = '<div class="dkp-box">' + inner + '</div>';
+    document.body.appendChild(d);
+    return d;
+  }
+  function closeOverlay() {
+    var d = document.getElementById('dkpOverlay');
+    if (d) d.parentNode.removeChild(d);
+  }
+  function blockDkp(s) {
+    overlay('<div class="dkp-ico">⛪</div><h3>이 도구를 쓸 권한이 없습니다</h3>' +
+      '<p>' + (s && s.name ? esc(s.name) + '님은' : '지금 로그인한 계정은') +
+      ' 이 도구를 쓰도록 지정되어 있지 않습니다.<br>필요하면 교회 관리자에게 요청하세요.</p>' +
+      '<a class="dkp-btn" href="' + PORTAL + '">⛪ 교회포털로 돌아가기</a>');
+  }
+
+  /* ── 이 기기 전용 열쇠로 봉인을 푼다 (포털이 로그인 때 만들어 둔 것) ── */
+  function b64dec(str) {
+    var s = atob(String(str || '')), a = new Uint8Array(s.length);
+    for (var i = 0; i < s.length; i++) a[i] = s.charCodeAt(i);
+    return a;
+  }
+  function dbOpen() {
+    return new Promise(function (res, rej) {
+      var rq = indexedDB.open('dkp-dev', 1);
+      rq.onupgradeneeded = function () {
+        if (!rq.result.objectStoreNames.contains('k')) rq.result.createObjectStore('k');
+      };
+      rq.onsuccess = function () { res(rq.result); };
+      rq.onerror = function () { rej(rq.error); };
+    });
+  }
+  function devKey() {
+    return dbOpen().then(function (db) {
+      return new Promise(function (res) {
+        var tx = db.transaction('k', 'readonly');
+        var rq = tx.objectStore('k').get('dev');
+        rq.onsuccess = function () { res((rq.result && rq.result.key) || null); };
+        rq.onerror = function () { res(null); };
+      });
+    }).catch(function () { return null; });
+  }
+  function sealPayload() {
+    var s = jget(K_SEAL, null);
+    if (!s || !s.iv || !s.ct) return Promise.resolve(null);
+    if (s.exp && s.exp < Date.now()) return Promise.resolve(null);
+    return devKey().then(function (key) {
+      if (!key) return null;
+      return crypto.subtle.decrypt({ name:'AES-GCM', iv:b64dec(s.iv) }, key, b64dec(s.ct))
+        .then(function (pt) { return JSON.parse(new TextDecoder().decode(pt)); })
+        .catch(function () { return null; });
+    });
+  }
+
+  /* ── 위쪽 '⛪ 교회포털' 버튼 ── */
+  function addHeaderLink() {
+    if (document.getElementById('dkpHome')) return;
+    var hosts = ['.topbar-in .top-actions', '.topbar-actions', '.top-right', '.topbar-in'];
+    var host = null;
+    for (var i = 0; i < hosts.length; i++) {
+      var el = document.querySelector(hosts[i]);
+      if (el) { host = el; break; }
+    }
+    var a = document.createElement('a');
+    a.id = 'dkpHome';
+    a.href = PORTAL;
+    a.title = '교회 통합 포털로 돌아가기';
+    a.innerHTML = '<span class="ic">⛪</span><span class="lbl">교회포털</span>';
+    if (host) host.insertBefore(a, host.firstChild);
+  }
+  function addLockLink() {
+    var cards = document.querySelectorAll('.lock-card, .login-card');
+    for (var i = 0; i < cards.length; i++) {
+      if (cards[i].querySelector('.dkp-link-foot')) continue;
+      var a = document.createElement('a');
+      a.className = 'dkp-link-foot';
+      a.href = PORTAL;
+      a.innerHTML = '⛪ 교회포털로 돌아가기';
+      cards[i].appendChild(a);
+    }
+  }
+
+  function waitFor(fn, ms) {
+    var t0 = Date.now();
+    return new Promise(function (res) {
+      (function tick() {
+        var v = null;
+        try { v = fn(); } catch (e) { v = null; }
+        if (v) return res(v);
+        if (Date.now() - t0 > (ms || 4000)) return res(null);
+        setTimeout(tick, 120);
+      })();
+    });
+  }
+
+  function boot() {
+    addHeaderLink();
+    addLockLink();
+    var s = sso();
+    if (!s) return;                                  /* 포털 세션 없음 → 앱 자체 로그인 */
+    if (!allowed(s)) { blockDkp(s); return; }        /* 권한 없는 앱 → 막는다 */
+    var openNow = false;
+    try { openNow = !!(window.__dkpOpen && window.__dkpOpen()); } catch (e) { openNow = false; }
+    if (openNow) return;                             /* 이미 열려 있음 */
+
+    sealPayload().then(function (p) {
+      var c = p && p.creds ? p.creds[APP] : null;
+      if (!c || !c.pw) return;
+      var box = overlay('<div class="dkp-spin"></div><h3>교회포털에서 여는 중…</h3>' +
+        '<p>' + esc(s.name || '') + '님 · 비밀번호 없이 바로 들어갑니다.</p>');
+      waitFor(function () { return window.__dkpEnter; }, 6000).then(function (enter) {
+        if (!enter) { closeOverlay(); return; }
+        Promise.resolve(enter(c)).then(function (ok) {
+          if (ok) {
+            closeOverlay();
+            var again = false;
+            try { again = !!(window.__dkpOpen && window.__dkpOpen()); } catch (e) { again = false; }
+            if (!again) closeOverlayForce();
+          } else {
+            closeOverlay();
+          }
+        }, function () { closeOverlay(); });
+      });
+    });
+  }
+  function closeOverlayForce() {
+    setTimeout(closeOverlay, 60);
+  }
+
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', function () { setTimeout(boot, 30); });
+  else setTimeout(boot, 30);
+  window.addEventListener('pageshow', function (ev) { if (ev.persisted) setTimeout(boot, 60); });
+})();
+</script>
+<!-- DKP-BRIDGE-END -->
+
+
+
 </body>
 </html>
