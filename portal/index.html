@@ -1175,6 +1175,7 @@
       var u = {
         id:id, name:name, role:role, apps:apps, active:true, salt:salt,
         hash: await pbkdf2Hex(pw, salt), createdAt:Date.now(), updatedAt:Date.now(),
+        credIds:{ ledger:cred.ledger.id, ppt:cred.ppt.id, prayer:cred.prayer.id },
         prov:{}
       };
       u.seal = await sealCreds(u, pw, cred);
@@ -1230,11 +1231,11 @@
     var rl = String(($('[data-rledger="' + id + '"]') || {}).value || '');
     var rp = String(($('[data-rprayer="' + id + '"]') || {}).value || '');
     var rt = String(($('[data-rppt="' + id + '"]') || {}).value || '');
-    var old = await unsealCreds(u, pw);
+    var ids = u.credIds || {};
     var cred = {
-      ledger: { id:(u.seal && old ? old.ledger.id : u.id), pw: rl || pw },
-      ppt:    { id:(u.seal && old ? old.ppt.id : u.id),    pw: rt || pw },
-      prayer: { id:(u.seal && old ? old.prayer.id : u.id), pw: rp || pw }
+      ledger: { id:(ids.ledger || u.id), pw: rl || pw },
+      ppt:    { id:(ids.ppt || u.id),    pw: rt || pw },
+      prayer: { id:(ids.prayer || u.id), pw: rp || pw }
     };
     u.salt = newSalt();
     u.hash = await pbkdf2Hex(pw, u.salt);
@@ -1308,6 +1309,7 @@
     var hash = await pbkdf2Hex(cur, me.salt);
     if (hash !== me.hash) { msg.textContent = '지금 비밀번호가 맞지 않습니다'; return; }
     var cred = await unsealCreds(me, cur) || defaultCreds(me, cur);
+    me.credIds = { ledger:cred.ledger.id, ppt:cred.ppt.id, prayer:cred.prayer.id };
     me.salt = newSalt();
     me.hash = await pbkdf2Hex(np, me.salt);
     me.seal = await sealCreds(me, np, cred);
@@ -1340,6 +1342,7 @@
     var ppw = String($('#cr-prayer-pw').value || '') || pw;
     var cred = { ledger:{ id:lid, pw:lpw }, ppt:{ id:tid, pw:tpw }, prayer:{ id:pid, pw:ppw } };
     me.seal = await sealCreds(me, pw, cred);
+    me.credIds = { ledger:cred.ledger.id, ppt:cred.ppt.id, prayer:cred.prayer.id };
     me.updatedAt = Date.now();
     await saveDoc('');
     state.creds = cred;

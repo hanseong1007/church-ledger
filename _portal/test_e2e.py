@@ -12,6 +12,7 @@
 import gc
 import hashlib
 import json
+import os
 import urllib.request
 
 from playwright.sync_api import sync_playwright
@@ -241,7 +242,13 @@ def phase_cleanup(browser, base):
 
 
 def main():
-    srv, base = start_server()
+    fixed = os.environ.get("DKP_BASE", "").rstrip("/")
+    srv = None
+    if fixed:
+        base = fixed
+    else:
+        srv, base = start_server()
+    print("대상:", base, flush=True)
     try:
         with sync_playwright() as p:
             browser = p.chromium.launch()
@@ -254,7 +261,8 @@ def main():
             finally:
                 browser.close()
     finally:
-        srv.shutdown()
+        if srv:
+            srv.shutdown()
     bad = [r for r in RESULTS if not r[1]]
     print("\n=== 결과: %d/%d 통과 ===" % (len(RESULTS) - len(bad), len(RESULTS)))
     if bad:
