@@ -62,6 +62,7 @@ def ledger_login(i, pw):
 def portal_login(ctx, base, uid, pw, shot=None):
     page = ctx.new_page()
     page.goto(base + "/portal/", wait_until="load")
+    page.wait_for_selector("html[data-ready='1']", timeout=30000)
     page.wait_for_selector("#login-form", state="visible", timeout=30000)
     page.fill("#login-id", uid)
     page.fill("#login-pw", pw)

@@ -253,7 +253,7 @@
           <label class="keep"><input type="checkbox" id="login-keep" checked> 이 기기에서 계속</label>
         </div>
         <p class="authmsg" id="login-msg" role="alert"></p>
-        <button class="btn primary" type="submit" id="login-btn">로그인</button>
+        <button class="btn primary" type="submit" id="login-btn" disabled>로그인</button>
       </form>
       <p class="syncnote" id="sync-note"></p>
     </div>
@@ -292,7 +292,7 @@
                  autocapitalize="none" autocorrect="off" spellcheck="false" placeholder="비밀번호">
         </div>
         <p class="authmsg" id="su-msg" role="alert"></p>
-        <button class="btn primary" type="submit" id="su-btn">관리자로 확인하고 시작</button>
+        <button class="btn primary" type="submit" id="su-btn" disabled>관리자로 확인하고 시작</button>
       </form>
       <p class="syncnote">이 비밀번호는 통합 포털 관리자 비밀번호로도 쓰입니다.</p>
     </div>
@@ -1447,6 +1447,10 @@
 
     $('#pref-new').addEventListener('click', function () { openNew = true; jset(K_OPEN, true); paintPref(); if (state.user) paintApps(state.user); });
     $('#pref-same').addEventListener('click', function () { openNew = false; jset(K_OPEN, false); paintPref(); if (state.user) paintApps(state.user); });
+
+    /* 준비가 끝나기 전(스크립트 실행 전)에 눌러 아무 일도 안 일어나는 것을 막는다 */
+    $('#login-btn').disabled = false;
+    if ($('#su-btn')) $('#su-btn').disabled = false;
   }
 
   function paintPref() {

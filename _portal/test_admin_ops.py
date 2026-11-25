@@ -21,6 +21,7 @@ def check(n, ok, x=""):
 def login(ctx, uid, pw, expect_ok=True):
     pg = ctx.new_page()
     pg.goto(BASE + "/portal/", wait_until="load")
+    pg.wait_for_selector("html[data-ready='1']", timeout=30000)
     pg.wait_for_selector("#login-form", state="visible", timeout=30000)
     pg.fill("#login-id", uid)
     pg.fill("#login-pw", pw)
