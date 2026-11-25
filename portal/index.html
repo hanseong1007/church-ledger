@@ -1290,11 +1290,14 @@
   async function setUserApps(id, apps) {
     var u = findUser(id);
     if (!u) return;
+    var addedLedger = (apps.indexOf('ledger') >= 0) && ((u.apps || []).indexOf('ledger') < 0) && !(u.prov && u.prov.ledger);
     u.apps = apps;
     u.updatedAt = Date.now();
     await saveDoc('');
     renderUsers();
-    toast((u.name || id) + ' 사용 앱: ' + (apps.length ? apps.map(function (a) { return APP_LABEL[a]; }).join('·') : '없음'));
+    var msg = (u.name || id) + ' 사용 앱: ' + (apps.length ? apps.map(function (a) { return APP_LABEL[a]; }).join('·') : '없음');
+    if (addedLedger) msg += ' · 금전출납부 계정은 [비밀번호·앱 비밀번호 재설정]에서 함께 만들어집니다';
+    toast(msg);
   }
 
   async function changeOwnPassword() {
