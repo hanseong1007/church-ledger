@@ -189,7 +189,11 @@ function childLinkModal(opts) {
     if (!s) return toast('학생을 찾지 못했습니다', 'err');
     let h = '<div class="banner sky"><b>' + esc(s.name) + '</b> · ' + esc((deptById(s.deptId) || {}).name || '') + ' ' + esc((classById(s.classId) || {}).name || '') + '</div>';
     h += '<div class="field"><label>학부모 계정</label><div class="row wrap" style="gap:6px">';
-    const list = (V.parentAccts || []);
+    const sdept = s.deptId;
+    const list = (V.parentAccts || []).filter(a => {
+      const ds = accountDeptIds(a);
+      return !ds.length || ds.indexOf(sdept) >= 0 || s.guardianUid === a.uid;
+    });
     if (!list.length) h += '<span class="muted">학부모 계정이 없습니다. 가입 승인에서 학부모 가입을 먼저 승인하세요.</span>';
     list.forEach(a => {
       const on = s.guardianUid === a.uid;
