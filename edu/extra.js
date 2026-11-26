@@ -117,8 +117,11 @@ async function refreshMyAccount() {
 function kidsOfAccount(a) {
   const out = [];
   const seen = {};
+  const uid = a ? a.uid : '';
   ((a && a.rec && a.rec.students) || []).forEach(id => { const s = (S.state.students || []).find(x => x.id === id && !x._del && inYear(x)); if (s && !seen[s.id]) { seen[s.id] = 1; out.push(s); } });
-  (S.state.students || []).forEach(s => { if (!s._del && inYear(s) && s.guardianUid === a.uid && !seen[s.id]) { seen[s.id] = 1; out.push(s); } });
+  (S.state.students || []).forEach(s => {
+    if (!s._del && inYear(s) && uid && guardianIdsOf(s).indexOf(uid) >= 0 && !seen[s.id]) { seen[s.id] = 1; out.push(s); }
+  });
   return out;
 }
 function loadParentAccounts(force) {
@@ -148,7 +151,7 @@ function linkedParents(deptId) {
   return (V.parentAccts || []).filter(a => parentInDept(a, deptId)).filter(a => kidsOfAccount(a).length > 0);
 }
 function studentsWithoutParent(deptId) {
-  return studentsOfDept(deptId).filter(s => !s.guardianUid);
+  return studentsOfDept(deptId).filter(s => !hasGuardian(s));
 }
 
 function childLinkCard(deptId) {
@@ -187,30 +190,40 @@ function childLinkModal(opts) {
       const d = deptById(s.deptId) || {};
       h += '<button type="button" class="chip big ' + (on ? 'coral' : 'gray') + '" data-act="child-pick" data-sid="' + esc(s.id) + '">' + esc(s.name) + ' <span style="opacity:.7">' + esc((d.name || '') + ' ' + ((classById(s.classId) || {}).name || '')) + '</span></button>';
     });
-    h += '</div><div class="hint">이미 다른 학부모에게 연결된 아동도 여기서 옮길 수 있습니다.</div></div>';
+    h += '</div><div class="hint">이미 다른 학부모에게 연결된 아동도 함께 연결할 수 있습니다 (어머니·아버지). 연결을 빼려면 체크를 해제하세요.</div></div>';
     h += '<div class="row" style="margin-top:10px"><button class="btn" data-act="modal-close">취소</button><span class="sp"></span><button class="btn primary" data-act="child-save" data-uid="' + esc(a.uid) + '">연결 저장</button></div>';
     openModal('자녀 연결', h);
     return;
   }
 
-  /* 학생 한 명 → 학부모 고르기 */
+  /* 학생 한 명 → 학부모 고르기 (한 명에 여러 명 연결 가능) */
   if (opts.sid) {
     const s = (S.state.students || []).find(x => x.id === opts.sid);
     if (!s) return toast('학생을 찾지 못했습니다', 'err');
+    const linked = guardianIdsOf(s);
     let h = '<div class="banner sky"><b>' + esc(s.name) + '</b> · ' + esc((deptById(s.deptId) || {}).name || '') + ' ' + esc((classById(s.classId) || {}).name || '') + '</div>';
-    h += '<div class="field"><label>학부모 계정</label><div class="row wrap" style="gap:6px">';
+    h += '<div class="card flat" style="padding:10px 12px"><div class="kv" style="padding:2px 0"><span>연결된 학부모</span><b>' + (linked.length ? linked.length + '명' : '없음') + '</b></div>';
+    if (linked.length) {
+      h += '<div class="list" style="margin-top:4px">';
+      linked.forEach(u => {
+        const a = (V.parentAccts || []).find(x => x.uid === u);
+        h += '<div class="item" style="padding:7px 9px"><span class="av">👨‍👩‍👧</span><span class="tx"><b>' + esc(a ? a.rec.name : nameOfUid(u)) + '</b><span>' + (a ? '@' + esc(a.rec.id) : '학부모 계정') + '</span></span><button class="btn sm" style="color:#c33e5f" data-act="child-clear" data-sid="' + esc(s.id) + '" data-uid="' + esc(u) + '">해제</button></div>';
+      });
+      h += '</div>';
+    }
+    h += '<div class="hint" style="margin:6px 0 0">어머니·아버지 계정을 함께 연결할 수 있습니다.</div></div>';
+    h += '<div class="field"><label>학부모 추가</label><div class="row wrap" style="gap:6px">';
     const sdept = s.deptId;
     const list = (V.parentAccts || []).filter(a => {
+      if (linked.indexOf(a.uid) >= 0) return false;
       const ds = accountDeptIds(a);
-      return !ds.length || ds.indexOf(sdept) >= 0 || s.guardianUid === a.uid;
+      return !ds.length || ds.indexOf(sdept) >= 0 || linked.indexOf(a.uid) >= 0;
     });
-    if (!list.length) h += '<span class="muted">학부모 계정이 없습니다. 가입 승인에서 학부모 가입을 먼저 승인하세요.</span>';
+    if (!list.length) h += '<span class="muted">추가로 연결할 학부모 계정이 없습니다. 가입 승인에서 학부모 가입을 먼저 승인하세요.</span>';
     list.forEach(a => {
-      const on = s.guardianUid === a.uid;
-      h += '<button type="button" class="chip big ' + (on ? 'coral' : 'gray') + '" data-act="child-set" data-sid="' + esc(s.id) + '" data-uid="' + esc(a.uid) + '">' + esc(a.rec.name) + ' <span style="opacity:.7">@' + esc(a.rec.id) + '</span></button>';
+      h += '<button type="button" class="chip big gray" data-act="child-set" data-sid="' + esc(s.id) + '" data-uid="' + esc(a.uid) + '">' + esc(a.rec.name) + ' <span style="opacity:.7">@' + esc(a.rec.id) + '</span></button>';
     });
     h += '</div></div>';
-    if (s.guardianUid) h += '<button class="btn block" style="color:#c33e5f" data-act="child-clear" data-sid="' + esc(s.id) + '">연결 해제</button>';
     h += '<div class="row" style="margin-top:10px"><button class="btn" data-act="modal-close">닫기</button></div>';
     openModal('학부모 연결', h);
     return;
@@ -251,24 +264,19 @@ async function saveChildLinks(uid, sids) {
   const remove = prev.filter(id => sids.indexOf(id) < 0);
   const depts = new Set(accountDeptIds(a));
   const students = (S.state.students || []);
+  /* 연결 추가 — 다른 학부모가 이미 연결해 두었아도 그대로 둡니다 (아이 한 명에 두 명 이상 가능) */
   for (const id of add) {
     const s = students.find(x => x.id === id);
     if (!s) continue;
-    const old = s.guardianUid;
-    s.guardianUid = uid;
+    addGuardianTo(s, uid);
     if (!s.guardianName) s.guardianName = nm;
     if (s.deptId) depts.add(s.deptId);
     touch(s);
-    if (old && old !== uid) {
-      /* 이전 학부모의 목록에서 빼기 */
-      try {
-        await updateAccountRec(old, rec => { rec.students = (rec.students || []).filter(x => x !== id); });
-      } catch (e) { /* 이전 계정을 못 고쳐도 새 연결은 유지 */ }
-    }
   }
+  /* 연결 해제 — 이 학부모만 뺄니다. 다른 학부모 연결은 남습니다 */
   remove.forEach(id => {
     const s = students.find(x => x.id === id);
-    if (s && s.guardianUid === uid) { s.guardianUid = ''; touch(s); }
+    if (s && guardianIdsOf(s).indexOf(uid) >= 0) removeGuardianFrom(s, uid);
   });
   await updateAccountRec(uid, rec => {
     rec.students = sids.slice();
@@ -278,6 +286,39 @@ async function saveChildLinks(uid, sids) {
   await Sync.save();
   await loadParentAccounts(true);
   return { added: add.length, removed: remove.length };
+}
+
+/* 자녀가 진급해 부서가 바뀌었는데 학부모 계정의 부서가 그대로면 따라가게 하고,
+   계정에만 적힌 자녀를 아이 쪽 학부모로도 남깁니다.
+   (예: 아이가 유치부 → 초등부, 내 정보에는 유치부로 남던 문제) */
+async function reconcileChildDepts() {
+  if (!S.dek || !S.me) return false;
+  if (!(S.me.roles || []).some(r => roleDef(r).base === 'parent')) return false;
+  let stateChanged = false;
+  /* 계정의 자녀 목록에만 있는 아이도 아이 쪽에 학부모로 연결해 둡니다 */
+  (S.me.students || []).forEach(id => {
+    const s = (S.state.students || []).find(x => x.id === id && !x._del);
+    if (!s) return;
+    if (guardianIdsOf(s).indexOf(S.me.uid) < 0) { addGuardianTo(s, S.me.uid); stateChanged = true; }
+  });
+  const own = Array.from(new Set((S.me.depts || []).map(canonDeptId)));
+  const need = [];
+  (S.state.students || []).forEach(s => {
+    if (!s || s._del) return;
+    const mine = (S.me.students || []).indexOf(s.id) >= 0 || guardianIdsOf(s).indexOf(S.me.uid) >= 0;
+    if (!mine) return;
+    const d = canonDeptId(s.deptId);
+    if (d && own.indexOf(d) < 0 && need.indexOf(d) < 0) need.push(d);
+  });
+  if (!need.length) return stateChanged;
+  try {
+    await updateAccountRec(S.me.uid, rec => {
+      rec.depts = Array.from(new Set((rec.depts || []).map(canonDeptId).concat(need)));
+    });
+    S.me.depts = own.concat(need);
+    saveSession();
+    return true;
+  } catch (e) { return stateChanged; }
 }
 
 /* ================= 2·9. 교사 담임·권한 관리 ================= */
@@ -870,11 +911,14 @@ document.addEventListener('click', async function (ev) {
         const sid = t.dataset.sid;
         const s = (S.state.students || []).find(x => x.id === sid);
         if (!s) return;
-        const uid = s.guardianUid;
-        confirmBox('연결 해제', s.name + ' 아동의 학부모 연결을 끊을까요?', '해제', async () => {
-          s.guardianUid = ''; touch(s);
-          if (uid) {
-            try { await updateAccountRec(uid, rec => { rec.students = (rec.students || []).filter(x => x !== sid); }); } catch (e) { }
+        const only = t.dataset.uid || '';
+        const who = only ? nameOfUid(only) : '학부모';
+        const left = only ? guardianIdsOf(s).filter(u => u !== only) : [];
+        confirmBox('연결 해제', s.name + ' 아동의 ' + who + ' 연결을 끊을까요?' + (left.length ? '\n다른 학부모 연결은 그대로 남습니다.' : ''), '해제', async () => {
+          const targets = only ? [only] : guardianIdsOf(s);
+          targets.forEach(u => { removeGuardianFrom(s, u); });
+          for (const u of targets) {
+            try { await updateAccountRec(u, rec => { rec.students = (rec.students || []).filter(x => x !== sid); }); } catch (e) { }
           }
           await Sync.save(); closeModal(); await loadParentAccounts(true); renderApp(); toast('연결을 해제했습니다', 'ok');
         });

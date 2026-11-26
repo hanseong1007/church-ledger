@@ -229,14 +229,14 @@ function emptyState(seed) {
     roles: seed === false ? [] : JSON.parse(JSON.stringify(DEFAULT_ROLES)),
     departments: seed === false ? [] : JSON.parse(JSON.stringify(DEFAULT_DEPTS)),
     classes: [], students: [], attendance: [], reports: [], notices: [], feeds: [], events: [],
-    plans: [], ledger: [], years: [],
+    plans: [], ledger: [], years: [], requests: [],
     people: {},
     settings: { church: '덕신교회', title: '부서업무', updatedAt: 0 },
     rev: 0
   };
 }
 
-const COLLS = ['roles', 'departments', 'classes', 'students', 'attendance', 'reports', 'notices', 'feeds', 'events', 'plans', 'ledger'];
+const COLLS = ['roles', 'departments', 'classes', 'students', 'attendance', 'reports', 'notices', 'feeds', 'events', 'plans', 'ledger', 'requests'];
 
 /* ---------------- 앱 상태 ---------------- */
 const S = {
@@ -257,6 +257,10 @@ const S = {
 
 function normId(id) { return String(id || '').trim().toLowerCase(); }
 async function uidOf(id) { return (await Crypto.sha256('deoksin-edu-account:' + normId(id))).slice(0, 32); }
+
+/* 아이디 — 한글 이름도 그대로 쓸 수 있습니다 (2~24자, 공백·기호는 _ . - 만) */
+function okAccountId(id) { return /^[가-힣a-zA-Z0-9_.-]{2,24}$/.test(String(id || '').trim()); }
+function idRuleText() { return '아이디는 한글·영문·숫자 2~24자로 정해 주세요. (예: 박한성, kim01)'; }
 
 /* ---------------- 계정 ---------------- */
 async function buildAccount(dek, info) {
@@ -556,6 +560,70 @@ function classesOfDept(deptId) { return classesOfDeptIn(deptId, curYear()); }
 function allStudentsIn(year) { return (S.state.students || []).filter(s => !s._del && s.active !== false && recYear(s) === Number(year)); }
 function peopleOf(uid) { return (S.state.people || {})[uid] || null; }
 function nameOfUid(uid) { const p = peopleOf(uid); return p ? p.name : '(알 수 없음)'; }
+
+/* ---------------- 학부모 연결 (아이 한 명에 학부모 두 명 이상) ----------------
+   옛 자료의 guardianUid(한 명)와 새 guardianUids(여러 명)를 함께 읽습니다.
+   첫 값은 늘 guardianUid 에도 남겨 두어 예전 화면·자료가 그대로 동작합니다. */
+function guardianIdsOf(s) {
+  const out = [];
+  if (!s) return out;
+  [].concat(s.guardianUids || [], s.guardianUid ? [s.guardianUid] : []).forEach(u => {
+    const k = String(u || '').trim();
+    if (k && out.indexOf(k) < 0) out.push(k);
+  });
+  return out;
+}
+function hasGuardian(s) { return guardianIdsOf(s).length > 0; }
+function guardianNamesOf(s) { return guardianIdsOf(s).map(u => nameOfUid(u)).filter(Boolean); }
+function addGuardianTo(s, uid) {
+  if (!s || !uid) return false;
+  const list = guardianIdsOf(s);
+  if (list.indexOf(uid) >= 0) { s.guardianUids = list; return false; }
+  list.push(uid);
+  s.guardianUids = list;
+  if (!s.guardianUid) s.guardianUid = list[0];
+  touch(s);
+  return true;
+}
+function removeGuardianFrom(s, uid) {
+  if (!s) return false;
+  const list = guardianIdsOf(s).filter(u => u !== uid);
+  s.guardianUids = list;
+  if (s.guardianUid === uid) s.guardianUid = list[0] || '';
+  touch(s);
+  return true;
+}
+
+/* ---------------- 역할·부서 변경 신청 ----------------
+   학부모 → 교사처럼 권한이 올라가는 변경은 곧바로 적용하지 않고
+   윗단계(교육부서담당·목회자·관리자)가 승인한 뒤에 적용합니다.
+   부서만 옮기거나 권한이 올라가지 않는 변경은 바로 적용합니다. */
+function changeRequests() { return (S.state.requests || []).filter(r => r && !r._del); }
+function pendingChanges() { return changeRequests().filter(r => r.status === 'pending'); }
+function myPendingChange() {
+  if (!S.me) return null;
+  return pendingChanges().find(r => r.uid === S.me.uid) || null;
+}
+function sameKeySet(a, b) {
+  const A = Array.from(new Set((a || []).map(x => String(x)))).sort();
+  const B = Array.from(new Set((b || []).map(x => String(x)))).sort();
+  return A.length === B.length && A.every((v, i) => v === B[i]);
+}
+/* 이 신청을 내가 승인할 수 있는지 — 바로 윗단계 + 같은 부서 */
+function canApproveChange(r) {
+  if (!r || r.status !== 'pending') return false;
+  if (!can('user.approve') && !can('user.manage')) return false;
+  const myR = myRank();
+  if (!myR || myR <= rankOfKeys(r.to && r.to.roles)) return false;
+  const base = roleDef(S.roleKey).base;
+  if (base === 'admin' || base === 'pastor') return true;
+  const myDepts = (S.me.depts || []).map(canonDeptId);
+  if (!myDepts.length) return true;
+  const toDepts = ((r.to && r.to.depts) || []).map(canonDeptId);
+  const fromDepts = ((r.from && r.from.depts) || []).map(canonDeptId);
+  if (!toDepts.length) return fromDepts.some(d => myDepts.indexOf(d) >= 0);
+  return toDepts.some(d => myDepts.indexOf(d) >= 0);
+}
 
 /* 아이디로 사람 이름 찾기 (알림장 확인 명단용) */
 function rememberMe() {

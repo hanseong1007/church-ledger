@@ -21,9 +21,25 @@ function toggleIn(arr, v) { const i = arr.indexOf(v); if (i >= 0) arr.splice(i, 
 /* ================= 1. 회원가입 신청 ================= */
 const SIGNUP_ROLES = ['pastor', 'edu', 'teacher', 'parent'];
 
+/* 생일 양력↔음력처럼 화면을 다시 그려도 입력한 값을 잃지 않도록 폼 값을 기억합니다 */
+function signupFormState() {
+  if (!V.signupForm) V.signupForm = { name: '', id: '', pw: '', pw2: '', birth: '', className: '', child: '' };
+  return V.signupForm;
+}
+function captureSignupForm() {
+  if (!document.getElementById('suName')) return;
+  const f = signupFormState();
+  f.name = val('suName'); f.id = val('suId');
+  f.pw = (document.getElementById('suPw') || {}).value || '';
+  f.pw2 = (document.getElementById('suPw2') || {}).value || '';
+  f.birth = val('suBirth'); f.className = val('suClassName'); f.child = val('suChild');
+}
+
 function signupModal() {
   if (!V.signup) V.signup = { roles: [], depts: [], classes: [], className: '' };
   const st = V.signup;
+  const f = signupFormState();
+  const sbt = V.signupBirthType === 'lunar' ? 'lunar' : 'solar';
   let h = '';
   h += '<div class="banner sky"><span>가입은 <b>바로 윗단계 담당자</b>의 승인으로 완료됩니다.<br>관리자 → 목회자 → 교육부서담당 → 교사 → 학부모 순서입니다.</span></div>';
   h += '<div class="field"><label>역할 (한 가지 이상)</label><div class="row wrap" style="gap:6px">';
@@ -31,23 +47,22 @@ function signupModal() {
     const r = roleDef(k);
     h += '<button type="button" class="chip big ' + (st.roles.indexOf(k) >= 0 ? 'coral' : 'gray') + '" data-act="signup-role" data-key="' + esc(k) + '">' + esc((r.emoji || '') + ' ' + r.label) + '</button>';
   });
-  h += '</div></div>';
-  h += '<div class="grid2"><div class="field"><label>이름</label><input id="suName" placeholder="예: 김은혜"></div>';
-  h += '<div class="field"><label>아이디</label><input id="suId" autocapitalize="none" spellcheck="false" placeholder="영문·숫자 3~24자"></div></div>';
-  h += '<div class="grid2"><div class="field"><label>비밀번호 (8자 이상)</label><input id="suPw" type="password" autocomplete="new-password"></div>';
-  h += '<div class="field"><label>비밀번호 확인</label><input id="suPw2" type="password" autocomplete="new-password"></div></div>';
+  h += '</div><div class="hint">학부모 겸 교사처럼 두 가지를 함께 골라도 됩니다.</div></div>';
+  h += '<div class="grid2"><div class="field"><label>이름</label><input id="suName" value="' + esc(f.name) + '" placeholder="예: 박한성"></div>';
+  h += '<div class="field"><label>아이디</label><input id="suId" value="' + esc(f.id) + '" autocapitalize="none" spellcheck="false" placeholder="예: 박한성"><div class="hint">한글 이름을 그대로 쓸 수 있습니다.</div></div></div>';
+  h += '<div class="grid2"><div class="field"><label>비밀번호 (8자 이상)</label><input id="suPw" type="password" autocomplete="new-password" value="' + esc(f.pw) + '"></div>';
+  h += '<div class="field"><label>비밀번호 확인</label><input id="suPw2" type="password" autocomplete="new-password" value="' + esc(f.pw2) + '"></div></div>';
   h += '<div class="row wrap" style="gap:6px;margin-bottom:5px">';
-  const sbt = V.signupBirthType || 'solar';
   h += '<button type="button" class="chip big ' + (sbt === 'solar' ? 'coral' : 'gray') + '" data-act="signup-birth-type" data-v="solar">양력</button>';
   h += '<button type="button" class="chip big ' + (sbt === 'lunar' ? 'coral' : 'gray') + '" data-act="signup-birth-type" data-v="lunar">음력</button></div>';
-  h += '<div class="field"><label>' + (sbt === 'lunar' ? '음력 생년월일 (생일)' : '양력 생년월일 (생일)') + '</label><input id="suBirth" type="date" min="1930-01-01" max="2050-12-31"><div class="hint">' + (sbt === 'lunar' ? '음력으로 적으면 그 해 양력 날짜로 바꾸어 표시합니다.' : '') + ' 가입이 승인되면 소속 부서 일정에 🎂 생일이 매년 자동으로 등록됩니다.</div></div>';
+  h += '<div class="field"><label>' + (sbt === 'lunar' ? '음력 생년월일 (생일)' : '양력 생년월일 (생일)') + '</label><input id="suBirth" type="date" min="1930-01-01" max="2050-12-31" value="' + esc(f.birth) + '"><div class="hint">' + (sbt === 'lunar' ? '음력으로 적으면 그 해 양력 날짜로 바꾸어 표시합니다.' : '') + ' 가입이 승인되면 소속 부서 일정에 🎂 생일이 매년 자동으로 등록됩니다.</div></div>';
   h += '<div class="field"><label>소속 부서</label><div class="row wrap" style="gap:6px">';
   (S.state.departments || []).filter(d => !d._del).forEach(d => {
     h += '<button type="button" class="chip big ' + (st.depts.indexOf(d.id) >= 0 ? 'coral' : 'gray') + '" data-act="signup-dept" data-id="' + esc(d.id) + '">' + esc((d.emoji || '') + ' ' + d.name) + '</button>';
   });
   h += '</div><div class="hint">교육부서담당·교사는 꼭 골라 주세요.</div></div>';
-  h += '<div class="field"><label>소속 반 (교사·학부모)</label><input id="suClassName" value="' + esc(V.signup.className || '') + '" placeholder="예: 믿음반"><div class="hint">로그인 전이라 반 목록을 읽을 수 없습니다. 반 이름을 적어 주시면 승인하는 담당자가 정확한 반으로 연결합니다.</div></div>';
-  h += '<div class="field" id="suChildWrap"><label>자녀 이름 (학부모)</label><input id="suChild" placeholder="예: 박준희"></div>';
+  h += '<div class="field"><label>소속 반 (교사·학부모)</label><input id="suClassName" value="' + esc(f.className) + '" placeholder="예: 믿음반"><div class="hint">로그인 전이라 반 목록을 읽을 수 없습니다. 반 이름을 적어 주시면 승인하는 담당자가 정확한 반으로 연결합니다.</div></div>';
+  h += '<div class="field" id="suChildWrap"><label>자녀 이름 (학부모)</label><input id="suChild" value="' + esc(f.child) + '" placeholder="예: 박준희"></div>';
   h += '<div class="login-err" id="suErr"></div>';
   h += '<div class="row" style="margin-top:8px"><button class="btn" data-act="modal-close">취소</button><span class="sp"></span><button class="btn primary" data-act="do-signup">가입 신청서 보내기</button></div>';
   openModal('회원가입 신청서', h, { focus: 'suName' });
@@ -61,19 +76,48 @@ function refreshSignupClasses() {
   el.placeholder = names.length ? '예: ' + names[0] : '예: 믿음반';
 }
 
+/* 이미 가입했거나 신청한 기록과 겹치는지 확인합니다.
+   신청서(pending·approved)는 평문이라 로그인 전에도 이름을 볼 수 있지만,
+   이미 쓰고 있는 계정은 암호문이라 아이디로만 확인할 수 있습니다.
+   그래서 같은 이름의 기존 회원은 [가입 승인] 화면에서 승인자가 한 번 더 확인합니다. */
+async function duplicateSignupInfo(id, name) {
+  const uid = await uidOf(id);
+  const mine = await fetchAccount(uid);
+  if (mine) {
+    const info = appRowInfo(mine);
+    if (info.kind === 'pending' || info.kind === 'approved') return { kind: 'same_id_pending' };
+    if (info.kind === 'active') return { kind: 'same_id_active' };
+  }
+  let rows = [];
+  try { const r = await Api.call({ action: 'acct_list' }, 15000); rows = r.rows || []; } catch (e) { rows = []; }
+  const nm = String(name || '').trim();
+  const same = [];
+  if (nm) {
+    rows.forEach(row => {
+      if (String(row.uid) === String(uid) || String(row.deleted) === '1') return;
+      const info = appRowInfo(row);
+      if (info.kind !== 'pending' && info.kind !== 'approved') return;
+      const a = info.app || {};
+      if (String(a.name || '').trim() === nm) same.push({ id: a.id || '', roles: a.roles || [], approved: info.kind === 'approved' });
+    });
+  }
+  return { kind: same.length ? 'same_name_app' : '', same: same };
+}
+
 async function doSignup() {
+  captureSignupForm();
   const st = V.signup || { roles: [], depts: [] };
-  const name = val('suName'), id = normId(val('suId'));
-  const pw = (document.getElementById('suPw') || {}).value || '';
-  const pw2 = (document.getElementById('suPw2') || {}).value || '';
-  const clsName = val('suClassName');
-  const child = val('suChild');
-  const birth = val('suBirth');
+  const f = signupFormState();
+  const name = String(f.name || '').trim(), id = normId(f.id);
+  const pw = f.pw, pw2 = f.pw2;
+  const clsName = String(f.className || '').trim();
+  const child = String(f.child || '').trim();
+  const birth = String(f.birth || '').trim();
   const err = document.getElementById('suErr');
   const fail = m => { if (err) { err.innerHTML = esc(m).replace(/\n/g, '<br>'); err.classList.add('show'); } else toast(m, 'err'); };
   if (!st.roles.length) return fail('역할을 하나 이상 골라 주세요.');
   if (!name) return fail('이름을 입력해 주세요.');
-  if (!/^[a-zA-Z0-9_.-]{3,24}$/.test(id)) return fail('아이디는 영문·숫자 3~24자로 정해 주세요.');
+  if (!okAccountId(id)) return fail(idRuleText());
   if (pw.length < 8) return fail('비밀번호는 8자 이상으로 정해 주세요.');
   if (pw !== pw2) return fail('비밀번호가 서로 다릅니다.');
   if (!birth) return fail('생년월일(생일)을 넣어 주세요. 부서 일정에 생일이 자동 등록됩니다.');
@@ -84,12 +128,12 @@ async function doSignup() {
   const btn = document.querySelector('[data-act="do-signup"]');
   if (btn) { btn.disabled = true; btn.textContent = '신청 중…'; }
   try {
-    const uid = await uidOf(id);
-    const row = await fetchAccount(uid);
-    if (row) {
-      const info = appRowInfo(row);
-      if (info.kind === 'pending' || info.kind === 'approved') return fail('이미 가입 신청한 아이디입니다. 승인을 기다려 주세요.');
-      if (info.kind === 'active') return fail('이미 사용 중인 아이디입니다. 다른 아이디로 신청해 주세요.');
+    const dup = await duplicateSignupInfo(id, name);
+    if (dup.kind === 'same_id_pending') return fail('이미 가입 신청한 아이디입니다. 승인을 기다려 주세요.');
+    if (dup.kind === 'same_id_active') return fail('이미 사용 중인 아이디입니다. 다른 아이디로 신청해 주세요.\n같은 이름이면 아이디 뒤에 숫자를 붙이면 됩니다. (예: ' + name + '2)');
+    if (dup.kind === 'same_name_app') {
+      const list = dup.same.map(x => '@' + x.id + (x.roles.length ? ' · ' + x.roles.map(r => roleDef(r).label).join('/') : '') + (x.approved ? ' (승인됨)' : ' (승인 대기)')).join(', ');
+      return fail('이미 같은 이름(' + name + ')으로 가입 신청한 기록이 있습니다.\n' + list + '\n같은 분이면 승인을 기다려 주세요. 다른 분이면 담당자에게 알려 주세요.');
     }
     const depts = st.depts.slice();
     const bt = V.signupBirthType === 'lunar' ? 'lunar' : 'solar';
@@ -101,6 +145,7 @@ async function doSignup() {
     await saveAccountRow(app);
     closeModal();
     V.signup = null;
+    V.signupForm = null;
     showLogin();
     showLoginError('가입 신청을 보냈습니다.\n' + roleDef(st.roles[0]).label + '의 윗단계 담당자가 승인하면 바로 로그인할 수 있습니다.');
     toast('가입 신청 완료', 'ok');
@@ -160,8 +205,22 @@ function approveView() {
   const mine = V.apps.filter(a => a.status === 'pending' && canApprove(a));
   const notMine = V.apps.filter(a => a.status === 'pending' && !canApprove(a));
   const done = V.apps.filter(a => a.status !== 'pending');
+  const chg = pendingChanges();
+  const chgMine = chg.filter(r => canApproveChange(r));
+  const chgOthers = chg.filter(r => !canApproveChange(r));
 
-  if (!mine.length) h += '<div class="card">' + emptyBox('👋', '내가 승인할 신청이 없습니다',
+  /* 역할·부서 변경 신청 — 가입 승인과 함께 여기서 처리합니다 */
+  if (chgMine.length) {
+    h += '<div class="sect-title">🔁 역할·부서 변경 신청 ' + chgMine.length + '건</div>';
+    chgMine.forEach(r => { h += changeRequestCard(r); });
+  }
+  if (chgOthers.length) {
+    h += '<div class="sect-title">다른 담당자가 승인할 변경 신청</div><div class="list">';
+    chgOthers.forEach(r => { h += '<div class="item"><span class="av">🔁</span><span class="tx"><b>' + esc(r.name || '') + '</b><span>' + esc(roleSetText((r.to || {}).roles, (r.to || {}).depts)) + ' · 윗단계 승인 대기</span></span></div>'; });
+    h += '</div>';
+  }
+
+  if (!mine.length) h += '<div class="card">' + emptyBox('👋', '내가 승인할 가입 신청이 없습니다',
     myRank() <= 2 ? '교사는 학부모 가입을, 교육부서담당은 교사 가입을 승인합니다' : '아랫단계 신청이 들어오면 여기에 나타납니다') + '</div>';
   mine.forEach(a => {
     const ap = a.app || {};
@@ -174,6 +233,8 @@ function approveView() {
     if (ap.childName) h += '<div class="kv"><span>자녀</span><b>' + esc(ap.childName) + '</b></div>';
     if (ap.birth) h += '<div class="kv"><span>생일</span><b>' + esc(String(ap.birth).replace(/-/g, '.')) + '</b></div>';
     h += '<div class="kv"><span>신청</span><b>' + timeAgo(ap.at || a.updated) + '</b></div>';
+    const warn = dupAppWarn(a);
+    if (warn) h += '<div class="banner amber" style="margin-top:8px">⚠️ ' + esc(warn) + '</div>';
     h += '<div class="row" style="margin-top:10px"><button class="btn" data-act="reject-app" data-uid="' + esc(a.uid) + '">반려</button><span class="sp"></span><button class="btn primary" data-act="approve-app" data-uid="' + esc(a.uid) + '">승인</button></div></div>';
   });
   if (notMine.length) {
@@ -193,7 +254,7 @@ function approveView() {
     });
     h += '</div>';
   }
-  h += '<p class="muted" style="margin-top:12px">승인하면 이 신청자만 열 수 있는 열쇠로 자료 열쇠를 감싸 전달합니다. 신청자의 비밀번호는 알 필요도, 저장할 필요도 없습니다.</p>';
+  h += '<p class="muted" style="margin-top:12px">승인하면 이 신청자만 열 수 있는 열쇠로 자료 열쇠를 감싸 전달합니다. 신청자의 비밀번호는 알 필요도, 저장할 필요도 없습니다. 같은 이름의 회원이 이미 있으면 카드에 표시되니 중복 가입인지 확인해 주세요.</p>';
   return h;
 }
 
@@ -207,6 +268,14 @@ async function approveApp(uid, overrides) {
   await saveAccountRow(await approveApplication(raw.row, overrides));
   try {
     const ov = overrides || {};
+    /* 자녀 연결 — 승인하면서 고른 자녀를 아이 쪽에도 학부모로 남깁니다 */
+    const sids = (ov.students || (info.app || {}).students || []);
+    sids.forEach(sid => {
+      const s = (S.state.students || []).find(x => x.id === sid && !x._del);
+      if (!s) return;
+      addGuardianTo(s, uid);
+      if (!s.guardianName) s.guardianName = (info.app || {}).name || '';
+    });
     const birth = ov.birth !== undefined ? ov.birth : (info.app || {}).birth;
     syncBirthEvent('account', uid, (info.app || {}).name || a.rec.name, birth, ov.depts || (info.app || {}).depts || [], (info.app || {}).birthType, (info.app || {}).birthLunar);
     await Sync.save();
@@ -226,12 +295,11 @@ function approveModal(uid) {
   const ap = a.app || {};
   V.apprEdit = { uid: uid, depts: (ap.depts || []).slice(), classes: (ap.classes || []).slice(), students: (ap.students || []).slice(), birth: ap.birth || '' };
   const depts = (S.state.departments || []).filter(d => !d._del);
-  const cls = (S.state.classes || []).filter(c => !c._del && inYear(c));
   let h = '<div class="banner sky">' + esc(ap.name || a.rec.name) + ' · ' + esc(((ap.roles || []).map(r => roleDef(r).label).join(' / '))) + '</div>';
   h += '<div class="field"><label>아이디</label><input value="' + esc(ap.id || a.rec.id) + '" readonly></div>';
   h += '<div class="field"><label>생일 ' + (ap.birthType === 'lunar' ? '(음력)' : '(양력)') + ' · 부서 일정에 자동 등록</label><input id="apBirth" type="date" value="' + esc(ap.birth || '') + '"></div>';
   h += '<div class="field"><label>담당 부서</label><div class="row wrap" style="gap:6px">' + depts.map(d => '<button type="button" class="chip big ' + (V.apprEdit.depts.indexOf(d.id) >= 0 ? 'coral' : 'gray') + '" data-act="appr-dept" data-id="' + esc(d.id) + '">' + esc((d.emoji || '') + ' ' + d.name) + '</button>').join('') + '</div></div>';
-  h += '<div class="field"><label>담당 반</label><div class="row wrap" style="gap:6px">' + (cls.length ? cls.map(c => '<button type="button" class="chip big ' + (V.apprEdit.classes.indexOf(c.id) >= 0 ? 'coral' : 'gray') + '" data-act="appr-cls" data-id="' + esc(c.id) + '">' + esc(((deptById(c.deptId) || {}).name || '') + ' ' + c.name) + '</button>').join('') : '<span class="muted">등록된 반이 없습니다.</span>') + '</div></div>';
+  h += '<div class="field"><label>담당 반</label><div class="row wrap" id="apClsBox" style="gap:6px">' + approveClassChips() + '</div><div class="hint">고른 담당 부서의 반만 보입니다.</div></div>';
   const stus = (S.state.students || []).filter(s => !s._del && inYear(s));
   if (stus.length) {
     h += '<div class="field"><label>자녀 연결 (학부모)</label><div class="row wrap" style="gap:6px">';
@@ -242,6 +310,20 @@ function approveModal(uid) {
   }
   h += '<div class="row" style="margin-top:10px"><button class="btn" data-act="modal-close">취소</button><span class="sp"></span><button class="btn primary" data-act="do-approve" data-uid="' + esc(uid) + '">승인하고 열쇠 전달</button></div>';
   openModal('가입 승인', h);
+}
+
+/* 가입 승인 창의 담당 반 칩 — 고른 담당 부서의 반만 */
+function approveClassChips() {
+  const ds = ((V.apprEdit && V.apprEdit.depts) || []).map(canonDeptId);
+  const picked = (V.apprEdit && V.apprEdit.classes) || [];
+  const cls = (S.state.classes || []).filter(c => !c._del && inYear(c) &&
+    (!ds.length || ds.indexOf(canonDeptId(c.deptId)) >= 0 || picked.indexOf(c.id) >= 0));
+  if (!cls.length) return '<span class="muted">이 부서에 등록된 반이 없습니다.</span>';
+  return cls.map(c => {
+    const on = picked.indexOf(c.id) >= 0;
+    return '<button type="button" class="chip big ' + (on ? 'coral' : 'gray') + '" data-act="appr-cls" data-id="' + esc(c.id) + '">' +
+      (ds.length ? '' : esc((deptById(c.deptId) || {}).name || '') + ' ') + esc(c.name) + '</button>';
+  }).join('');
 }
 
 function rejectModal(uid) {
@@ -263,6 +345,218 @@ async function doReject(uid) {
   renderApp();
   toast('반려했습니다', 'ok');
   await loadApps(true);
+}
+
+/* ================= 2-1. 역할·부서 변경 신청 =================
+   학부모로 가입한 사람이 올해 교사로도 활동할 때 내 정보에서 직접 신청합니다.
+   · 권한이 올라가는 변경(학부모 → 교사 등) → 윗단계(교육부서담당·목회자·관리자) 승인 뒤 적용
+   · 부서만 옮기거나 역할을 줄이는 변경 → 바로 적용
+   · 어느 쪽이든 연결된 자녀(students)·담임 반(classes)은 건드리지 않습니다. */
+function roleLabelsOf(keys) { return (keys || []).map(k => roleDef(k).label).filter(Boolean).join(' · '); }
+function deptNamesOf(ids) {
+  const list = Array.from(new Set((ids || []).map(canonDeptId)));
+  return list.map(d => (deptById(d) || {}).name).filter(Boolean).join(', ') || '전체';
+}
+function roleSetText(roles, depts) { return (roleLabelsOf(roles) || '역할 없음') + ' · ' + deptNamesOf(depts); }
+
+/* 내 정보 화면 카드 */
+function roleChangeCard() {
+  if (!S.me) return '';
+  const pend = myPendingChange();
+  const done = changeRequests().filter(r => r.uid === S.me.uid && r.status !== 'pending')
+    .sort((a, b) => (Number(b.at2) || Number(b.at) || 0) - (Number(a.at2) || Number(a.at) || 0))[0];
+  let h = '<div class="card"><h3>🔁 역할·부서 변경</h3>';
+  h += '<div class="kv"><span>지금</span><b>' + esc(roleSetText(S.me.roles, S.me.depts)) + '</b></div>';
+  if (pend) {
+    h += '<div class="banner sky">🕒 <b>' + esc(roleSetText(pend.to.roles, pend.to.depts)) + '</b> (으)로 바꾸는 신청이 승인을 기다리고 있습니다 · ' + timeAgo(pend.at) + (pend.note ? '<br>사유: ' + esc(pend.note) : '') + '</div>';
+  } else if (done) {
+    const ok = done.status === 'approved' || done.status === 'applied';
+    const lbl = done.status === 'rejected' ? '↩ 반려되었습니다' : ok ? '✅ 바뀐 내용이 적용되었습니다' : '처리되었습니다';
+    h += '<div class="banner ' + (done.status === 'rejected' ? 'coral' : 'mint') + '">' + lbl + (done.status !== 'applied' && done.byName ? ' · ' + esc(done.byName) : '') + (done.why ? '<br>사유: ' + esc(done.why) : '') + ' <span class="muted">' + timeAgo(done.at2 || done.at) + '</span></div>';
+  }
+  h += '<p class="hint" style="margin:0 0 8px">작년에 학부모로 가입했는데 올해 교사로도 활동한다면 여기서 신청하세요. 학부모 → 교사처럼 <b>권한이 올라가는 변경은 윗단계(교육부서담당·관리자) 승인</b> 뒤에 적용되고, <b>연결된 자녀는 그대로 남습니다</b>. 부서만 옮기는 변경은 바로 적용됩니다.</p>';
+  h += '<button class="btn block" data-act="chg-open">' + (pend ? '신청 내용 바꾸기' : '역할·부서 변경 신청') + '</button>';
+  h += '</div>';
+  return h;
+}
+
+function changeApplyHint() {
+  const e = V.changeEdit || {};
+  const need = rankOfKeys(e.roles) > myRank();
+  return need ? '윗단계(교육부서담당·관리자) 승인 뒤에 적용됩니다' : '바로 적용됩니다';
+}
+function refreshChangeHint() {
+  const el = document.getElementById('chgApplyHint');
+  if (el) el.textContent = changeApplyHint();
+}
+
+function roleChangeModal() {
+  if (!S.me) return;
+  const pend = myPendingChange();
+  const src = pend ? pend.to : { roles: S.me.roles || [], depts: S.me.depts || [] };
+  V.changeEdit = { roles: (src.roles || []).slice(), depts: Array.from(new Set((src.depts || []).map(canonDeptId))) };
+  const roles = (S.state.roles || []).filter(r => !r._del && roleDef(r.key).base !== 'admin');
+  const depts = (S.state.departments || []).filter(d => !d._del && d.active !== false).sort((a, b) => (a.order || 0) - (b.order || 0));
+  let h = '<div class="banner sky">바꾸려는 역할·부서를 고르세요. <b>학부모와 교사</b>를 함께 고르면 교사로 활동하면서 자녀도 계속 볼 수 있습니다.</div>';
+  h += '<div class="field"><label>역할 (여러 개 고를 수 있습니다)</label><div class="row wrap" style="gap:6px">';
+  roles.forEach(r => {
+    const on = V.changeEdit.roles.indexOf(r.key) >= 0;
+    h += '<button type="button" class="chip big ' + (on ? 'coral' : 'gray') + '" data-act="chg-role" data-key="' + esc(r.key) + '">' + esc((r.emoji || '') + ' ' + r.label) + '</button>';
+  });
+  h += '</div><div class="hint">관리자 역할은 여기서 바꿀 수 없습니다. 필요하면 관리자에게 요청하세요.</div></div>';
+  h += '<div class="field"><label>소속 부서</label><div class="row wrap" style="gap:6px">';
+  depts.forEach(d => {
+    const on = V.changeEdit.depts.indexOf(d.id) >= 0;
+    h += '<button type="button" class="chip big ' + (on ? 'coral' : 'gray') + '" data-act="chg-dept" data-id="' + esc(d.id) + '">' + esc((d.emoji || '') + ' ' + d.name) + '</button>';
+  });
+  h += '</div><div class="hint">자녀가 다니는 부서는 자동으로 함께 보입니다.</div></div>';
+  h += '<div class="field"><label>신청 사유 (선택)</label><input id="chgNote" value="' + esc(pend ? pend.note || '' : '') + '" placeholder="예: 올해부터 초등부 교사로 함께 섬깁니다"></div>';
+  h += '<div class="kv"><span>적용 방법</span><b id="chgApplyHint">' + esc(changeApplyHint()) + '</b></div>';
+  h += '<div class="row" style="margin-top:10px"><button class="btn" data-act="modal-close">취소</button><span class="sp"></span><button class="btn primary" data-act="chg-send">' + (pend ? '신청 내용 바꾸기' : '신청하기') + '</button></div>';
+  openModal('역할·부서 변경', h);
+}
+
+/* 내 계정 기록만 고쳐 바로 적용 (자녀·담임 반은 그대로) */
+async function applySelfChange(roles, depts, note) {
+  const from = { roles: (S.me.roles || []).slice(), depts: (S.me.depts || []).map(canonDeptId) };
+  /* 부서를 하나도 고르지 않았으면 지금 부서를 그대로 둡니다 (교사가 부서 없이 남는 것을 막음) */
+  const finalDepts = depts.length ? depts.slice() : from.depts.slice();
+  const to = { roles: roles.slice(), depts: finalDepts };
+  const rec = await updateAccountRec(S.me.uid, r => {
+    r.roles = to.roles.slice();
+    r.depts = finalDepts.slice();
+    r.changeLog = (r.changeLog || []).concat([{ at: Date.now(), by: S.me.uid, byName: S.me.name, from: from, to: to, note: note || '' }]).slice(-12);
+  });
+  S.me.roles = to.roles.slice();
+  S.me.depts = finalDepts.slice();
+  if ((S.me.roles || []).indexOf(S.roleKey) < 0) S.roleKey = highestRoleKey(S.me.roles);
+  if (rec) { try { syncBirthEventOf('account', S.me.uid, rec, S.me.depts); } catch (e) { } }
+  saveSession();
+  return rec;
+}
+
+async function submitRoleChange() {
+  const e = V.changeEdit;
+  if (!e) return;
+  const roles = (e.roles || []).slice();
+  if (!roles.length) return toast('역할을 하나 이상 골라 주세요', 'err');
+  const depts = Array.from(new Set((e.depts || []).map(canonDeptId)));
+  const note = val('chgNote');
+  const needDept = roles.some(r => ['teacher', 'edu', 'pastor'].indexOf(roleDef(r).base) >= 0);
+  if (needDept && !depts.length && !(S.me.depts || []).length) return toast('교사·교육부서담당은 소속 부서를 하나 이상 골라 주세요', 'err');
+  const from = { roles: (S.me.roles || []).slice(), depts: (S.me.depts || []).map(canonDeptId) };
+  if (sameKeySet(roles, from.roles) && sameKeySet(depts, from.depts)) return toast('바뀐 내용이 없습니다', 'err');
+  const now = Date.now();
+  const existing = myPendingChange();
+  const need = rankOfKeys(roles) > myRank();
+
+  if (!need) {
+    try { await applySelfChange(roles, depts, note); }
+    catch (err) { return toast((err && err.message) || '바꾸지 못했습니다', 'err'); }
+    if (existing) { existing.status = 'replaced'; existing.u = now; touch(existing); }
+    S.state.requests = S.state.requests || [];
+    S.state.requests.push({
+      id: 'rq-' + Crypto.uid(), uid: S.me.uid, accountId: S.me.id, name: S.me.name,
+      from: from, to: { roles: roles, depts: depts }, note: note,
+      status: 'applied', by: S.me.uid, byName: S.me.name, at: now, at2: now, u: now
+    });
+    await Sync.save();
+    V.changeEdit = null;
+    closeModal(); renderApp();
+    toast('역할·부서를 바꿨습니다', 'ok');
+    return;
+  }
+
+  S.state.requests = S.state.requests || [];
+  if (existing) {
+    existing.from = from; existing.to = { roles: roles, depts: depts }; existing.note = note;
+    existing.at = now; existing.u = now; touch(existing);
+  } else {
+    S.state.requests.push({
+      id: 'rq-' + Crypto.uid(), uid: S.me.uid, accountId: S.me.id, name: S.me.name,
+      from: from, to: { roles: roles, depts: depts }, note: note,
+      status: 'pending', at: now, u: now
+    });
+  }
+  await Sync.save();
+  V.changeEdit = null;
+  closeModal(); renderApp();
+  toast('변경 신청을 보냈습니다. 윗단계 승인 뒤에 적용됩니다', 'ok');
+}
+
+async function doApproveChange(id) {
+  const req = changeRequests().find(r => r.id === id);
+  if (!req) return toast('신청을 찾지 못했습니다', 'err');
+  if (!canApproveChange(req)) return toast('이 신청을 승인할 단계가 아닙니다', 'err');
+  const to = { roles: (req.to.roles || []).slice(), depts: Array.from(new Set((req.to.depts || []).map(canonDeptId))) };
+  try {
+    const rec = await updateAccountRec(req.uid, r => {
+      r.roles = to.roles.slice();
+      if (to.depts.length) r.depts = to.depts.slice();
+      r.changeLog = (r.changeLog || []).concat([{ at: Date.now(), by: S.me.uid, byName: S.me.name, from: req.from || {}, to: to, note: req.note || '' }]).slice(-12);
+    });
+    if (rec) { try { syncBirthEventOf('account', req.uid, rec, (to.depts.length ? to.depts : (rec.depts || []))); } catch (e) { } }
+    if (req.uid === S.me.uid) {
+      S.me.roles = to.roles.slice();
+      if (to.depts.length) S.me.depts = to.depts.slice();
+      if ((S.me.roles || []).indexOf(S.roleKey) < 0) S.roleKey = highestRoleKey(S.me.roles);
+      saveSession();
+    }
+    req.status = 'approved'; req.by = S.me.uid; req.byName = S.me.name; req.at2 = Date.now(); req.u = Date.now(); touch(req);
+    await Sync.save();
+    renderApp();
+    const tea = to.roles.some(r => roleDef(r).base === 'teacher');
+    toast((req.name || '신청자') + ' 님의 역할·부서를 바꿨습니다' + (tea ? ' · 담임 반은 교사·권한에서 지정하세요' : ''), 'ok');
+    refreshMyAccount();
+  } catch (e) {
+    toast((e && e.message) || '적용하지 못했습니다', 'err');
+  }
+}
+
+function rejectChangeModal(id) {
+  const req = changeRequests().find(r => r.id === id);
+  if (!req) return;
+  let h = '<p class="muted">' + esc(req.name || '신청자') + ' 님의 역할·부서 변경 신청을 반려합니다. 사유는 신청자에게 보입니다.</p>';
+  h += '<div class="field"><label>반려 사유 (선택)</label><input id="chgWhy" placeholder="예: 부서 담당 확인이 필요합니다"></div>';
+  h += '<div class="row"><button class="btn" data-act="modal-close">취소</button><span class="sp"></span><button class="btn" style="color:#c33e5f" data-act="chg-reject-go" data-id="' + esc(id) + '">반려하기</button></div>';
+  openModal('변경 신청 반려', h);
+}
+async function confirmRejectChange(id) {
+  const req = changeRequests().find(r => r.id === id);
+  if (!req) return;
+  req.status = 'rejected'; req.by = S.me.uid; req.byName = S.me.name;
+  req.why = val('chgWhy'); req.at2 = Date.now(); req.u = Date.now(); touch(req);
+  await Sync.save();
+  closeModal(); renderApp();
+  toast('반려했습니다', 'ok');
+}
+
+/* 승인 화면에 띄우는 내용 */
+function changeRequestCard(req) {
+  let h = '<div class="card"><h3>' + esc(req.name || nameOfUid(req.uid)) + '<span class="sp"></span><span class="chip amber">승인 대기</span></h3>';
+  h += '<div class="kv"><span>아이디</span><b>' + esc(req.accountId || '') + '</b></div>';
+  h += '<div class="kv"><span>지금</span><b>' + esc(roleSetText((req.from || {}).roles, (req.from || {}).depts)) + '</b></div>';
+  h += '<div class="kv"><span>신청</span><b>' + esc(roleSetText((req.to || {}).roles, (req.to || {}).depts)) + '</b></div>';
+  if (req.note) h += '<div class="kv"><span>사유</span><b>' + esc(req.note) + '</b></div>';
+  h += '<div class="kv"><span>신청 시각</span><b>' + timeAgo(req.at) + '</b></div>';
+  h += '<div class="hint">승인하면 바로 적용되고 연결된 자녀·기록은 그대로 남습니다.</div>';
+  h += '<div class="row" style="margin-top:10px"><button class="btn" data-act="chg-reject" data-id="' + esc(req.id) + '">반려</button><span class="sp"></span><button class="btn primary" data-act="chg-approve" data-id="' + esc(req.id) + '">승인</button></div></div>';
+  return h;
+}
+
+/* 승인 화면에서 같은 이름 회원이 있는지 — 같은 분이 중복 가입했는지 확인용 */
+function dupAppWarn(a) {
+  const ap = a.app || {};
+  const nm = String(ap.name || '').trim();
+  if (!nm) return '';
+  const bases = (ap.roles || []).map(r => roleDef(r).base);
+  const others = (V.appRows || []).filter(x => x.uid !== a.uid && x.status === 'active' && String((x.rec && x.rec.name) || '').trim() === nm);
+  if (!others.length) return '';
+  const sameRole = others.filter(x => (((x.rec && x.rec.roles) || []).some(r => bases.indexOf(roleDef(r).base) >= 0)));
+  let t = '이미 같은 이름의 회원이 있습니다: ' + others.map(x => '@' + ((x.rec && x.rec.id) || '?')).join(', ');
+  if (sameRole.length) t += ' · 같은 역할(' + sameRole.map(x => ((x.rec && x.rec.roles) || []).map(r => roleDef(r).label).join('/')).join(', ') + ')';
+  t += '. 같은 분이 중복 가입한 것은 아닌지 확인해 주세요.';
+  return t;
 }
 
 /* ================= 3. 결석 사유 ================= */
@@ -1268,6 +1562,8 @@ document.addEventListener('click', async function (ev) {
       case 'open-signup':
         if (!Api.on()) return showLoginError('동기화 서버에 연결할 수 없어 가입 신청을 할 수 없습니다.');
         V.signup = { roles: [], depts: [], classes: [] };
+        V.signupForm = null;
+        V.signupBirthType = 'solar';
         if (!(S.state.departments || []).length) {
           // 로그인 전에는 부서 목록이 없으므로 기본 부서 틀을 보여 줍니다
           S.state.departments = JSON.parse(JSON.stringify(DEFAULT_DEPTS));
@@ -1284,7 +1580,14 @@ document.addEventListener('click', async function (ev) {
 
       /* --- 승인 --- */
       case 'reload-apps': V.apps = null; loadApps(true); return;
-      case 'appr-dept': { if (!V.apprEdit) return; toggleIn(V.apprEdit.depts, t.dataset.id); t.classList.toggle('coral'); t.classList.toggle('gray'); return; }
+      case 'appr-dept': {
+        if (!V.apprEdit) return;
+        toggleIn(V.apprEdit.depts, t.dataset.id);
+        t.classList.toggle('coral'); t.classList.toggle('gray');
+        const box = document.getElementById('apClsBox');
+        if (box) box.innerHTML = approveClassChips();
+        return;
+      }
       case 'appr-cls': { if (!V.apprEdit) return; toggleIn(V.apprEdit.classes, t.dataset.id); t.classList.toggle('coral'); t.classList.toggle('gray'); return; }
       case 'appr-stu': { if (!V.apprEdit) return; toggleIn(V.apprEdit.students, t.dataset.id); t.classList.toggle('coral'); t.classList.toggle('gray'); return; }
       case 'approve-app': approveModal(t.dataset.uid); return;
@@ -1297,6 +1600,26 @@ document.addEventListener('click', async function (ev) {
       }
       case 'reject-app': rejectModal(t.dataset.uid); return;
       case 'do-reject': await doReject(t.dataset.uid); return;
+
+      /* --- 역할·부서 변경 신청 --- */
+      case 'chg-open': roleChangeModal(); return;
+      case 'chg-role': {
+        if (!V.changeEdit) return;
+        toggleIn(V.changeEdit.roles, t.dataset.key);
+        t.classList.toggle('coral'); t.classList.toggle('gray');
+        refreshChangeHint();
+        return;
+      }
+      case 'chg-dept': {
+        if (!V.changeEdit) return;
+        toggleIn(V.changeEdit.depts, t.dataset.id);
+        t.classList.toggle('coral'); t.classList.toggle('gray');
+        return;
+      }
+      case 'chg-send': await submitRoleChange(); return;
+      case 'chg-approve': await doApproveChange(t.dataset.id); return;
+      case 'chg-reject': rejectChangeModal(t.dataset.id); return;
+      case 'chg-reject-go': await confirmRejectChange(t.dataset.id); return;
 
       /* --- 결석 사유 --- */
       case 'pick-absent': {

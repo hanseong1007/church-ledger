@@ -121,10 +121,13 @@ async function afterLogin() {
   S.ready = true;
   /* 예전 부서(유아부·중등부) 자료를 세 부서로 이어 붙입니다 */
   const deptFix = normalizeDeptRefs(true);
+  /* 자녀가 진급해 부서가 바뀌었으면 학부모 계정의 부서도 따라갑니다 */
+  let linkFix = false;
+  try { linkFix = await reconcileChildDepts(); } catch (e) { }
   const before = JSON.stringify(S.state.people || {});
   rememberMe();
   const isAdmin = roleDef(S.roleKey).base === 'admin';
-  if (S.rev === 0 || deptFix || before !== JSON.stringify(S.state.people || {})) {
+  if (S.rev === 0 || deptFix || linkFix || before !== JSON.stringify(S.state.people || {})) {
     // 첫 자료(관리자)이거나 내 이름 정보가 시트에 없을 때 한 번 올린다
     await Sync.save();
   }
@@ -177,7 +180,7 @@ function showSetup() {
   h += '<div class="login-brand"><div class="login-logo">🏫</div><h1>처음 설정</h1><p>덕신교회 부서업무 · 관리자 계정 만들기</p></div>';
   h += '<div class="banner sky">아직 등록된 계정이 없습니다. 첫 관리자 계정을 만들면 이후에는 이 화면이 나오지 않습니다.</div>';
   h += '<div class="login-field"><label>관리자 이름</label><input id="setupName" placeholder="예: 박한성"></div>';
-  h += '<div class="login-field"><label>아이디</label><input id="setupId" autocapitalize="none" spellcheck="false" placeholder="영문·숫자"></div>';
+  h += '<div class="login-field"><label>아이디</label><input id="setupId" autocapitalize="none" spellcheck="false" placeholder="한글·영문·숫자"></div>';
   h += '<div class="login-field"><label>비밀번호 (8자 이상)</label><input id="setupPw" type="password"></div>';
   h += '<div class="login-field"><label>비밀번호 확인</label><input id="setupPw2" type="password"></div>';
   h += '<div class="login-err" id="loginErr"></div>';
@@ -192,7 +195,7 @@ async function doSetup() {
   const pw = (document.getElementById('setupPw') || {}).value || '';
   const pw2 = (document.getElementById('setupPw2') || {}).value || '';
   if (!name) return showLoginError('이름을 입력해 주세요.');
-  if (!/^[a-zA-Z0-9_.-]{3,24}$/.test(id)) return showLoginError('아이디는 영문·숫자 3~24자로 정해 주세요.');
+  if (!okAccountId(id)) return showLoginError(idRuleText());
   if (pw.length < 8) return showLoginError('비밀번호는 8자 이상으로 정해 주세요.');
   if (pw !== pw2) return showLoginError('비밀번호가 서로 다릅니다.');
   try {
@@ -626,7 +629,10 @@ document.addEventListener('click', async function (ev) {
         if (!V.editUser) return;
         const k = t.dataset.id; const i = V.editUser.depts.indexOf(k);
         if (i >= 0) V.editUser.depts.splice(i, 1); else V.editUser.depts.push(k);
-        t.classList.toggle('coral'); t.classList.toggle('gray'); return;
+        t.classList.toggle('coral'); t.classList.toggle('gray');
+        const box = document.getElementById('uClassBox');
+        if (box) box.innerHTML = userClassChips(V.editUser.classes);
+        return;
       }
       case 'toggle-class': {
         if (!V.editUser) return;
@@ -699,6 +705,11 @@ document.addEventListener('click', async function (ev) {
 
       case 'pw-change': await changePassword(); return;
       case 'logout': doLogout(); return;
+      case 'view-as-parent': {
+        const pk = parentRoleKeyOf();
+        if (!pk) return toast('학부모 역할이 없습니다. 내 정보 → 역할·부서 변경에서 신청해 주세요', 'err');
+        S.roleKey = pk; S.screen = 'home'; saveSession(); closeModal(); renderApp(); return;
+      }
     }
   } catch (e) {
     console.error(e);
@@ -721,6 +732,7 @@ document.addEventListener('change', function (ev) {
   if (!t || !t.dataset || !t.dataset.change) return;
   if (t.dataset.change === 'att-date') { syncYearToDate(t.value); V.date = t.value; renderApp(); }
   if (t.dataset.change === 'report-date') { syncYearToDate(t.value); V.reportDate = t.value; renderApp(); }
+  if (t.dataset.change === 'notice-dept') refreshNoticeClasses(t.value);
 });
 
 /* ---------------- 관리자: 사용자 저장 ---------------- */
@@ -736,7 +748,7 @@ async function saveUser() {
   const status = ACCOUNT_STATUS[e.status] ? e.status : 'normal';
   const statusNote = (document.getElementById('uStatusNote') || {}).value || e.statusNote || '';
   if (!id) return toast('아이디를 입력하세요', 'err');
-  if (!/^[a-zA-Z0-9_.-]{3,24}$/.test(id)) return toast('아이디는 영문·숫자 3~24자입니다', 'err');
+  if (!okAccountId(id)) return toast(idRuleText(), 'err');
   if (!name) return toast('이름을 입력하세요', 'err');
   if (!e.roles.length) return toast('역할을 하나 이상 골라 주세요', 'err');
   if (!e.uid && pw.length < 8) return toast('비밀번호는 8자 이상입니다', 'err');
@@ -843,6 +855,7 @@ async function saveMyBirth() {
     return toast((e && e.message) || '생일을 저장하지 못했습니다', 'err');
   }
   S.me.birth = birth; S.me.birthType = type; S.me.birthLunar = lunarMmdd;
+  V.myBirthDraft = '';
   syncBirthEventOf('account', S.me.uid, S.me, S.me.depts || []);
   await Sync.save();
   saveSession();

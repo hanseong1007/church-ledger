@@ -257,6 +257,7 @@ async function runYearRoll() {
         birthType: birthTypeOf(s), birthLunar: s.birthLunar || '', gender: s.gender || '',
         deptId: d.id, classId: keepClasses ? (clsMap[s.classId] || '') : '',
         guardianName: s.guardianName || '', guardianPhone: s.guardianPhone || '', guardianUid: s.guardianUid || '',
+        guardianUids: guardianIdsOf(s),
         note: s.note || '', newcomer: false, active: true,
         year: ny, promotedFrom: s.id, joined: ny + '-03-01', u: now
       };
@@ -643,7 +644,11 @@ document.addEventListener('click', async function (ev) {
         return;
       }
       case 'period-print': periodPrintModal(V.statPeriod || 'month'); return;
-      case 'my-birth-type': V.myBirthType = t.dataset.v; renderApp(); return;
+      case 'my-birth-type':
+        V.myBirthDraft = val('myBirth') || V.myBirthDraft || '';
+        V.myBirthType = t.dataset.v;
+        renderApp();
+        return;
       case 'u-birth-type': {
         if (!V.editUser) return;
         V.editUser.birthType = t.dataset.v;
@@ -673,7 +678,12 @@ document.addEventListener('click', async function (ev) {
         });
         return;
       }
-      case 'signup-birth-type': V.signupBirthType = t.dataset.v; signupModal(); return;
+      case 'signup-birth-type':
+        /* 양력↔음력만 바꿔 다시 그릴 때 입력해 둔 이름·아이디·비밀번호를 잃지 않도록 */
+        captureSignupForm();
+        V.signupBirthType = t.dataset.v;
+        signupModal();
+        return;
     }
   } catch (e) {
     console.error(e);

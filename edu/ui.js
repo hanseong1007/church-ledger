@@ -58,7 +58,8 @@ function unreadNotices() {
 }
 function pendingApprovals() {
   if (!can('user.approve')) return 0;
-  return (V.apps || []).filter(a => a.status === 'pending' && canApprove(a)).length;
+  return (V.apps || []).filter(a => a.status === 'pending' && canApprove(a)).length +
+    pendingChanges().filter(r => canApproveChange(r)).length;
 }
 
 /* ---------------- 공통 조각 ---------------- */
@@ -74,13 +75,24 @@ function statusChip(st) {
 }
 function attLabel(s) { return s === 'present' ? '출석' : s === 'absent' ? '결석' : s === 'excused' ? '인정' : '-'; }
 
+/* 내 자녀 — 계정에 적힌 자녀(student id)와 아이 쪽 학부모 연결을 모두 봅니다.
+   역할이 교사여도 연결된 자녀는 그대로 남습니다(학부모 겸 교사). */
+function myChildren() {
+  if (!S.me) return [];
+  const uid = S.me.uid;
+  const ids = S.me.students || [];
+  return (S.state.students || []).filter(s => !s._del && inYear(s) &&
+    (ids.indexOf(s.id) >= 0 || guardianIdsOf(s).indexOf(uid) >= 0));
+}
+function parentRoleKeyOf() {
+  const hit = myRoleDefs().find(r => roleDef(r.key).base === 'parent');
+  return hit ? hit.key : '';
+}
+
 function myStudents() {
   if (!S.me) return [];
   const base = roleDef(S.roleKey).base;
-  if (base === 'parent') {
-    const ids = S.me.students || [];
-    return (S.state.students || []).filter(s => !s._del && inYear(s) && (ids.indexOf(s.id) >= 0 || s.guardianUid === S.me.uid));
-  }
+  if (base === 'parent') return myChildren();
   if (base === 'teacher') {
     const cls = S.me.classes || [];
     return (S.state.students || []).filter(s => !s._del && inYear(s) && cls.indexOf(s.classId) >= 0);
@@ -219,6 +231,19 @@ function homeView() {
     });
     const unread = myNotices.filter(n => !(n.reads || {})[S.me.uid]);
     if (unread.length) h += '<div class="banner">📌 확인하지 않은 알림장이 ' + unread.length + '개 있어요.</div>';
+  }
+
+  /* 교사·교육부서담당이면서 자녀가 연결된 경우 — 자녀를 잃지 않고 함께 봅니다 */
+  if (base !== 'parent') {
+    const myKids = myChildren();
+    if (myKids.length) {
+      h += '<div class="card"><h3>👨‍👩‍👧 내 자녀 <small>학부모로도 활동 중</small><span class="sp"></span><span class="chip mint">' + myKids.length + '명</span></h3><div class="list">';
+      myKids.forEach(k => {
+        const st = monthStats(k.id, curMonth);
+        h += '<div class="item"><span class="av">' + esc((k.name || '?').slice(0, 1)) + '</span><span class="tx"><b>' + esc(k.name) + '</b><span>' + esc((deptById(k.deptId) || {}).name || '') + ' · ' + esc((classById(k.classId) || {}).name || '반 미지정') + ' · 이번 달 ' + st.rate + '%</span></span></div>';
+      });
+      h += '</div>' + (parentRoleKeyOf() ? '<button class="btn block sm" style="margin-top:8px" data-act="view-as-parent">👨‍👩‍👧 학부모 화면으로 보기</button>' : '<p class="hint" style="margin:8px 0 0">학부모 역할을 함께 가지면 학부모 화면에서 자녀 출석·알림장을 볼 수 있습니다. 내 정보 → 역할·부서 변경에서 신청하세요.</p>') + '</div>';
+    }
   }
 
   if (base === 'teacher' || base === 'edu' || base === 'admin') {
@@ -812,7 +837,7 @@ function membersView() {
       const pr = promoOf(s, curYear());
       const gradeTxt = pr.age ? esc(pr.label) : '';
       const moveTxt = (pr.deptId && pr.deptId !== s.deptId && pr.deptId !== 'graduate') ? ' · <span class="chip amber" style="margin-left:4px">' + esc(pr.deptName) + ' 진급</span>' : (pr.deptId === 'graduate' ? ' · <span class="chip gray" style="margin-left:4px">졸업</span>' : '');
-      h += '<button class="item" data-act="edit-student" data-id="' + esc(s.id) + '"><span class="av">' + esc((s.name || '?').slice(0, 1)) + '</span><span class="tx"><b>' + esc(s.name) + (gradeTxt ? ' <span class="chip sky">' + gradeTxt + '</span>' : '') + (s.guardianUid ? ' <span class="chip mint">학부모 연결</span>' : (s.guardianName ? ' <span class="chip amber">연결 필요</span>' : '')) + '</b><span>' + (s.birth ? esc(birthShort(s.birth)) + ' · ' : '') + esc(s.guardianName || '보호자 미등록') + (s.guardianPhone ? ' · ' + esc(s.guardianPhone) : '') + moveTxt + '</span></span><span class="rt"><span class="chip gray">' + esc(s.gender === 'm' ? '남' : s.gender === 'f' ? '여' : '') + '</span></span></button>';
+      h += '<button class="item" data-act="edit-student" data-id="' + esc(s.id) + '"><span class="av">' + esc((s.name || '?').slice(0, 1)) + '</span><span class="tx"><b>' + esc(s.name) + (gradeTxt ? ' <span class="chip sky">' + gradeTxt + '</span>' : '') + (hasGuardian(s) ? ' <span class="chip mint">학부모' + (guardianIdsOf(s).length > 1 ? ' ' + guardianIdsOf(s).length + '명' : '') + ' 연결</span>' : (s.guardianName ? ' <span class="chip amber">연결 필요</span>' : '')) + '</b><span>' + (s.birth ? esc(birthShort(s.birth)) + ' · ' : '') + esc(s.guardianName || '보호자 미등록') + (s.guardianPhone ? ' · ' + esc(s.guardianPhone) : '') + moveTxt + '</span></span><span class="rt"><span class="chip gray">' + esc(s.gender === 'm' ? '남' : s.gender === 'f' ? '여' : '') + '</span></span></button>';
     });
     h += '</div>';
     h += '<button class="btn block sm" style="margin-top:8px" data-act="new-student" data-cls="' + esc(c.id) + '">＋ 학생 추가</button>';
@@ -953,13 +978,16 @@ async function loadAccounts(force) {
 /* ---------------- 내 정보 ---------------- */
 function meView() {
   const roles = myRoleDefs();
-  const depts = (S.me.depts || []).map(d => (deptById(d) || {}).name).filter(Boolean);
+  const kids = myChildren();
+  const ownDeptIds = Array.from(new Set((S.me.depts || []).map(canonDeptId)));
+  const kidDeptIds = kids.map(s => canonDeptId(s.deptId)).filter(d => d && ownDeptIds.indexOf(d) < 0);
+  const depts = ownDeptIds.concat(kidDeptIds).map(d => (deptById(d) || {}).name).filter(Boolean);
   const cls = (S.me.classes || []).map(c => (classById(c) || {}).name).filter(Boolean);
   let h = '<div class="page-head"><div><h2>내 정보</h2><p>' + esc(S.me.name) + ' · ' + esc(S.me.id) + '</p></div></div>';
   h += '<div class="card"><h3>🙂 ' + esc(S.me.name) + '</h3>';
   h += '<div class="kv"><span>아이디</span><b>' + esc(S.me.id) + '</b></div>';
   h += '<div class="kv"><span>역할</span><b>' + esc(roles.map(r => r.emoji + ' ' + r.label).join(' / ') || '없음') + '</b></div>';
-  h += '<div class="kv"><span>부서</span><b>' + esc(depts.join(', ') || '전체') + '</b></div>';
+  h += '<div class="kv"><span>부서</span><b>' + esc(depts.join(', ') || '전체') + (kidDeptIds.length ? ' <span class="chip mint">자녀 소속 포함</span>' : '') + '</b></div>';
   if (cls.length) h += '<div class="kv"><span>담당 반</span><b>' + esc(cls.join(', ')) + '</b></div>';
   if (S.me.birth) h += '<div class="kv"><span>생일</span><b>' + esc(birthLabel(S.me)) + '</b></div>';
   else h += '<div class="kv"><span>생일</span><b><span class="chip amber">미입력</span></b></div>';
@@ -967,7 +995,7 @@ function meView() {
   const gr = grantedPerms();
   const grList = Object.keys(gr).filter(k => gr[k]).map(k => (PERM_LABELS.find(x => x[0] === k) || [k, k])[1]);
   if (grList.length) h += '<div class="kv"><span>위임받은 권한</span><b>' + esc(grList.join(', ')) + '</b></div>';
-  if (roleDef(S.roleKey).base === 'parent') h += '<div class="kv"><span>자녀</span><b>' + esc(myStudents().map(s => s.name).join(', ') || '미연결') + '</b></div>';
+  if (kids.length) h += '<div class="kv"><span>자녀</span><b>' + esc(kids.map(s => s.name).join(', ') || '미연결') + '</b></div>';
   h += '</div>';
 
   h += '<div class="card"><h3>🎂 생일</h3>';
@@ -975,9 +1003,11 @@ function meView() {
   h += '<div class="row wrap" style="gap:6px;margin-bottom:9px">';
   h += '<button class="chip big ' + (bt === 'solar' ? 'coral' : 'gray') + '" data-act="my-birth-type" data-v="solar">양력</button>';
   h += '<button class="chip big ' + (bt === 'lunar' ? 'coral' : 'gray') + '" data-act="my-birth-type" data-v="lunar">음력</button></div>';
-  h += '<div class="field"><label>' + (bt === 'lunar' ? '음력 생년월일' : '양력 생년월일') + '</label><input id="myBirth" type="date" value="' + esc(S.me.birth || '') + '"></div>';
+  h += '<div class="field"><label>' + (bt === 'lunar' ? '음력 생년월일' : '양력 생년월일') + '</label><input id="myBirth" type="date" value="' + esc(V.myBirthDraft || S.me.birth || '') + '"></div>';
   h += '<div class="hint">' + (bt === 'lunar' ? '음력으로 적으면 그 해의 양력 날짜로 바꾸어 부서 일정에 표시합니다.' : '양력으로 적으면 그 날짜에 해마다 표시합니다.') + ' 생일은 지금 소속된 부서 일정에 매년 자동으로 나오며, 부서를 옮기면 옮긴 부서에 나옵니다.</div>';
   h += '<button class="btn primary block" style="margin-top:8px" data-act="save-my-birth">생일 저장</button></div>';
+
+  h += roleChangeCard();
 
   if (myRoleDefs().length > 1) {
     h += '<div class="card"><h3>🎭 역할 전환</h3><div class="row wrap" style="gap:6px">' + myRoleDefs().map(r => '<button class="chip big ' + (r.key === S.roleKey ? 'coral' : 'gray') + '" data-act="use-role" data-key="' + esc(r.key) + '">' + esc(r.emoji + ' ' + r.label) + '</button>').join('') + '</div></div>';
@@ -1051,7 +1081,7 @@ function noticeModal(n) {
     h += '<button class="btn sm" data-act="del-notice" data-id="' + esc(n.id) + '">삭제</button></div>';
     if (readers.length) h += '<div class="muted" style="margin-top:6px">' + esc(readers.map(u => nameOfUid(u)).join(', ')) + '</div>';
     const kids = studentsOfDept(n.deptId).filter(s => !n.classId || s.classId === n.classId);
-    const unread = kids.filter(s => s.guardianPhone && !(n.reads || {})[s.guardianUid]);
+    const unread = kids.filter(s => s.guardianPhone && guardianIdsOf(s).length && !guardianIdsOf(s).some(u => (n.reads || {})[u]));
     if (unread.length) {
       h += '<div class="sect-title">아직 확인하지 않은 보호자 ' + unread.length + '명</div><div class="list">';
       unread.forEach(s => {
@@ -1063,12 +1093,26 @@ function noticeModal(n) {
   openModal('알림장', h);
 }
 
+/* 사용자 수정 창의 담당 반 칩 — 고른 담당 부서의 반만 */
+function userClassChips(sel) {
+  const editDepts = ((V.editUser && V.editUser.depts) || []).map(canonDeptId);
+  const picked = sel || [];
+  const cls = (S.state.classes || []).filter(c => !c._del && inYear(c) &&
+    (!editDepts.length || editDepts.indexOf(canonDeptId(c.deptId)) >= 0 || picked.indexOf(c.id) >= 0));
+  if (!cls.length) return '<span class="muted">이 부서에 등록된 반이 없습니다.</span>';
+  return cls.map(c => {
+    const on = picked.indexOf(c.id) >= 0;
+    return '<button type="button" class="chip big ' + (on ? 'coral' : 'gray') + '" data-act="toggle-class" data-id="' + esc(c.id) + '">' +
+      (editDepts.length ? '' : esc((deptById(c.deptId) || {}).name || '') + ' ') + esc(c.name) + '</button>';
+  }).join('');
+}
+
 function userModal(acct) {
   const isNew = !acct;
   const rec = acct ? acct.rec : { name: '', roles: ['teacher'], depts: [], classes: [], students: [], active: true };
   V.editUser = { uid: acct ? acct.uid : '', id: rec.id || '', roles: (rec.roles || []).slice(), depts: (rec.depts || []).slice(), classes: (rec.classes || []).slice(), students: (rec.students || []).slice(), salt: acct ? acct.salt : '', wrap: acct ? acct.wrap : '', birth: rec.birth || '', birthType: birthTypeOf(rec), birthLunar: rec.birthLunar || '', status: accountStatusOf(rec), statusNote: rec.statusNote || '', grants: Object.assign({}, rec.grants || {}), active: rec.active !== false };
   let h = '';
-  h += '<div class="field"><label>아이디 ' + (isNew ? '' : '<span class="muted">(변경 불가)</span>') + '</label><input id="uId" value="' + esc(rec.id || '') + '" ' + (isNew ? 'placeholder="예: kim / teacher2"' : 'readonly') + ' autocomplete="off"></div>';
+  h += '<div class="field"><label>아이디 ' + (isNew ? '' : '<span class="muted">(변경 불가)</span>') + '</label><input id="uId" value="' + esc(rec.id || '') + '" ' + (isNew ? 'placeholder="예: 박한성 / kim01"' : 'readonly') + ' autocomplete="off"><div class="hint">한글 이름도 그대로 아이디로 쓸 수 있습니다.</div></div>';
   h += '<div class="field"><label>이름</label><input id="uName" value="' + esc(rec.name || '') + '" placeholder="예: 김은혜"></div>';
   h += '<div class="row wrap" style="gap:6px;margin-bottom:5px"><button type="button" class="chip big ' + (V.editUser.birthType === 'solar' ? 'coral' : 'gray') + '" data-act="u-birth-type" data-v="solar">양력</button><button type="button" class="chip big ' + (V.editUser.birthType === 'lunar' ? 'coral' : 'gray') + '" data-act="u-birth-type" data-v="lunar">음력</button></div>';
   h += '<div class="field"><label id="uBirthLabel">생일 ' + (V.editUser.birthType === 'lunar' ? '(음력)' : '(양력)') + '</label><input id="uBirth" type="date" value="' + esc(rec.birth || '') + '"><div class="hint">부서 일정에 매년 자동 등록됩니다.</div></div>';
@@ -1076,11 +1120,7 @@ function userModal(acct) {
   if (!isNew) h += '<p class="hint" style="margin:-4px 0 10px">비워 두면 기존 비밀번호가 그대로 유지됩니다.</p>';
   h += '<div class="field"><label>역할 (여러 개 선택 가능)</label>' + roleChecks(rec.roles, 'user') + '</div>';
   h += '<div class="field"><label>담당 부서</label>' + deptChecks(rec.depts) + '<div class="hint">목회자·관리자는 지정하지 않으면 전체 부서를 봅니다.</div></div>';
-  h += '<div class="field"><label>담당 반</label><div class="row wrap" style="gap:6px">';
-  const cls = (S.state.classes || []).filter(c => !c._del && inYear(c));
-  if (!cls.length) h += '<span class="muted">등록된 반이 없습니다.</span>';
-  cls.forEach(c => { const on = (rec.classes || []).indexOf(c.id) >= 0; h += '<button type="button" class="chip big ' + (on ? 'coral' : 'gray') + '" data-act="toggle-class" data-id="' + esc(c.id) + '">' + esc((deptById(c.deptId) || {}).name || '') + ' ' + esc(c.name) + '</button>'; });
-  h += '</div></div>';
+  h += '<div class="field"><label>담당 반</label><div class="row wrap" id="uClassBox" style="gap:6px">' + userClassChips(rec.classes) + '</div><div class="hint">담당 부서를 먼저 고르면 그 부서의 반만 나옵니다.</div></div>';
   h += '<div class="field"><label>자녀 연결 (학부모용)</label><div class="row wrap" style="gap:6px">';
   const studs = (S.state.students || []).filter(s => !s._del && inYear(s));
   if (!studs.length) h += '<span class="muted">등록된 학생이 없습니다.</span>';
@@ -1124,7 +1164,12 @@ function roleModal(r) {
 function studentModal(s, classId) {
   const isNew = !s;
   const st = s || { name: '', birth: '', gender: '', classId: classId || '', deptId: '', guardianName: '', guardianPhone: '', guardianUid: '', note: '' };
-  const cls = (S.state.classes || []).filter(c => !c._del && inYear(c));
+  /* 반 목록은 이 학생(또는 지금 보고 있는) 부서의 반만 보여 줍니다 */
+  const curCls = s ? classById(st.classId) : classById(classId);
+  const stuDeptId = canonDeptId(st.deptId || (curCls ? curCls.deptId : '') || V.dept);
+  const stuDept = deptById(stuDeptId);
+  const cls = (S.state.classes || []).filter(c => !c._del && inYear(c) &&
+    (canonDeptId(c.deptId) === stuDeptId || c.id === st.classId));
   V.stuBirthType = birthTypeOf(st);
   V.stuNewcomer = !!st.newcomer;
   const bt = V.stuBirthType;
@@ -1133,7 +1178,8 @@ function studentModal(s, classId) {
   h += '<div class="row wrap" style="gap:6px;margin-bottom:5px"><button type="button" class="chip big ' + (bt === 'solar' ? 'coral' : 'gray') + '" data-act="s-birth-type" data-v="solar">양력</button><button type="button" class="chip big ' + (bt === 'lunar' ? 'coral' : 'gray') + '" data-act="s-birth-type" data-v="lunar">음력</button></div>';
   h += '<div class="grid2"><div class="field"><label id="sBirthLabel">생년월일 ' + (bt === 'lunar' ? '(음력)' : '(양력)') + '</label><input id="sBirth" type="date" value="' + esc(st.birth) + '" data-change="s-birth"><div class="hint">부서 일정에 🎂 생일이 매년 자동 등록됩니다.</div></div>';
   h += '<div class="field"><label>성별</label><select id="sGender">' + opts([['', '선택'], ['m', '남'], ['f', '여']], st.gender) + '</select></div></div>';
-  h += '<div class="field"><label>반</label><select id="sClass">' + opts([['', '반 미지정']].concat(cls.map(c => [c.id, ((deptById(c.deptId) || {}).name || '') + ' ' + c.name])), st.classId) + '</select></div>';
+  h += '<div class="field"><label>반' + (stuDept ? ' <span class="muted">(' + esc(stuDept.name) + ')</span>' : '') + '</label><select id="sClass">' + opts([['', '반 미지정']].concat(cls.map(c => [c.id, c.name])), st.classId) + '</select>' +
+    (cls.length ? '<div class="hint">' + esc((stuDept || {}).name || '이') + ' 반만 보입니다.</div>' : '<div class="hint">이 부서에는 아직 반이 없습니다. 반·학생 → 반 추가에서 먼저 만들어 주세요.</div>') + '</div>';
   const pr0 = promoOf(st, curYear());
   h += '<div class="banner sky" id="sPromoHint" style="margin-top:-2px">' + (pr0.age
     ? '<b>' + curYear() + '년 기준 ' + pr0.age + '세 · ' + esc(pr0.label) + '</b> · 진급 부서: <b>' + esc(pr0.deptName) + '</b>'
@@ -1143,11 +1189,14 @@ function studentModal(s, classId) {
   h += '<div class="field"><label>신입(새신자)</label><button type="button" class="chip big ' + (V.stuNewcomer ? 'amber' : 'gray') + '" data-act="s-newcomer">' + (V.stuNewcomer ? '★ 신입으로 표시됨' : '☆ 신입으로 표시') + '</button><div class="hint">출석 화면의 ☆신입 단추로도 그 주일만 신입으로 표시할 수 있습니다.</div></div>';
   h += '<div class="field"><label>메모</label><input id="sNote" value="' + esc(st.note || '') + '"></div>';
   if (!isNew) {
-    h += '<div class="card flat" style="padding:11px;margin-bottom:10px"><div class="kv" style="padding:4px 0"><span>학부모 계정</span><b>' + (st.guardianUid ? esc(nameOfUid(st.guardianUid)) + ' <span class="chip mint">연결됨</span>' : '<span class="chip amber">미연결</span>') + '</b></div>';
+    const gids = guardianIdsOf(st);
+    h += '<div class="card flat" style="padding:11px;margin-bottom:10px"><div class="kv" style="padding:4px 0"><span>학부모 계정</span><b>' + (gids.length
+      ? gids.map(u => esc(nameOfUid(u))).join(', ') + ' <span class="chip mint">' + (gids.length > 1 ? '학부모 ' + gids.length + '명 연결' : '연결됨') + '</span>'
+      : '<span class="chip amber">미연결</span>') + '</b></div>';
     h += '<div class="row wrap" style="gap:6px;margin-top:6px">';
     if (can('child.link')) h += '<button class="btn sm" data-act="child-link" data-sid="' + esc(s.id) + '">👨‍👩‍👧 학부모 연결·변경</button>';
     if (st.guardianPhone) h += '<button class="btn sm" data-act="msg-student" data-sid="' + esc(s.id) + '">💬 문자·카톡</button>';
-    h += '</div></div>';
+    h += '</div><div class="hint">아이 한 명에 어머니·아버지 계정 두 개까지 함께 연결할 수 있습니다.</div></div>';
   }
   h += '<div class="row"><span class="sp"></span>' + (isNew ? '' : '<button class="btn" style="color:#c33e5f" data-act="del-student" data-id="' + esc(s.id) + '">삭제</button>') + '<button class="btn" data-act="modal-close">취소</button><button class="btn primary" data-act="save-student" data-id="' + esc(isNew ? '' : s.id) + '">저장</button></div>';
   openModal(isNew ? '학생 추가' : '학생 정보', h, { focus: 'sName' });
@@ -1197,13 +1246,24 @@ function eventModal(e) {
 
 function noticeWriteModal() {
   const depts = visibleDepts();
+  const startDept = (V.dept && depts.some(d => d.id === V.dept)) ? V.dept : (depts[0] || {}).id || '';
   let h = '<div class="field"><label>제목</label><input id="nTitle" placeholder="예: 이번 주 공과 안내"></div>';
-  h += '<div class="field"><label>부서</label><select id="nDept">' + opts(depts.map(d => [d.id, d.name]), V.dept) + '</select></div>';
-  h += '<div class="field"><label>반 (선택)</label><select id="nClass">' + opts([['', '부서 전체']].concat((S.state.classes || []).filter(c => !c._del).map(c => [c.id, ((deptById(c.deptId) || {}).name || '') + ' ' + c.name])), '') + '</select></div>';
+  h += '<div class="field"><label>부서</label><select id="nDept" data-change="notice-dept">' + opts(depts.map(d => [d.id, d.name]), startDept) + '</select></div>';
+  h += '<div class="field"><label>반 (선택)</label><select id="nClass">' + noticeClassOptions(startDept, '') + '</select><div class="hint">고른 부서의 반만 나옵니다.</div></div>';
   h += '<div class="field"><label>내용</label><textarea id="nBody" style="min-height:150px" placeholder="학부모님께 전할 내용을 적어 주세요."></textarea></div>';
   h += '<div class="field"><label>고정</label><button type="button" class="chip big gray" data-act="toggle-pin">📌 위에 고정</button></div>';
   h += '<div class="row"><span class="sp"></span><button class="btn" data-act="modal-close">취소</button><button class="btn primary" data-act="save-notice">보내기</button></div>';
   openModal('알림장 쓰기', h, { focus: 'nTitle' });
+}
+
+/* 알림장 반 목록 — 고른 부서의 반만 */
+function noticeClassOptions(deptId, sel) {
+  const cls = (S.state.classes || []).filter(c => !c._del && inYear(c) && canonDeptId(c.deptId) === canonDeptId(deptId));
+  return '<option value="">부서 전체</option>' + cls.map(c => '<option value="' + esc(c.id) + '"' + (c.id === sel ? ' selected' : '') + '>' + esc(c.name) + '</option>').join('');
+}
+function refreshNoticeClasses(deptId) {
+  const s = document.getElementById('nClass');
+  if (s) s.innerHTML = noticeClassOptions(deptId, '');
 }
 
 function feedWriteModal() {
