@@ -25,7 +25,7 @@ function signupModal() {
   if (!V.signup) V.signup = { roles: [], depts: [], classes: [], className: '' };
   const st = V.signup;
   let h = '';
-  h += '<div class="banner sky">가입은 <b>바로 윗단계 담당자</b>의 승인으로 완료됩니다.<br>관리자 → 목회자 → 교육부서담당 → 교사 → 학부모 순서입니다.</div>';
+  h += '<div class="banner sky"><span>가입은 <b>바로 윗단계 담당자</b>의 승인으로 완료됩니다.<br>관리자 → 목회자 → 교육부서담당 → 교사 → 학부모 순서입니다.</span></div>';
   h += '<div class="field"><label>역할 (한 가지 이상)</label><div class="row wrap" style="gap:6px">';
   SIGNUP_ROLES.forEach(k => {
     const r = roleDef(k);
