@@ -21,6 +21,124 @@ function yearMenuModal() {
   openModal('연도 선택', h);
 }
 
+/* ================= 연도 삭제 ================= */
+const YEAR_DATA_KEYS = [
+  ['students', '학생', '명'], ['classes', '반', '개'], ['attendance', '출석', '건'],
+  ['reports', '주일보고', '건'], ['plans', '월별계획표', '건'], ['ledger', '회계', '건'], ['events', '일정', '건']
+];
+
+/* 그 해에 들어 있는 자료 건수 (생일 자동 일정은 사람 기록이라 빼고 셉니다) */
+function yearCounts(y) {
+  y = Number(y);
+  return YEAR_DATA_KEYS.map(k => ({
+    key: k[0], label: k[1], unit: k[2],
+    n: (S.state[k[0]] || []).filter(r => {
+      if (!r || r._del || recYear(r) !== y) return false;
+      if (k[0] === 'events' && r.auto === 'birth') return false;
+      return true;
+    }).length
+  }));
+}
+function yearCountsText(list) {
+  const on = (list || []).filter(c => c.n > 0);
+  if (!on.length) return '자료 없음(비어 있음)';
+  return on.map(c => c.label + ' ' + c.n + c.unit).join(' · ');
+}
+/* 삭제할 수 없는 연도인지 — 마지막 한 개, 기본 연도, 이미 지운 연도 */
+function yearDeleteBlock(y) {
+  const yrs = availableYears();
+  if (yrs.indexOf(Number(y)) < 0) return '이미 삭제된 연도입니다';
+  if (yrs.length <= 1) return '연도가 하나뿐이라 삭제할 수 없습니다';
+  if (Number(y) === FIRST_YEAR) return FIRST_YEAR + '년은 기본 연도라 삭제할 수 없습니다';
+  return '';
+}
+function yearDeleteModal() {
+  const yrs = availableYears();
+  let h = '<div class="banner sky">연도를 삭제하면 그 연도의 <b>학생·반·출석·주일보고·월별계획표·회계·일정</b>이 함께 정리됩니다. 다른 연도 자료는 그대로 남습니다.</div>';
+  h += '<div class="list">';
+  yrs.forEach(y => {
+    const cs = yearCounts(y);
+    const total = cs.reduce((a, b) => a + b.n, 0);
+    const block = yearDeleteBlock(y);
+    h += '<div class="item"><span class="av" style="background:' + (total ? '#ffe9e3' : '#f4efec') + '">📅</span>';
+    h += '<span class="tx"><b>' + y + '년' + (y === curYear() ? ' <span class="chip coral">보고 있는 중</span>' : '') + '</b><span style="white-space:normal;line-height:1.45">' + esc(total ? yearCountsText(cs) : '자료 없음 (빈 연도 — 바로 지울 수 있습니다)') + '</span></span>';
+    h += '<span class="rt">' + (block ? '<span class="chip gray">삭제 불가</span>' : '<button class="btn sm" data-act="year-del" data-v="' + y + '">🗑 삭제</button>') + '</span></div>';
+  });
+  h += '</div>';
+  h += '<p class="hint">' + (yrs.length <= 1 ? '연도가 하나뿐이라 지금은 삭제할 수 없습니다. ' : '') + FIRST_YEAR + '년은 기본 연도라 삭제할 수 없습니다. 빈 연도는 확인 한 번으로, 자료가 있는 연도는 건수를 보여 주고 한 번 더 확인한 뒤 삭제됩니다.</p>';
+  h += '<div class="row" style="margin-top:10px"><span class="sp"></span><button class="btn" data-act="modal-close">닫기</button></div>';
+  openModal('연도 삭제', h);
+}
+
+/* 처음 누를 때: 빈 연도는 바로 확인, 자료가 있으면 건수를 보여 주고 한 번 더 확인합니다 */
+function requestYearDelete(y) {
+  y = Number(y);
+  if (!y) return;
+  const block = yearDeleteBlock(y);
+  if (block) return toast(block, 'err');
+  const cs = yearCounts(y);
+  const total = cs.reduce((a, b) => a + b.n, 0);
+  if (!total) {
+    confirmBox('연도 삭제', y + '년은 비어 있습니다.\n목록에서 삭제할까요?', '삭제', () => doDeleteYear(y));
+    return;
+  }
+  confirmBox('연도 삭제', y + '년에 ' + yearCountsText(cs) + '이(가) 있습니다.\n삭제하면 이 연도의 자료가 함께 정리되고, 다른 연도 자료는 그대로 남습니다.', '계속', () => {
+    confirmBox('정말 삭제할까요?', y + '년의 ' + yearCountsText(cs) + '을(를) 지웁니다.\n되돌릴 수 없습니다.', '삭제', () => doDeleteYear(y));
+  });
+}
+
+async function doDeleteYear(y) {
+  y = Number(y);
+  if (!y) return;
+  const block = yearDeleteBlock(y);
+  if (block) return toast(block, 'err');
+  const wasCur = curYear() === y;
+  const rest = availableYears().filter(v => v !== y);
+  const now = Date.now();
+  let removed = 0;
+  const persons = {};
+  (S.state.students || []).forEach(s => {
+    if (!s || s._del || recYear(s) !== y) return;
+    persons[s.personId || s.id] = true;
+  });
+  YEAR_DATA_KEYS.forEach(k => {
+    (S.state[k[0]] || []).forEach(r => {
+      if (!r || r._del || recYear(r) !== y) return;
+      if (k[0] === 'events' && r.auto === 'birth') return;   /* 생일은 사람 기록이라 아래에서 따로 처리 */
+      r._del = true; touch(r); removed++;
+    });
+  });
+  /* 연도 목록에서 지우고, 다른 기기에서 되살아나지 않도록 표시를 남깁니다 */
+  S.state.years = S.state.years || [];
+  let ent = S.state.years.find(x => Number(x && x.year) === y);
+  if (!ent) { ent = { year: y }; S.state.years.push(ent); }
+  ent._del = true; ent.deletedAt = now; ent.u = now;
+  /* 보고 있던 연도를 지웠으면 남은 연도로 옮깁니다 (가까운 아래 연도 우선) */
+  let picked = 0;
+  if (wasCur) {
+    const lower = rest.filter(v => v < y);
+    picked = lower.length ? Math.max.apply(null, lower) : Math.min.apply(null, rest);
+    if (picked) setYear(picked);
+  }
+  /* 같은 사람이 다른 연도에 남아 있으면 생일 일정을 그대로 살립니다 */
+  Object.keys(persons).forEach(pid => {
+    const alive = (S.state.students || []).find(s => s && !s._del && (s.personId || s.id) === pid);
+    try {
+      if (alive) syncBirthEventOf('student', pid, alive, alive.deptId);
+      else { const ev = birthEventOf('student', pid); if (ev) { ev._del = true; touch(ev); } }
+    } catch (e) { }
+  });
+  V.rollYear = 0;
+  V.rollOpen = false;
+  V.promoteOpen = false;
+  V.promoSel = {};
+  V.gradeTeachers = {};
+  await Sync.save();
+  closeModal();
+  renderApp();
+  toast(y + '년을 삭제했습니다' + (removed ? ' · 자료 ' + removed + '건 정리' : '') + (picked ? ' · ' + picked + '년으로 바꿨습니다' : ''), 'ok');
+}
+
 /* ================= 연도·진급 화면 ================= */
 function yearsView() {
   if (!can('year.manage')) return '<div class="card">' + emptyBox('🔒', '연도·진급은 관리자·교육부서담당만 쓸 수 있습니다') + '</div>';
@@ -29,10 +147,12 @@ function yearsView() {
   const yrs = availableYears();
   let h = subHead('연도·진급', '연도별 자료를 나누고, 연말에 학생·교사를 새 학년도로 옮깁니다',
     '<button class="btn sm" data-act="year-menu">📅 연도 선택</button>');
+  h += '<div class="banner mint">처음이시면 — ① <b>[1️⃣ 연도 바꾸기]</b>에서 새 연도를 확인하고 실행하면 그 해 명단이 만들어집니다. ② 잘못 만든 연도는 <b>[🗑 연도 삭제]</b>로 지운 뒤 다시 하면 됩니다.</div>';
 
   /* 지금 연도 요약 */
   h += '<div class="card"><h3>📅 ' + y + '년' + (y === Number(ymd().slice(0, 4)) ? ' <small>올해</small>' : '') + '<span class="sp"></span><small>보고 있는 중</small></h3>';
-  h += '<div class="row wrap" style="gap:6px;margin-bottom:10px">' + yrs.map(v => '<button class="chip big ' + (v === y ? 'coral' : 'gray') + '" data-act="year-pick" data-v="' + v + '">' + v + '년</button>').join('') + '</div>';
+  h += '<div class="row wrap" style="gap:6px;margin-bottom:8px">' + yrs.map(v => '<button class="chip big ' + (v === y ? 'coral' : 'gray') + '" data-act="year-pick" data-v="' + v + '">' + v + '년</button>').join('') + '</div>';
+  h += '<div class="row" style="gap:6px;margin-bottom:10px"><button class="btn sm" data-act="year-del-open">🗑 연도 삭제</button><span class="muted" style="font-size:11.5px">잘못 만든 연도는 여기서 지울 수 있습니다</span></div>';
   h += '<div class="kv"><span>학생</span><b>' + allStudentsIn(y).length + '명</b></div>';
   h += '<div class="kv"><span>반</span><b>' + (S.state.classes || []).filter(c => !c._del && inYear(c)).length + '개</b></div>';
   h += '<div class="kv"><span>출석 기록</span><b>' + (S.state.attendance || []).filter(a => !a._del && inYear(a)).length + '건</b></div>';
@@ -45,6 +165,7 @@ function yearsView() {
   h += '<div class="card"><h3>🗓️ 새 연도 만들기</h3>';
   h += '<p class="muted" style="margin:0 0 8px">새 연도를 미리 만들어 두면 그 해 자료를 따로 쌓을 수 있습니다. (학생은 진급 마법사로 옮깁니다)</p>';
   h += '<div class="row" style="gap:8px"><input id="newYear" type="number" min="2026" max="2100" value="' + (Math.max.apply(null, yrs.concat([y])) + 1) + '" style="max-width:130px"><button class="btn primary" data-act="year-add">연도 만들기</button></div>';
+  h += '<p class="hint" style="margin:6px 0 0">이미 만들어 둔 연도: ' + yrs.map(v => v + '년').join(', ') + '. 새 연도는 아직 없는 해로 정해 주세요.</p>';
   h += '</div>';
 
   /* 연말 진급 — 1차 연도 변경, 2차 부서 변경 */
@@ -60,14 +181,34 @@ function yearsView() {
 }
 
 /* ================= 1차: 연도 바꾸기 (명단·반 복사, 부서는 그대로) ================= */
+/* 1차 연도 바꾸기 기본값 — 바로 다음 해가 이미 만들어져 있고 비어 있으면 그 해를 그대로 씁니다.
+   다음 해에 이미 자료가 들어 있을 때만 그 뒤 연도를 제안합니다. */
+function rollSuggestYear(srcYear) {
+  const yrs = availableYears();
+  let y = Number(srcYear) + 1;
+  for (let i = 0; i < 30; i++) {
+    if (!yearHasData(y)) return { year: y, exists: yrs.indexOf(y) >= 0 };
+    y++;
+  }
+  return { year: y, exists: false };
+}
+
 function rollCardHtml(depts) {
   const srcYear = curYear();
-  const ny = Number(V.rollYear) || (Math.max.apply(null, availableYears().concat([srcYear])) + 1);
+  const sug = rollSuggestYear(srcYear);
+  const ny = Number(V.rollYear) || sug.year;
   V.rollYear = ny;
+  const nyExists = availableYears().indexOf(ny) >= 0;
+  const nyHasData = yearHasData(ny);
+  const nextExistsEmpty = availableYears().indexOf(srcYear + 1) >= 0 && !yearHasData(srcYear + 1);
   const clsMode = V.rollClasses || 'keep';
   const total = depts.reduce((n, d) => n + studentsOfDeptIn(d.id, srcYear).length, 0);
   let h = '<div class="card" style="margin-top:10px"><h3>1️⃣ ' + srcYear + '년 → 새 연도</h3>';
   h += '<div class="banner sky">연도만 먼저 바꿉니다. 학생은 <b>지금 부서 그대로</b> 새 연도 명단으로 옮겨지고, 나이·학년만 한 살 올라갑니다. 부서 이동은 2차에서 합니다.</div>';
+  if (nyExists && !nyHasData) h += '<div class="banner mint">✅ <b>' + ny + '년</b>은 이미 만들어 둔 연도이고 비어 있습니다. 그대로 ' + ny + '년으로 명단을 옮기면 됩니다.</div>';
+  else if (nyHasData) h += '<div class="banner coral">⚠️ <b>' + ny + '년</b>에는 이미 자료가 있어 실행되지 않습니다. ' + ny + '년을 지우고 다시 진행하려면 위 <b>[🗑 연도 삭제]</b>를 눌러 주세요.</div>';
+  else if (nextExistsEmpty && ny !== srcYear + 1) h += '<div class="banner mint">✅ ' + (srcYear + 1) + '년이 비어 있어 그 해로 옮길 수 있습니다. 아래 <b>새 연도</b> 칸에 ' + (srcYear + 1) + '을 넣어 주세요.</div>';
+  else if (ny !== srcYear + 1) h += '<div class="banner amber">' + (srcYear + 1) + '년에 이미 자료가 있어 <b>' + ny + '년</b>을 제안했습니다. 다른 연도로 옮기려면 아래 칸에서 바꾸세요.</div>';
   h += '<div class="grid2"><div class="field"><label>새 연도</label><input id="rollYear" type="number" min="' + (srcYear + 1) + '" max="2100" value="' + ny + '"></div>';
   h += '<div class="field"><label>' + srcYear + '년 학생</label><input value="' + total + '명" readonly></div></div>';
   h += '<div class="card flat" style="padding:8px 12px">';
@@ -79,7 +220,8 @@ function rollCardHtml(depts) {
   h += '<button type="button" class="chip big ' + (clsMode === 'keep' ? 'coral' : 'gray') + '" data-act="roll-classes" data-v="keep">지난해 반 이름 그대로</button>';
   h += '<button type="button" class="chip big ' + (clsMode === 'none' ? 'coral' : 'gray') + '" data-act="roll-classes" data-v="none">반은 새로 만들기</button>';
   h += '</div><div class="hint">이름 그대로면 학생이 같은 반으로 옮겨집니다. 새로 만들면 반 미지정으로 옮겨지고, 2차 뒤에 [반 일괄 지정]으로 나누면 됩니다.</div></div>';
-  h += '<div class="banner coral" style="margin-top:8px">실행하면 <b>' + ny + '년</b>이 만들어지고 보고 있는 연도가 ' + ny + '년으로 바뀝니다. ' + ny + '년에 이미 자료가 있으면 실행되지 않습니다.</div>';
+  h += '<div class="banner coral" style="margin-top:8px">실행하면 ' + (nyExists ? '<b>' + ny + '년</b>으로 바뀌고 명단이 옮겨집니다.' : '<b>' + ny + '년</b>이 만들어지고 보고 있는 연도가 ' + ny + '년으로 바뀝니다.') + ' ' + ny + '년에 이미 자료가 있으면 실행되지 않습니다.</div>';
+  h += '<p class="hint" style="margin:6px 0 0">연도를 잘못 만들었거나 비어 있는 연도를 지우려면 <b>위 카드의 [🗑 연도 삭제]</b>에서 지운 뒤 다시 진행하세요.</p>';
   h += '<button class="btn primary block" data-act="roll-run">1️⃣ ' + ny + '년 만들고 명단 옮기기</button>';
   h += '</div>';
   return h;
@@ -410,6 +552,8 @@ document.addEventListener('click', async function (ev) {
         return;
       }
       case 'go-years': closeModal(); S.screen = 'years'; V.gradeOpen = false; renderApp(); return;
+      case 'year-del-open': yearDeleteModal(); return;
+      case 'year-del': requestYearDelete(Number(t.dataset.v)); return;
       case 'year-add': {
         const y = Number(val('newYear'));
         if (!y || y < 1900) return toast('연도를 숫자로 넣어 주세요', 'err');

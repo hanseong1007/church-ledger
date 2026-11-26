@@ -356,12 +356,20 @@ function mergeState(local, remote) {
   });
   local.deptSchema = Math.max(Number(local.deptSchema) || 0, Number(remote.deptSchema) || 0);
   local.people = Object.assign({}, remote.people || {}, local.people || {});
-  /* 연도 목록은 양쪽을 합칩니다 */
-  const ymap = {};
+  /* 연도 목록은 양쪽을 합칩니다. 삭제한 연도는 표시를 남겨 다른 기기에서도 되살아나지 않게 합니다 */
+  const ymap = {}, ydel = {};
   [].concat(remote.years || [], local.years || []).forEach(y => {
     const n = Number(y && (y.year || y));
     if (!n) return;
-    ymap[n] = Object.assign({ year: n }, ymap[n] || {}, (typeof y === 'object' ? y : {}));
+    const o = (y && typeof y === 'object') ? y : {};
+    ymap[n] = Object.assign({ year: n }, ymap[n] || {}, o);
+    if (o._del) ydel[n] = Math.max(Number(o.u) || 0, ydel[n] || 0);
+  });
+  Object.keys(ydel).forEach(k => {
+    const it = ymap[k];
+    if (!it) return;
+    /* 삭제 표시가 그 뒤에 다시 만든 기록보다 최신일 때만 지운 것으로 봅니다 */
+    if ((Number(it.u) || 0) <= ydel[k]) { it._del = true; it.u = ydel[k]; }
   });
   local.years = Object.keys(ymap).map(k => ymap[k]).sort((a, b) => a.year - b.year);
   const ls = local.settings || {}, rs = remote.settings || {};
@@ -597,7 +605,7 @@ function availableYears() {
   set[FIRST_YEAR] = 1;
   set[new Date().getFullYear()] = 1;
   set[curYear()] = 1;
-  (S.state.years || []).forEach(y => { const n = Number(y && (y.year || y)); if (n) set[n] = 1; });
+  (S.state.years || []).forEach(y => { if (!y || y._del) return; const n = Number(y.year || y); if (n) set[n] = 1; });
   ['students', 'classes', 'plans', 'ledger', 'reports', 'attendance'].forEach(key => {
     (S.state[key] || []).forEach(r => {
       if (!r || r._del) return;
@@ -612,7 +620,8 @@ function ensureYear(y) {
   if (!y) return null;
   S.state.years = S.state.years || [];
   let it = S.state.years.find(x => Number(x && x.year) === y);
-  if (!it) { it = { year: y, created: Date.now() }; S.state.years.push(it); }
+  if (!it) { it = { year: y, created: Date.now(), u: Date.now() }; S.state.years.push(it); }
+  else if (it._del) { it._del = false; it.u = Date.now(); }   /* 지웠던 연도를 다시 만들면 되살립니다 */
   return it;
 }
 function yearHasData(y) {
