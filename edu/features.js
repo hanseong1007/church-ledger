@@ -36,7 +36,11 @@ function signupModal() {
   h += '<div class="field"><label>아이디</label><input id="suId" autocapitalize="none" spellcheck="false" placeholder="영문·숫자 3~24자"></div></div>';
   h += '<div class="grid2"><div class="field"><label>비밀번호 (8자 이상)</label><input id="suPw" type="password" autocomplete="new-password"></div>';
   h += '<div class="field"><label>비밀번호 확인</label><input id="suPw2" type="password" autocomplete="new-password"></div></div>';
-  h += '<div class="field"><label>생년월일 (생일)</label><input id="suBirth" type="date" min="1930-01-01" max="2026-12-31"><div class="hint">가입이 승인되면 소속 부서 일정에 🎂 생일이 자동으로 등록됩니다.</div></div>';
+  h += '<div class="row wrap" style="gap:6px;margin-bottom:5px">';
+  const sbt = V.signupBirthType || 'solar';
+  h += '<button type="button" class="chip big ' + (sbt === 'solar' ? 'coral' : 'gray') + '" data-act="signup-birth-type" data-v="solar">양력</button>';
+  h += '<button type="button" class="chip big ' + (sbt === 'lunar' ? 'coral' : 'gray') + '" data-act="signup-birth-type" data-v="lunar">음력</button></div>';
+  h += '<div class="field"><label>' + (sbt === 'lunar' ? '음력 생년월일 (생일)' : '양력 생년월일 (생일)') + '</label><input id="suBirth" type="date" min="1930-01-01" max="2050-12-31"><div class="hint">' + (sbt === 'lunar' ? '음력으로 적으면 그 해 양력 날짜로 바꾸어 표시합니다.' : '') + ' 가입이 승인되면 소속 부서 일정에 🎂 생일이 매년 자동으로 등록됩니다.</div></div>';
   h += '<div class="field"><label>소속 부서</label><div class="row wrap" style="gap:6px">';
   (S.state.departments || []).filter(d => !d._del).forEach(d => {
     h += '<button type="button" class="chip big ' + (st.depts.indexOf(d.id) >= 0 ? 'coral' : 'gray') + '" data-act="signup-dept" data-id="' + esc(d.id) + '">' + esc((d.emoji || '') + ' ' + d.name) + '</button>';
@@ -73,6 +77,7 @@ async function doSignup() {
   if (pw.length < 8) return fail('비밀번호는 8자 이상으로 정해 주세요.');
   if (pw !== pw2) return fail('비밀번호가 서로 다릅니다.');
   if (!birth) return fail('생년월일(생일)을 넣어 주세요. 부서 일정에 생일이 자동 등록됩니다.');
+  if ((V.signupBirthType || 'solar') === 'lunar' && !lunarYearInfo(Number(birth.slice(0, 4)))) return fail('음력 생일은 1930~2050년 사이로 넣어 주세요.');
   if ((st.roles.indexOf('edu') >= 0 || st.roles.indexOf('teacher') >= 0) && !st.depts.length) return fail('소속 부서를 골라 주세요.');
   if (st.roles.indexOf('parent') >= 0 && !child) return fail('자녀 이름을 적어 주세요.');
 
@@ -87,8 +92,10 @@ async function doSignup() {
       if (info.kind === 'active') return fail('이미 사용 중인 아이디입니다. 다른 아이디로 신청해 주세요.');
     }
     const depts = st.depts.slice();
+    const bt = V.signupBirthType === 'lunar' ? 'lunar' : 'solar';
     const app = await buildApplication({
       id: id, password: pw, name: name, roles: st.roles, depts: depts, birth: birth,
+      birthType: bt, birthLunar: bt === 'lunar' ? birthdayMmdd(birth) : '',
       classes: [], className: clsName, childName: child, note: ''
     });
     await saveAccountRow(app);
@@ -201,7 +208,7 @@ async function approveApp(uid, overrides) {
   try {
     const ov = overrides || {};
     const birth = ov.birth !== undefined ? ov.birth : (info.app || {}).birth;
-    syncBirthEvent('account', uid, (info.app || {}).name || a.rec.name, birth, ov.depts || (info.app || {}).depts || []);
+    syncBirthEvent('account', uid, (info.app || {}).name || a.rec.name, birth, ov.depts || (info.app || {}).depts || [], (info.app || {}).birthType, (info.app || {}).birthLunar);
     await Sync.save();
   } catch (e) { /* 생일 등록은 실패해도 승인은 유지 */ }
   closeModal();
@@ -219,13 +226,13 @@ function approveModal(uid) {
   const ap = a.app || {};
   V.apprEdit = { uid: uid, depts: (ap.depts || []).slice(), classes: (ap.classes || []).slice(), students: (ap.students || []).slice(), birth: ap.birth || '' };
   const depts = (S.state.departments || []).filter(d => !d._del);
-  const cls = (S.state.classes || []).filter(c => !c._del);
+  const cls = (S.state.classes || []).filter(c => !c._del && inYear(c));
   let h = '<div class="banner sky">' + esc(ap.name || a.rec.name) + ' · ' + esc(((ap.roles || []).map(r => roleDef(r).label).join(' / '))) + '</div>';
   h += '<div class="field"><label>아이디</label><input value="' + esc(ap.id || a.rec.id) + '" readonly></div>';
-  h += '<div class="field"><label>생일 (부서 일정에 자동 등록)</label><input id="apBirth" type="date" value="' + esc(ap.birth || '') + '"></div>';
+  h += '<div class="field"><label>생일 ' + (ap.birthType === 'lunar' ? '(음력)' : '(양력)') + ' · 부서 일정에 자동 등록</label><input id="apBirth" type="date" value="' + esc(ap.birth || '') + '"></div>';
   h += '<div class="field"><label>담당 부서</label><div class="row wrap" style="gap:6px">' + depts.map(d => '<button type="button" class="chip big ' + (V.apprEdit.depts.indexOf(d.id) >= 0 ? 'coral' : 'gray') + '" data-act="appr-dept" data-id="' + esc(d.id) + '">' + esc((d.emoji || '') + ' ' + d.name) + '</button>').join('') + '</div></div>';
   h += '<div class="field"><label>담당 반</label><div class="row wrap" style="gap:6px">' + (cls.length ? cls.map(c => '<button type="button" class="chip big ' + (V.apprEdit.classes.indexOf(c.id) >= 0 ? 'coral' : 'gray') + '" data-act="appr-cls" data-id="' + esc(c.id) + '">' + esc(((deptById(c.deptId) || {}).name || '') + ' ' + c.name) + '</button>').join('') : '<span class="muted">등록된 반이 없습니다.</span>') + '</div></div>';
-  const stus = (S.state.students || []).filter(s => !s._del);
+  const stus = (S.state.students || []).filter(s => !s._del && inYear(s));
   if (stus.length) {
     h += '<div class="field"><label>자녀 연결 (학부모)</label><div class="row wrap" style="gap:6px">';
     stus.slice(0, 40).forEach(s => {
@@ -289,7 +296,7 @@ function saveAbsent(studentId, reason) {
 
 /* ================= 4. 월별계획표 ================= */
 function planState() {
-  if (!V.planMonth) V.planMonth = monthKeyOf(ymd());
+  if (!V.planMonth) V.planMonth = monthKeyOf((typeof V !== 'undefined' && V.date) || ymd());
   return V.planMonth;
 }
 function planView() {
@@ -366,7 +373,7 @@ function savePlan(id) {
     p.title = title; p.detail = val('plDetail'); touch(p);
     item = p;
   } else {
-    item = { id: 'pl-' + Crypto.uid(), deptId: V.planDept, date: date, month: monthKeyOf(date), week: week, kind: val('plKind') || '계획', title: title, detail: val('plDetail'), by: S.me.uid, u: Date.now() };
+    item = { id: 'pl-' + Crypto.uid(), deptId: V.planDept, date: date, month: monthKeyOf(date), year: yearOfDate(date) || curYear(), week: week, kind: val('plKind') || '계획', title: title, detail: val('plDetail'), by: S.me.uid, u: Date.now() };
     S.state.plans.push(item);
   }
   syncPlanEvent(item);
@@ -609,6 +616,7 @@ async function doHwpxImport() {
   items.forEach(it => {
     const item = {
       id: 'pl-' + Crypto.uid(), deptId: V.planDept, date: it.date || '', month: monthKeyOf(it.date || (planState() + '-01')),
+      year: yearOfDate(it.date) || curYear(),
       week: it.week || (it.date ? weekOfMonth(it.date) : 0), kind: it.kind || '계획', title: it.title, detail: it.detail || '',
       by: S.me.uid, from: 'hwpx', u: Date.now()
     };
@@ -624,7 +632,7 @@ async function doHwpxImport() {
 
 /* ================= 5. 회계 ================= */
 function ledgerState() {
-  if (!V.ledMonth) V.ledMonth = monthKeyOf(ymd());
+  if (!V.ledMonth) V.ledMonth = monthKeyOf((typeof V !== 'undefined' && V.date) || ymd());
   if (V.ledDept === undefined) V.ledDept = '';
   return V.ledMonth;
 }
@@ -633,7 +641,7 @@ function ledgerView() {
   const ym = ledgerState();
   const depts = visibleDepts();
   if (!depts.length) return '<div class="card">' + emptyBox('🏫', '볼 수 있는 부서가 없습니다') + '</div>';
-  const all = (S.state.ledger || []).filter(e => !e._del);
+  const all = (S.state.ledger || []).filter(e => !e._del && inYear(e));
   const scopeAll = V.ledDept ? all.filter(e => e.deptId === V.ledDept) : all;
   const list = scopeAll.filter(e => monthKeyOf(e.date) === ym).sort((a, b) => String(a.date).localeCompare(String(b.date)));
   const inc = incomeTotal(list), exp = expenseTotal(list);
@@ -746,7 +754,7 @@ function saveLedger(id) {
     if (!e) return;
     Object.assign(e, row); touch(e);
   } else {
-    S.state.ledger.push(Object.assign({ id: 'lg-' + Crypto.uid(), by: S.me.uid, u: Date.now() }, row));
+    S.state.ledger.push(Object.assign({ id: 'lg-' + Crypto.uid(), year: yearOfDate(row.date) || curYear(), by: S.me.uid, u: Date.now() }, row));
   }
   closeModal();
   V.receiptDraft = null;
@@ -776,11 +784,11 @@ function printLedger() {
 
 /* ================= 6. 출석통계 ================= */
 function statState() {
-  if (!V.statMonth) V.statMonth = monthKeyOf(ymd());
+  if (!V.statMonth) V.statMonth = monthKeyOf((typeof V !== 'undefined' && V.date) || ymd());
   return V.statMonth;
 }
 function statYear() {
-  if (!V.statYear) V.statYear = Number(ymd().slice(0, 4));
+  if (!V.statYear) V.statYear = Number(String((typeof V !== 'undefined' && V.date) || ymd()).slice(0, 4));
   return V.statYear;
 }
 function yearBar() {
@@ -800,7 +808,7 @@ function integratedStatsHtml(ym, depts, withAnnual) {
     const totalE = rowsAll.filter(a => a.status === 'excused').length;
     const totalT = totalP + totalA + totalE;
     const rateAll = totalT ? Math.round(((totalP + totalE) / totalT) * 100) : 0;
-    const enrolledAll = depts.reduce((n, d) => n + studentsOfDept(d.id).length, 0);
+    const enrolledAll = depts.reduce((n, d) => n + studentsOfDeptIn(d.id, Number(String(ym).slice(0, 4))).length, 0);
     h += '<div class="stat-grid" style="margin-bottom:12px"><div class="stat present"><b>' + rateAll + '%</b><span>전체 출석률</span></div><div class="stat enroll"><b>' + enrolledAll + '</b><span>전체 재적</span></div><div class="stat absent"><b>' + totalA + '</b><span>전체 결석</span></div><div class="stat new"><b>' + totalE + '</b><span>전체 인정</span></div></div>';
 
     h += '<div class="card"><h3>🏫 부서별 비교 <span class="sp"></span><small>' + esc(monthLabel(ym)) + '</small></h3><div class="tbl-wrap"><table class="tbl"><thead><tr><th>부서</th><th class="num">재적</th><th class="num">출석</th><th class="num">결석</th><th class="num">인정</th><th class="num">출석률</th></tr></thead><tbody>';
@@ -808,7 +816,7 @@ function integratedStatsHtml(ym, depts, withAnnual) {
       const rs = rowsAll.filter(a => a.deptId === d.id);
       const p = rs.filter(a => a.status === 'present').length, ab = rs.filter(a => a.status === 'absent').length, ex = rs.filter(a => a.status === 'excused').length;
       const t = p + ab + ex;
-      h += '<tr><td>' + esc((d.emoji || '') + ' ' + d.name) + '</td><td class="num">' + studentsOfDept(d.id).length + '</td><td class="num">' + p + '</td><td class="num">' + ab + '</td><td class="num">' + ex + '</td><td class="num"><b>' + (t ? Math.round(((p + ex) / t) * 100) : 0) + '%</b></td></tr>';
+      h += '<tr><td>' + esc((d.emoji || '') + ' ' + d.name) + '</td><td class="num">' + studentsOfDeptIn(d.id, Number(String(ym).slice(0, 4))).length + '</td><td class="num">' + p + '</td><td class="num">' + ab + '</td><td class="num">' + ex + '</td><td class="num"><b>' + (t ? Math.round(((p + ex) / t) * 100) : 0) + '%</b></td></tr>';
     });
     h += '</tbody></table></div></div>';
 
@@ -817,7 +825,7 @@ function integratedStatsHtml(ym, depts, withAnnual) {
     else {
       h += '<div class="tbl-wrap"><table class="tbl"><thead><tr><th>부서</th><th>반</th><th>이름</th><th>생일</th><th class="num">출석</th><th class="num">결석</th><th class="num">인정</th><th class="num">출석률</th></tr></thead><tbody>';
       depts.forEach(d => {
-        studentsOfDept(d.id).forEach(s => {
+        studentsOfDeptIn(d.id, Number(String(ym).slice(0, 4))).forEach(s => {
           const rs = rowsAll.filter(a => a.studentId === s.id);
           const p = rs.filter(a => a.status === 'present').length, ab = rs.filter(a => a.status === 'absent').length, ex = rs.filter(a => a.status === 'excused').length;
           const t = p + ab + ex;
@@ -835,17 +843,147 @@ function integratedStatsHtml(ym, depts, withAnnual) {
   return h;
 }
 
+/* ================= 6-2. 기간별 통합 통계 (주간·월간·반기·연간) ================= */
+function lastSundayOfMonth(y, m) {
+  const d = new Date(y, m, 0);
+  d.setDate(d.getDate() - d.getDay());
+  return ymd(d);
+}
+function statPeriodRange(kind) {
+  const ym = statState();
+  const y = Number(ym.slice(0, 4)), m = Number(ym.slice(5, 7));
+  if (kind === 'year') {
+    const yy = statYear();
+    return { from: yy + '-01-01', to: yy + '-12-31', year: yy, label: yy + '년 연간' };
+  }
+  if (kind === 'week') {
+    const today = ymd();
+    const sun = (y === Number(today.slice(0, 4)) && m === Number(today.slice(5, 7))) ? lastSunday() : lastSundayOfMonth(y, m);
+    const r = weekRangeAround(sun);
+    return { from: r.from, to: r.to, year: y, label: fmtShort(r.from) + '~' + fmtShort(r.to) + ' 주간', sun: sun };
+  }
+  if (kind === 'half') {
+    const first = m <= 6;
+    return {
+      from: y + (first ? '-01-01' : '-07-01'), to: y + (first ? '-06-30' : '-12-31'), year: y,
+      label: y + '년 ' + (first ? '상반기 (1~6월)' : '하반기 (7~12월)')
+    };
+  }
+  const dim = new Date(y, m, 0).getDate();
+  return { from: ym + '-01', to: ym + '-' + pad2(dim), year: y, label: monthLabel(ym) };
+}
+function periodStatsHtml(kind, depts) {
+  const r = statPeriodRange(kind);
+  const rowsAll = (S.state.attendance || []).filter(a => !a._del && !a.staff && a.date >= r.from && a.date <= r.to && depts.some(d => d.id === a.deptId));
+  const p = rowsAll.filter(a => a.status === 'present').length;
+  const ab = rowsAll.filter(a => a.status === 'absent').length;
+  const ex = rowsAll.filter(a => a.status === 'excused').length;
+  const t = p + ab + ex;
+  const rate = t ? Math.round(((p + ex) / t) * 100) : 0;
+  const enrolled = depts.reduce((n, d) => n + studentsOfDeptIn(d.id, r.year).length, 0);
+  const dates = Array.from(new Set(rowsAll.map(a => a.date))).sort();
+  let h = '';
+
+  h += '<div class="banner sky" style="margin-bottom:10px"><b>' + esc(r.label) + '</b> · 주일 ' + dates.length + '회 · ' + esc(fmtShort(r.from)) + '~' + esc(fmtShort(r.to)) + '</div>';
+  h += '<div class="stat-grid" style="margin-bottom:12px"><div class="stat present"><b>' + rate + '%</b><span>전체 출석률</span></div><div class="stat enroll"><b>' + enrolled + '</b><span>전체 재적</span></div><div class="stat absent"><b>' + ab + '</b><span>전체 결석</span></div><div class="stat new"><b>' + ex + '</b><span>전체 인정</span></div></div>';
+
+  h += '<div class="card"><h3>🏫 부서별 비교 <span class="sp"></span><small>' + esc(r.label) + '</small></h3><div class="tbl-wrap"><table class="tbl"><thead><tr><th>부서</th><th class="num">재적</th><th class="num">출석</th><th class="num">결석</th><th class="num">인정</th><th class="num">출석률</th></tr></thead><tbody>';
+  depts.forEach(d => {
+    const rs = rowsAll.filter(a => a.deptId === d.id);
+    const dp = rs.filter(a => a.status === 'present').length, da = rs.filter(a => a.status === 'absent').length, de = rs.filter(a => a.status === 'excused').length;
+    const dt = dp + da + de;
+    h += '<tr><td>' + esc((d.emoji || '') + ' ' + d.name) + '</td><td class="num">' + studentsOfDeptIn(d.id, r.year).length + '</td><td class="num">' + dp + '</td><td class="num">' + da + '</td><td class="num">' + de + '</td><td class="num"><b>' + (dt ? Math.round(((dp + de) / dt) * 100) : 0) + '%</b></td></tr>';
+  });
+  h += '<tr><td><b>전체</b></td><td class="num"><b>' + enrolled + '</b></td><td class="num"><b>' + p + '</b></td><td class="num"><b>' + ab + '</b></td><td class="num"><b>' + ex + '</b></td><td class="num"><b>' + rate + '%</b></td></tr>';
+  h += '</tbody></table></div></div>';
+
+  /* 기간이 두 달 이상이면 달별 추이 */
+  const months = Array.from(new Set(rowsAll.map(a => monthKeyOf(a.date)))).sort();
+  if (months.length > 1) {
+    h += '<div class="card"><h3>🗓️ 달별 추이</h3><div class="tbl-wrap"><table class="tbl"><thead><tr><th>달</th><th class="num">출석</th><th class="num">결석</th><th class="num">인정</th><th class="num">출석률</th></tr></thead><tbody>';
+    months.forEach(mk => {
+      const rs = rowsAll.filter(a => monthKeyOf(a.date) === mk);
+      const mp = rs.filter(a => a.status === 'present').length, ma = rs.filter(a => a.status === 'absent').length, me = rs.filter(a => a.status === 'excused').length;
+      const mt = mp + ma + me;
+      h += '<tr><td>' + Number(mk.slice(5, 7)) + '월</td><td class="num">' + mp + '</td><td class="num">' + ma + '</td><td class="num">' + me + '</td><td class="num"><b>' + (mt ? Math.round(((mp + me) / mt) * 100) : 0) + '%</b></td></tr>';
+    });
+    h += '</tbody></table></div></div>';
+  }
+
+  /* 주일별 출석률 */
+  if (dates.length) {
+    h += '<div class="card"><h3>📈 주일별 출석률<span class="sp"></span><small>출석+인정 / 기록</small></h3>';
+    dates.forEach(d => {
+      const rs = rowsAll.filter(a => a.date === d);
+      const dp = rs.filter(a => a.status === 'present').length, de = rs.filter(a => a.status === 'excused').length;
+      const pct = rs.length ? Math.round(((dp + de) / rs.length) * 100) : 0;
+      h += '<div class="bar-row"><span class="bar-lb">' + esc(fmtShort(d)) + ' 주일</span><span class="bar-track"><i style="width:' + pct + '%" class="' + (pct >= 80 ? 'good' : pct >= 60 ? 'mid' : 'low') + '"></i></span><span class="bar-val">' + pct + '% <small>(' + (dp + de) + '/' + rs.length + ')</small></span></div>';
+    });
+    h += '</div>';
+  }
+
+  /* 월간·주간은 부서·반별 전체 명단도 함께 */
+  if (kind === 'month' || kind === 'week') {
+    h += '<div class="card"><h3>👥 전체 명단 <span class="sp"></span><small>' + enrolled + '명</small></h3>';
+    if (!enrolled) h += '<p class="muted" style="margin:0">등록된 학생이 없습니다.</p>';
+    else {
+      h += '<div class="tbl-wrap"><table class="tbl"><thead><tr><th>부서</th><th>반</th><th>이름</th><th>생일</th><th class="num">출석</th><th class="num">결석</th><th class="num">출석률</th></tr></thead><tbody>';
+      depts.forEach(d => {
+        studentsOfDeptIn(d.id, r.year).forEach(s => {
+          const rs = rowsAll.filter(a => a.studentId === s.id);
+          const sp = rs.filter(a => a.status === 'present').length, sa = rs.filter(a => a.status === 'absent').length, se = rs.filter(a => a.status === 'excused').length;
+          const st = sp + sa + se;
+          h += '<tr><td>' + esc(d.name) + '</td><td>' + esc((classById(s.classId) || {}).name || '-') + '</td><td>' + esc(s.name) + '</td><td>' + esc(s.birth ? (birthTypeOf(s) === 'lunar' ? '음 ' + (birthMmddOf(s) || '') : birthShort(s.birth)) : '-') + '</td><td class="num">' + sp + '</td><td class="num">' + sa + '</td><td class="num"><b>' + (st ? Math.round(((sp + se) / st) * 100) : 0) + '%</b></td></tr>';
+        });
+      });
+      h += '</tbody></table></div>';
+    }
+    h += '</div>';
+  }
+  return h;
+}
+function printPeriodStats(kind) {
+  const r = statPeriodRange(kind);
+  const depts = visibleDepts();
+  const rowsAll = (S.state.attendance || []).filter(a => !a._del && !a.staff && a.date >= r.from && a.date <= r.to && depts.some(d => d.id === a.deptId));
+  const p = rowsAll.filter(a => a.status === 'present').length, ab = rowsAll.filter(a => a.status === 'absent').length, ex = rowsAll.filter(a => a.status === 'excused').length;
+  const t = p + ab + ex;
+  const enrolled = depts.reduce((n, d) => n + studentsOfDeptIn(d.id, r.year).length, 0);
+  let body = '';
+  depts.forEach(d => {
+    const rs = rowsAll.filter(a => a.deptId === d.id);
+    const dp = rs.filter(a => a.status === 'present').length, da = rs.filter(a => a.status === 'absent').length, de = rs.filter(a => a.status === 'excused').length;
+    const dt = dp + da + de;
+    body += '<tr><td>' + esc(d.name) + '</td><td class="num">' + studentsOfDeptIn(d.id, r.year).length + '</td><td class="num">' + dp + '</td><td class="num">' + da + '</td><td class="num">' + de + '</td><td class="num">' + (dt ? Math.round(((dp + de) / dt) * 100) : 0) + '%</td></tr>';
+  });
+  const w = window.open('', '_blank');
+  if (!w) return toast('팝업이 차단되었습니다', 'err');
+  const html = '<!doctype html><html lang="ko"><head><meta charset="utf-8"><title>통합 출석통계</title><style>@page{size:A4 portrait;margin:12mm}' +
+    'body{font-family:"Malgun Gothic","Apple SD Gothic Neo",sans-serif;padding:8px;color:#222}h1{font-size:17px;text-align:center;margin:0 0 3px}h2{font-size:11.5px;color:#777;text-align:center;margin:0 0 14px;font-weight:600}' +
+    'table{border-collapse:collapse;width:100%;font-size:11.5px}th,td{border:1px solid #999;padding:6px 7px}th{background:#f2eeea}td.num{text-align:right}tfoot td{font-weight:700;background:#faf7f4}' +
+    '.sum{display:flex;gap:10px;margin:0 0 12px;font-size:11.5px}.sum div{flex:1;border:1px solid #999;border-radius:6px;padding:8px;text-align:center}.sum b{display:block;font-size:15px}' +
+    '</style></head><body><h1>' + esc((S.state.settings && S.state.settings.church) || '덕신교회') + ' 교육부서 통합 출석통계</h1>' +
+    '<h2>' + esc(r.label) + ' · ' + esc(fmtShort(r.from)) + '~' + esc(fmtShort(r.to)) + ' · 전체 부서</h2>' +
+    '<div class="sum"><div><b>' + (t ? Math.round(((p + ex) / t) * 100) : 0) + '%</b>출석률</div><div><b>' + enrolled + '</b>재적</div><div><b>' + p + '</b>출석</div><div><b>' + ab + '</b>결석</div><div><b>' + ex + '</b>인정</div></div>' +
+    '<table><thead><tr><th>부서</th><th>재적</th><th>출석</th><th>결석</th><th>인정</th><th>출석률</th></tr></thead><tbody>' + body +
+    '<tr><td><b>전체</b></td><td class="num"><b>' + enrolled + '</b></td><td class="num"><b>' + p + '</b></td><td class="num"><b>' + ab + '</b></td><td class="num"><b>' + ex + '</b></td><td class="num"><b>' + (t ? Math.round(((p + ex) / t) * 100) : 0) + '%</b></td></tr>' +
+    '</tbody></table>' +
+    '<p style="font-size:9px;color:#999;text-align:center;margin-top:12px">덕신교회 부서업무 · 인쇄 ' + new Date().toLocaleString('ko-KR') + '</p>' +
+    '<script>window.onload=function(){setTimeout(function(){window.print();},200)}<\/script></body></html>';
+  w.document.open(); w.document.write(html); w.document.close();
+}
+
 function statsView() {
   if (!can('attendance.stat')) return '<div class="card">' + emptyBox('🔒', '출석통계를 볼 권한이 없습니다') + '</div>';
   const ym = statState();
   const depts = visibleDepts();
   if (!depts.length) return '<div class="card">' + emptyBox('🏫', '볼 수 있는 부서가 없습니다') + '</div>';
-  if (V.statDept === undefined) V.statDept = depts[0].id;
-  if (V.statDept && !depts.some(d => d.id === V.statDept)) V.statDept = depts[0].id;
   const allMode = V.statDept === '' && canSeeAllDepts();
+  if (!allMode && (!V.statDept || !depts.some(d => d.id === V.statDept))) V.statDept = depts[0].id;
   const view = V.statView || 'month';
   const dept = allMode ? null : deptById(V.statDept);
-  const classes = allMode ? [] : classesOfDept(dept.id);
+  if (!allMode && !dept) return '<div class="card">' + emptyBox('🏫', '부서를 찾지 못했습니다', '부서를 다시 골라 주세요') + '</div>';
+  const classes = dept ? classesOfDept(dept.id) : [];
   if (V.statCls && !classes.some(c => c.id === V.statCls)) V.statCls = '';
 
   const right = view === 'annual'

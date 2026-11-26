@@ -89,11 +89,20 @@ async function refreshMyAccount() {
     if (info.kind !== 'active') return;
     const rec = await Crypto.openJson(S.dek, JSON.parse(row.rec));
     if (rec.active === false) return;
+    if (accountStatusOf(rec) !== 'normal') {
+      const st = rec.status;
+      clearSession();
+      S.dek = null; S.me = null; S.state = emptyState();
+      showLogin((st === 'paused' ? '일시중지된 계정입니다.' : '차단된 계정입니다.') + '\n사유: ' + (rec.statusNote || '담당자에게 문의해 주세요'));
+      return;
+    }
     const pick = () => JSON.stringify({ c: S.me.classes || [], d: S.me.depts || [], g: S.me.grants || {}, s: S.me.students || [], n: S.me.name, r: S.me.roles || [] });
     const before = pick();
     S.me = Object.assign({}, S.me, {
       name: rec.name || S.me.name, roles: rec.roles || [], depts: rec.depts || [], classes: rec.classes || [],
-      students: rec.students || [], grants: rec.grants || {}, birth: rec.birth || ''
+      students: rec.students || [], grants: rec.grants || {}, birth: rec.birth || '',
+      birthType: birthTypeOf(rec), birthLunar: rec.birthLunar || '',
+      status: accountStatusOf(rec), statusNote: rec.statusNote || ''
     });
     if (before !== pick()) {
       if ((S.me.roles || []).indexOf(S.roleKey) < 0) S.roleKey = highestRoleKey(S.me.roles);
@@ -107,8 +116,8 @@ async function refreshMyAccount() {
 function kidsOfAccount(a) {
   const out = [];
   const seen = {};
-  ((a && a.rec && a.rec.students) || []).forEach(id => { const s = (S.state.students || []).find(x => x.id === id && !x._del); if (s && !seen[s.id]) { seen[s.id] = 1; out.push(s); } });
-  (S.state.students || []).forEach(s => { if (!s._del && s.guardianUid === a.uid && !seen[s.id]) { seen[s.id] = 1; out.push(s); } });
+  ((a && a.rec && a.rec.students) || []).forEach(id => { const s = (S.state.students || []).find(x => x.id === id && !x._del && inYear(x)); if (s && !seen[s.id]) { seen[s.id] = 1; out.push(s); } });
+  (S.state.students || []).forEach(s => { if (!s._del && inYear(s) && s.guardianUid === a.uid && !seen[s.id]) { seen[s.id] = 1; out.push(s); } });
   return out;
 }
 function loadParentAccounts(force) {
@@ -170,7 +179,7 @@ function childLinkModal(opts) {
     let h = '<div class="banner sky"><b>' + esc(a.rec.name) + '</b> (@' + esc(a.rec.id) + ') 님의 자녀를 골라 주세요.</div>';
     h += '<div class="field"><label>학생 (여러 명 선택 가능)</label><div class="row wrap" style="gap:6px">';
     const vis = visibleDepts().map(d => d.id);
-    const list = (S.state.students || []).filter(s => !s._del && vis.indexOf(s.deptId) >= 0);
+    const list = (S.state.students || []).filter(s => !s._del && inYear(s) && vis.indexOf(s.deptId) >= 0);
     if (!list.length) h += '<span class="muted">등록된 학생이 없습니다. 반·학생에서 먼저 등록하세요.</span>';
     list.forEach(s => {
       const on = V.childEdit.sids.indexOf(s.id) >= 0;
@@ -264,7 +273,7 @@ async function saveChildLinks(uid, sids) {
     rec.students = sids.slice();
     rec.depts = Array.from(new Set([].concat(rec.depts || [], Array.from(depts))));
   });
-  syncBirthEvent('account', uid, nm, a.rec.birth || '', Array.from(depts));
+  syncBirthEventOf('account', uid, a.rec, Array.from(depts));
   await Sync.save();
   await loadParentAccounts(true);
   return { added: add.length, removed: remove.length };
@@ -311,6 +320,7 @@ function staffView() {
     h += '<div class="card"><h3>' + esc(rec.name) + ' <small>@' + esc(rec.id) + ' · ' + esc((rec.depts || []).map(d => (deptById(d) || {}).name).filter(Boolean).join(', ') || '부서 미지정') + '</small><span class="sp"></span><button class="btn sm primary" data-act="staff-edit" data-uid="' + esc(a.uid) + '">지정</button></h3>';
     h += '<div class="kv"><span>담임 반</span><b>' + (cls.length ? esc(cls.join(', ')) : '<span class="chip amber">미지정</span>') + '</b></div>';
     h += '<div class="kv"><span>위임 권한</span><b>' + (gr.length ? esc(gr.join(', ')) : '-') + '</b></div>';
+    h += '<div class="kv"><span>계정 상태</span><b>' + (accountStatusChip(rec) || '<span class="chip mint">정상</span>') + ' <button class="btn sm" data-act="acct-status" data-uid="' + esc(a.uid) + '">상태 변경</button></b></div>';
     h += '</div>';
   });
 
@@ -339,7 +349,7 @@ function staffEditModal(uid) {
   let h = '<div class="banner sky"><b>' + esc(a.rec.name) + '</b> (@' + esc(a.rec.id) + ')</div>';
   h += '<div class="field"><label>담당 부서</label><div class="row wrap" style="gap:6px">' + depts.map(d => '<button type="button" class="chip big ' + (V.staffEdit.depts.indexOf(d.id) >= 0 ? 'coral' : 'gray') + '" data-act="staff-deptsel" data-id="' + esc(d.id) + '">' + esc((d.emoji || '') + ' ' + d.name) + '</button>').join('') + '</div></div>';
 
-  const cls = (S.state.classes || []).filter(c => !c._del && (V.staffEdit.depts.length ? V.staffEdit.depts.indexOf(c.deptId) >= 0 : myDeptIds.indexOf(c.deptId) >= 0));
+  const cls = (S.state.classes || []).filter(c => !c._del && inYear(c) && (V.staffEdit.depts.length ? V.staffEdit.depts.indexOf(c.deptId) >= 0 : myDeptIds.indexOf(c.deptId) >= 0));
   h += '<div class="field"><label>담임 반 (여러 반 가능)</label><div class="row wrap" style="gap:6px">';
   if (!cls.length) h += '<span class="muted">이 부서에 반이 없습니다. 반·학생에서 반을 먼저 만드세요.</span>';
   cls.forEach(c => {
@@ -376,6 +386,9 @@ async function saveStaffEdit(uid) {
       const keepCls = (rec.classes || []).filter(cid => { const c = classById(cid); return !c || e.classes.indexOf(cid) < 0; });
       rec.classes = Array.from(new Set(keepCls.concat(e.classes)));
       rec.grants = Object.assign({}, e.grants);
+    }).then(rec => {
+      /* 생일 일정도 옮겨 간 부서에 보이게 */
+      if (rec) syncBirthEventOf('account', uid, rec, rec.depts || []);
     });
     if (uid === S.me.uid) {
       S.me.depts = e.depts.slice(); S.me.classes = e.classes.slice(); S.me.grants = Object.assign({}, e.grants);
@@ -409,13 +422,13 @@ function refreshClassTeacherNames() {
 function birthSyncAll(deptId) {
   let n = 0;
   studentsOfDept(deptId).forEach(s => {
-    if (s.birth) { syncBirthEvent('student', s.id, s.name, s.birth, s.deptId || deptId); n++; }
+    if (s.birth) { syncBirthEventOf('student', s.personId || s.id, s, s.deptId || deptId); n++; }
   });
   (V.parentAccts || []).forEach(a => {
     if (!a.rec.birth) return;
     if (!parentInDept(a, deptId)) return;
     const ds = accountDeptIds(a).length ? accountDeptIds(a) : [deptId];
-    syncBirthEvent('account', a.uid, a.rec.name, a.rec.birth, ds);
+    syncBirthEventOf('account', a.uid, a.rec, ds);
     n++;
   });
   Sync.save().then(() => {
@@ -609,16 +622,16 @@ async function applyRoster(deptId) {
       let c = classesOfDept(deptId).find(x => x.name === it.className)
         || classesOfDept(deptId).find(x => x.name.indexOf(it.className) >= 0 || it.className.indexOf(x.name) >= 0);
       if (!c) {
-        c = { id: 'cl-' + Crypto.uid(), name: it.className, deptId: deptId, note: '명단 업로드로 만든 반', order: (S.state.classes || []).length + 1, u: Date.now() };
+        c = { id: 'cl-' + Crypto.uid(), name: it.className, deptId: deptId, note: '명단 업로드로 만든 반', year: curYear(), order: (S.state.classes || []).length + 1, u: Date.now() };
         S.state.classes.push(c);
         classesMade++;
       }
       clsId = c.id;
     }
-    let s = (S.state.students || []).find(x => !x._del && x.deptId === deptId && x.name === it.name && ((it.birth && x.birth === it.birth) || (!it.birth && !x.birth)))
-      || (S.state.students || []).find(x => !x._del && x.deptId === deptId && x.name === it.name);
+    let s = (S.state.students || []).find(x => !x._del && inYear(x) && x.deptId === deptId && x.name === it.name && ((it.birth && x.birth === it.birth) || (!it.birth && !x.birth)))
+      || (S.state.students || []).find(x => !x._del && inYear(x) && x.deptId === deptId && x.name === it.name);
     if (!s) {
-      s = { id: 'st-' + Crypto.uid(), name: it.name, deptId: deptId, active: true, joined: ymd(), u: Date.now() };
+      s = { id: 'st-' + Crypto.uid(), name: it.name, deptId: deptId, year: curYear(), active: true, joined: ymd(), u: Date.now() };
       S.state.students.push(s);
       made++;
     } else updated++;
@@ -631,7 +644,7 @@ async function applyRoster(deptId) {
     if (clsId) s.classId = clsId;
     s._del = false;
     touch(s);
-    if (s.birth) { syncBirthEvent('student', s.id, s.name, s.birth, deptId); births++; }
+    if (s.birth) { syncBirthEventOf('student', s.personId || s.id, s, deptId); births++; }
   }
   await Sync.save();
   closeModal();
@@ -650,7 +663,7 @@ function annualData(year, deptIds) {
   const deptOrder = {};
   (S.state.departments || []).forEach((d, i) => { deptOrder[d.id] = d.order || i; });
   const studs = [];
-  (deptIds || []).forEach(did => studentsOfDept(did).forEach(s => studs.push(s)));
+  (deptIds || []).forEach(did => studentsOfDeptIn(did, year).forEach(s => studs.push(s)));
   studs.sort((a, b) => {
     const da = deptOrder[a.deptId] || 0, db = deptOrder[b.deptId] || 0;
     if (da !== db) return da - db;
@@ -783,6 +796,7 @@ async function rejectReport(id) {
   r.rejectedAt = Date.now();
   r.rejectedBy = S.me.uid;
   r.rejectedByName = S.me.name;
+  if (r.reopen) { r.reopen.done = true; r.reopen.doneAt = Date.now(); }
   touch(r);
   await Sync.save();
   closeModal();

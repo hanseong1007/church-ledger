@@ -87,9 +87,14 @@ async function doLogin() {
       try { rec = await Crypto.openJson(dek, JSON.parse(row.rec)); } catch (e) { showLoginError('계정 정보를 읽을 수 없습니다. 관리자에게 문의하세요.'); return; }
     }
     if (rec.active === false) { showLoginError('사용이 중지된 계정입니다. 관리자에게 문의하세요.'); return; }
+    const st = accountStatusOf(rec);
+    if (st !== 'normal') {
+      showLoginError((st === 'paused' ? '일시중지된 계정입니다.' : '차단된 계정입니다.') + '\n사유: ' + (rec.statusNote || '담당자에게 문의해 주세요') + '\n' + (st === 'paused' ? '사정이 해결되면 담당자가 정상으로 되돌릴 수 있습니다.' : '담당자에게 문의해 주세요.'));
+      return;
+    }
 
     S.dek = dek; S.wkRaw = raw;
-    S.me = { uid: uid, id: rec.id, name: rec.name, roles: rec.roles || [], depts: rec.depts || [], classes: rec.classes || [], students: rec.students || [], birth: rec.birth || '', grants: rec.grants || {} };
+    S.me = { uid: uid, id: rec.id, name: rec.name, roles: rec.roles || [], depts: rec.depts || [], classes: rec.classes || [], students: rec.students || [], birth: rec.birth || '', grants: rec.grants || {}, birthType: birthTypeOf(rec), birthLunar: rec.birthLunar || '', status: accountStatusOf(rec), statusNote: rec.statusNote || '' };
     S.chosen = [];
     S.roleKey = highestRoleKey(S.me.roles);
     S.screen = 'home';
@@ -127,6 +132,17 @@ async function afterLogin() {
   }
   V.date = lastSunday();
   V.reportDate = lastSunday();
+  if (!S.year) S.year = new Date().getFullYear();
+  V.planMonth = '';
+  V.ledMonth = '';
+  V.statMonth = '';
+  V.statYear = 0;
+  V.myBirthType = '';
+  V.stuBirthType = '';
+  V.stuNewcomer = false;
+  V.gradeOpen = false;
+  V.gradeAccts = undefined;
+  V.gradeTeachers = {};
   const ds = visibleDepts();
   V.dept = ds.length ? ds[0].id : '';
   V.cls = '';
@@ -220,7 +236,7 @@ function readReportForm(rep) {
   const c = deptCounts(rep.deptId, rep.date);
   rep.counts = {
     enrolled: c.enrolled, present: c.present, absent: c.absent, excused: c.excused,
-    newcomer: num('rpNew', 0), teacherPresent: c.staffPresent, teacherTotal: c.staffTotal
+    newcomer: newcomerRowsOf(rep.deptId, rep.date).length, teacherPresent: c.staffPresent, teacherTotal: c.staffTotal
   };
   rep.scripture = val('rpScripture');
   rep.lesson = val('rpLesson');
@@ -236,10 +252,10 @@ function createReport(deptId, date) {
   if (rep) return rep;
   const c = deptCounts(deptId, date);
   rep = {
-    id: 'rp-' + Crypto.uid(), date: date, deptId: deptId, service: '주일예배',
+    id: 'rp-' + Crypto.uid(), date: date, year: yearOfDate(date) || curYear(), deptId: deptId, service: '주일예배',
     scripture: '', lesson: '', offering: '', notes: '', prayer: '',
     status: 'draft', author: S.me.uid, authorName: S.me.name,
-    counts: { enrolled: c.enrolled, present: c.present, absent: c.absent, excused: c.excused, newcomer: 0, teacherPresent: c.staffPresent, teacherTotal: c.staffTotal },
+    counts: { enrolled: c.enrolled, present: c.present, absent: c.absent, excused: c.excused, newcomer: newcomerRowsOf(deptId, date).length, teacherPresent: c.staffPresent, teacherTotal: c.staffTotal },
     at: Date.now(), u: Date.now()
   };
   S.state.reports.push(rep);
@@ -263,6 +279,25 @@ function reportDetailModal(r) {
   if (r.notes) h += '<div class="sect-title">특이사항</div><div class="pre">' + esc(r.notes) + '</div>';
   if (r.prayer) h += '<div class="sect-title">기도제목</div><div class="pre">' + esc(r.prayer) + '</div>';
 
+  /* 결석자·신입 자동 기입 */
+  const absR = absentRowsOf(r.deptId, r.date);
+  const newR = newcomerRowsOf(r.deptId, r.date);
+  if (absR.length || newR.length) {
+    h += '<div class="card flat" style="padding:12px;margin-top:10px"><h3>📝 결석자·신입</h3>';
+    if (absR.length) {
+      h += '<div class="sect-title" style="margin:0 0 6px">결석 ' + absR.length + '명</div>';
+      absR.forEach(x => { h += '<div class="kv" style="padding:4px 0"><span>' + esc(x.cls) + ' · ' + esc(x.name) + '</span><b>' + esc(x.reason || '사유 없음') + '</b></div>'; });
+    }
+    if (newR.length) {
+      h += '<div class="sect-title" style="margin:8px 0 6px">신입 ' + newR.length + '명</div>';
+      newR.forEach(x => { h += '<div class="kv" style="padding:4px 0"><span>★ ' + esc(x.name) + '</span><b>' + esc(x.cls) + '</b></div>'; });
+    }
+    h += '</div>';
+  }
+  if (reopenPending(r)) {
+    h += '<div class="banner sky" style="margin-top:10px">📩 부서에서 반려를 요청했습니다 · ' + timeAgo(r.reopen.at) + (r.reopen.reason ? '<br>사유: ' + esc(r.reopen.reason) : '') + '<br>아래 반려 사유에 그대로 들어 있습니다. 반려하면 부서가 다시 작성합니다.</div>';
+  }
+
   /* 이 주의 월별계획·수입 내역 */
   const wp = plansOfWeek(r.deptId, r.date);
   const wi = ledgerOfWeek(r.deptId, r.date).filter(e => e.type === 'in');
@@ -282,17 +317,16 @@ function reportDetailModal(r) {
   if (r.status === 'checked') {
     h += '<div class="banner mint" style="margin-top:12px">✅ ' + esc(r.checkedByName || '목회자') + ' 확인 완료' + (r.checkedAt ? ' · ' + timeAgo(r.checkedAt) : '') + '</div>';
     if (r.comment) h += '<div class="notice-body pre">' + esc(r.comment) + '</div>';
-    if (can('report.review')) {
-      h += '<div class="field" style="margin-top:14px"><label>반려 사유 (다시 작성을 요청할 때)</label><textarea id="rjReason" placeholder="예: 헌금란 금액을 다시 확인해 주세요"></textarea></div>';
-      h += '<div class="row"><button class="btn" data-act="modal-close">닫기</button><span class="sp"></span><button class="btn" style="color:#c33e5f" data-act="reject-report" data-id="' + esc(r.id) + '">↩ 반려(재작성 요청)</button></div>';
-    } else {
-      h += '<div class="row" style="margin-top:12px"><button class="btn" data-act="modal-close">닫기</button></div>';
-    }
-  } else if (can('report.review')) {
-    h += '<div class="field" style="margin-top:14px"><label>목회자 코멘트</label><textarea id="rvComment" placeholder="부서에 전할 한마디">' + esc(r.comment || '') + '</textarea></div>';
-    h += '<div class="row"><button class="btn" data-act="modal-close">닫기</button><span class="sp"></span><button class="btn mint" data-act="check-report" data-id="' + esc(r.id) + '">확인 완료</button></div>';
+  }
+  if (can('report.review')) {
+    h += '<div class="field" style="margin-top:12px"><label>목회자 코멘트</label><textarea id="rvComment" placeholder="부서에 전할 한마디">' + esc(r.comment || '') + '</textarea></div>';
+    h += '<div class="field"><label>반려 사유 (반려할 때)</label><textarea id="rjReason" placeholder="예: 헌금란 금액을 다시 확인해 주세요">' + esc(reopenPending(r) ? r.reopen.reason : '') + '</textarea></div>';
+    h += '<div class="row wrap" style="gap:8px"><button class="btn" data-act="modal-close">닫기</button><button class="btn" data-act="print-report" data-id="' + esc(r.id) + '">🖨️ 인쇄</button><span class="sp"></span>';
+    h += '<button class="btn" style="color:#c33e5f" data-act="reject-report" data-id="' + esc(r.id) + '">↩ 반려(재작성 요청)</button>';
+    if (r.status !== 'checked') h += '<button class="btn mint" data-act="check-report" data-id="' + esc(r.id) + '">확인 완료</button>';
+    h += '</div>';
   } else {
-    h += '<div class="row" style="margin-top:12px"><button class="btn" data-act="modal-close">닫기</button></div>';
+    h += '<div class="row wrap" style="gap:8px;margin-top:12px"><button class="btn" data-act="modal-close">닫기</button><button class="btn" data-act="print-report" data-id="' + esc(r.id) + '">🖨️ 인쇄</button></div>';
   }
   openModal('주일보고', h);
 }
@@ -374,6 +408,7 @@ document.addEventListener('click', async function (ev) {
       case 'submit-report': {
         const rep = S.state.reports.find(x => x.id === t.dataset.id);
         if (rep) {
+          if (rep.status === 'submitted' || rep.status === 'checked') return toast('이미 제출한 보고서입니다. 고칠 일이 있으면 반려를 요청해 주세요', 'err');
           readReportForm(rep);
           rep.status = 'submitted'; rep.submittedAt = Date.now(); touch(rep);
           await Sync.save(); renderApp(); toast('목회자에게 제출했습니다', 'ok');
@@ -389,7 +424,9 @@ document.addEventListener('click', async function (ev) {
         const rep = S.state.reports.find(x => x.id === t.dataset.id);
         if (rep) {
           rep.status = 'checked'; rep.checkedAt = Date.now(); rep.checkedBy = S.me.uid; rep.checkedByName = S.me.name;
-          rep.comment = val('rvComment'); touch(rep);
+          rep.comment = val('rvComment');
+          if (rep.reopen) { rep.reopen.done = true; rep.reopen.doneAt = Date.now(); }
+          touch(rep);
           await Sync.save(); closeModal(); renderApp(); toast('확인 완료로 표시했습니다', 'ok');
         }
         return;
@@ -423,9 +460,12 @@ document.addEventListener('click', async function (ev) {
       case 'ack-notice': {
         const n = S.state.notices.find(x => x.id === t.dataset.id);
         if (n) {
-          n.reads = n.reads || {}; n.reads[S.me.uid] = Date.now(); n.u = n.u;
+          if (n.author === S.me.uid) return toast('내가 쓴 알림장은 확인 대상이 아닙니다', 'err');
+          n.reads = n.reads || {};
+          n.reads[S.me.uid] = Date.now();
           n.readU = Date.now();
-          await Sync.save(); closeModal(); renderApp(); toast('확인했습니다', 'ok');
+          touch(n);
+          await Sync.save(); closeModal(); renderApp(); toast('확인했어요. 미확인 알림이 줄었습니다', 'ok');
         }
         return;
       }
@@ -464,7 +504,7 @@ document.addEventListener('click', async function (ev) {
           const c = classById(id); if (!c) return;
           c.name = name; c.deptId = val('cDept'); c.note = val('cNote'); touch(c);
         } else {
-          S.state.classes.push({ id: 'cl-' + Crypto.uid(), name: name, deptId: val('cDept'), note: val('cNote'), order: (S.state.classes || []).length + 1, u: Date.now() });
+          S.state.classes.push({ id: 'cl-' + Crypto.uid(), name: name, deptId: val('cDept'), note: val('cNote'), year: curYear(), order: (S.state.classes || []).length + 1, u: Date.now() });
         }
         closeModal(); await Sync.save(); renderApp(); return;
       }
@@ -477,6 +517,25 @@ document.addEventListener('click', async function (ev) {
         return;
       }
       case 'new-student': studentModal(null, t.dataset.cls); return;
+      case 's-newcomer': {
+        V.stuNewcomer = !V.stuNewcomer;
+        t.textContent = V.stuNewcomer ? '★ 신입으로 표시됨' : '☆ 신입으로 표시';
+        t.classList.toggle('amber', !!V.stuNewcomer);
+        t.classList.toggle('gray', !V.stuNewcomer);
+        return;
+      }
+      case 'att-new': {
+        const s = (S.state.students || []).find(x => x.id === t.dataset.sid);
+        if (!s) return;
+        const a = attOf(V.date, s.id);
+        if (!a) return toast('먼저 출·결·인 중 하나를 눌러 주세요', 'err');
+        a.isNew = !a.isNew;
+        touch(a);
+        await Sync.save(); renderApp();
+        toast(a.isNew ? s.name + ' 학생을 ' + fmtShort(V.date) + ' 신입으로 표시했습니다' : '신입 표시를 껐습니다', 'ok');
+        return;
+      }
+      case 'save-my-birth': await saveMyBirth(); return;
       case 'edit-student': studentModal((S.state.students || []).find(x => x.id === t.dataset.id)); return;
       case 'save-student': {
         const id = t.dataset.id;
@@ -484,16 +543,21 @@ document.addEventListener('click', async function (ev) {
         if (!name) return toast('학생 이름을 입력하세요', 'err');
         const clsId = val('sClass');
         const cls = classById(clsId);
+        const bt = V.stuBirthType || 'solar';
+        const birth = val('sBirth');
         let s = null;
         if (id) {
           s = S.state.students.find(x => x.id === id); if (!s) return;
-          s.name = name; s.birth = val('sBirth'); s.gender = val('sGender'); s.classId = clsId; s.deptId = cls ? cls.deptId : s.deptId;
-          s.guardianName = val('sGuardian'); s.guardianPhone = val('sPhone'); s.note = val('sNote'); touch(s);
+          s.name = name; s.birth = birth; s.birthType = bt; s.birthLunar = bt === 'lunar' ? birthdayMmdd(birth) : '';
+          s.gender = val('sGender'); s.classId = clsId; s.deptId = cls ? cls.deptId : s.deptId;
+          s.guardianName = val('sGuardian'); s.guardianPhone = val('sPhone'); s.note = val('sNote');
+          s.newcomer = !!V.stuNewcomer; touch(s);
         } else {
-          s = { id: 'st-' + Crypto.uid(), name: name, birth: val('sBirth'), gender: val('sGender'), classId: clsId, deptId: cls ? cls.deptId : V.dept, guardianName: val('sGuardian'), guardianPhone: val('sPhone'), note: val('sNote'), active: true, joined: ymd(), u: Date.now() };
+          s = { id: 'st-' + Crypto.uid(), personId: '', name: name, birth: birth, birthType: bt, birthLunar: bt === 'lunar' ? birthdayMmdd(birth) : '', gender: val('sGender'), classId: clsId, deptId: cls ? cls.deptId : V.dept, guardianName: val('sGuardian'), guardianPhone: val('sPhone'), note: val('sNote'), newcomer: !!V.stuNewcomer, active: true, joined: ymd(), year: curYear(), u: Date.now() };
+          s.personId = s.id;
           S.state.students.push(s);
         }
-        syncBirthEvent('student', s.id, s.name, s.birth, s.deptId || V.dept || '');
+        syncBirthEventOf('student', s.personId || s.id, s, s.deptId || V.dept || '');
         closeModal(); await Sync.save(); renderApp(); return;
       }
       case 'del-student': {
@@ -502,7 +566,7 @@ document.addEventListener('click', async function (ev) {
           const s = S.state.students.find(x => x.id === id);
           if (s) {
             s._del = true; touch(s);
-            syncBirthEvent('student', s.id, s.name, '', []);
+            syncBirthEvent('student', s.personId || s.id, s.name, '', []);
             await Sync.save(); renderApp();
           }
         });
@@ -519,7 +583,7 @@ document.addEventListener('click', async function (ev) {
           const e = S.state.events.find(x => x.id === id); if (!e) return;
           e.title = title; e.date = val('eDate'); e.time = val('eTime'); e.deptId = val('eDept'); e.place = val('ePlace'); e.desc = val('eDesc'); touch(e);
         } else {
-          S.state.events.push({ id: 'ev-' + Crypto.uid(), title: title, date: val('eDate'), time: val('eTime'), deptId: val('eDept'), place: val('ePlace'), desc: val('eDesc'), by: S.me.uid, u: Date.now() });
+          S.state.events.push({ id: 'ev-' + Crypto.uid(), title: title, date: val('eDate'), year: yearOfDate(val('eDate')) || curYear(), time: val('eTime'), deptId: val('eDept'), place: val('ePlace'), desc: val('eDesc'), by: S.me.uid, u: Date.now() });
         }
         closeModal(); await Sync.save(); renderApp(); return;
       }
@@ -649,8 +713,8 @@ function setAttSilent(date, deptId, classId, studentId, status) {
 document.addEventListener('change', function (ev) {
   const t = ev.target;
   if (!t || !t.dataset || !t.dataset.change) return;
-  if (t.dataset.change === 'att-date') { V.date = t.value; renderApp(); }
-  if (t.dataset.change === 'report-date') { V.reportDate = t.value; renderApp(); }
+  if (t.dataset.change === 'att-date') { syncYearToDate(t.value); V.date = t.value; renderApp(); }
+  if (t.dataset.change === 'report-date') { syncYearToDate(t.value); V.reportDate = t.value; renderApp(); }
 });
 
 /* ---------------- 관리자: 사용자 저장 ---------------- */
@@ -661,6 +725,10 @@ async function saveUser() {
   const name = val('uName');
   const pw = val('uPw');
   const birth = val('uBirth');
+  const bt = e.birthType === 'lunar' ? 'lunar' : 'solar';
+  const bLunar = bt === 'lunar' ? birthdayMmdd(birth) : '';
+  const status = ACCOUNT_STATUS[e.status] ? e.status : 'normal';
+  const statusNote = (document.getElementById('uStatusNote') || {}).value || e.statusNote || '';
   if (!id) return toast('아이디를 입력하세요', 'err');
   if (!/^[a-zA-Z0-9_.-]{3,24}$/.test(id)) return toast('아이디는 영문·숫자 3~24자입니다', 'err');
   if (!name) return toast('이름을 입력하세요', 'err');
@@ -672,9 +740,9 @@ async function saveUser() {
     const uid = await uidOf(id);
     const exist = await fetchAccount(uid);
     if (exist) return toast('이미 같은 아이디가 있습니다', 'err');
-    const row = await buildAccount(S.dek, { id: id, password: pw, name: name, roles: e.roles, depts: e.depts, classes: e.classes, students: e.students, birth: birth, active: e.active });
+    const row = await buildAccount(S.dek, { id: id, password: pw, name: name, roles: e.roles, depts: e.depts, classes: e.classes, students: e.students, birth: birth, birthType: bt, birthLunar: bLunar, status: status, statusNote: statusNote, active: e.active });
     await saveAccountRow(row);
-    syncBirthEvent('account', row.uid, name, birth, e.depts || []);
+    syncBirthEvent('account', row.uid, name, birth, e.depts || [], bt, bLunar);
     await Sync.save();
     toast(name + ' 계정을 만들었습니다', 'ok');
   } else {
@@ -686,12 +754,12 @@ async function saveUser() {
       const k = await Crypto.kek(pw, salt);
       wrap = JSON.stringify(await Crypto.seal(k, S.wkRaw));
     }
-    const rec = await Crypto.sealJson(S.dek, { id: e.id, name: name, roles: e.roles, depts: e.depts, classes: e.classes, students: e.students, birth: birth, grants: e.grants || {}, active: e.active, at: Date.now() });
+    const rec = await Crypto.sealJson(S.dek, { id: e.id, name: name, roles: e.roles, depts: e.depts, classes: e.classes, students: e.students, birth: birth, birthType: bt, birthLunar: bLunar, status: status, statusNote: statusNote, statusAt: Date.now(), grants: e.grants || {}, active: e.active, at: Date.now() });
     await saveAccountRow({ uid: e.uid, salt: salt, wrap: wrap, rec: JSON.stringify(rec), rev: Date.now(), updated: Date.now(), deleted: '' });
-    syncBirthEvent('account', e.uid, name, birth, e.depts || []);
+    syncBirthEvent('account', e.uid, name, birth, e.depts || [], bt, bLunar);
     await Sync.save();
     if (e.uid === S.me.uid) {
-      S.me = Object.assign({}, S.me, { name: name, roles: e.roles, depts: e.depts, classes: e.classes, students: e.students, birth: birth, grants: e.grants || S.me.grants || {} });
+      S.me = Object.assign({}, S.me, { name: name, roles: e.roles, depts: e.depts, classes: e.classes, students: e.students, birth: birth, birthType: bt, birthLunar: bLunar, status: status, grants: e.grants || S.me.grants || {} });
       if (e.roles.indexOf(S.roleKey) < 0) S.roleKey = e.roles[0] || S.roleKey;
       saveSession();
     }
@@ -730,14 +798,20 @@ async function changePassword() {
 function printReport(r) {
   const dept = deptById(r.deptId) || {};
   const cn = r.counts || {};
+  const absR = absentRowsOf(r.deptId, r.date);
+  const newR = newcomerRowsOf(r.deptId, r.date);
+  const absText = absR.length ? absR.map(x => x.cls + ' ' + x.name + (x.reason ? ' (' + x.reason + ')' : '')).join(', ') : '없음';
+  const newText = newR.length ? newR.map(x => x.cls + ' ' + x.name).join(', ') : '없음';
   const w = window.open('', '_blank');
   if (!w) return toast('팝업이 차단되었습니다', 'err');
   const html = '<!doctype html><html lang="ko"><head><meta charset="utf-8"><title>주일보고</title>' +
-    '<style>body{font-family:"Malgun Gothic","Apple SD Gothic Neo",sans-serif;padding:26px;color:#222}h1{font-size:20px;text-align:center;margin:0 0 4px}h2{font-size:12px;text-align:center;color:#777;font-weight:600;margin:0 0 18px}table{border-collapse:collapse;width:100%;font-size:12.5px}th,td{border:1px solid #ccc;padding:7px 9px;text-align:left;vertical-align:top}th{background:#f7f3ef;width:110px;font-weight:700}.box{white-space:pre-wrap;min-height:56px}</style></head><body>' +
+    '<style>@page{size:A4 portrait;margin:14mm}body{font-family:"Malgun Gothic","Apple SD Gothic Neo",sans-serif;padding:18px;color:#222}h1{font-size:19px;text-align:center;margin:0 0 4px}h2{font-size:12px;text-align:center;color:#777;font-weight:600;margin:0 0 16px}table{border-collapse:collapse;width:100%;font-size:12.5px}th,td{border:1px solid #ccc;padding:7px 9px;text-align:left;vertical-align:top}th{background:#f7f3ef;width:104px;font-weight:700}.box{white-space:pre-wrap;min-height:52px}</style></head><body>' +
     '<h1>' + esc((S.state.settings && S.state.settings.church) || '덕신교회') + ' 주일학교 주일보고</h1>' +
     '<h2>' + esc(fmtDate(r.date)) + ' · ' + esc(dept.name || '') + '</h2>' +
-    '<table><tr><th>재적</th><td>' + (cn.enrolled || 0) + '</td><th>출석</th><td>' + (cn.present || 0) + '</td><th>결석</th><td>' + (cn.absent || 0) + '</td><th>신입</th><td>' + (cn.newcomer || 0) + '</td></tr>' +
+    '<table><tr><th>재적</th><td>' + (cn.enrolled || 0) + '</td><th>출석</th><td>' + (cn.present || 0) + '</td><th>결석</th><td>' + (cn.absent || 0) + '</td><th>신입</th><td>' + newR.length + '</td></tr>' +
     '<tr><th>교사 출석</th><td colspan="3">' + (cn.teacherPresent || 0) + ' / ' + (cn.teacherTotal || 0) + '</td><th>헌금</th><td colspan="3">' + esc(r.offering || '-') + '</td></tr>' +
+    '<tr><th>결석자</th><td colspan="7">' + esc(absText) + '</td></tr>' +
+    '<tr><th>신입</th><td colspan="7">' + esc(newText) + '</td></tr>' +
     '<tr><th>예배 말씀</th><td colspan="7">' + esc(r.scripture || '') + '</td></tr>' +
     '<tr><th>공과 내용</th><td colspan="7">' + esc(r.lesson || '') + '</td></tr>' +
     '<tr><th>특이사항</th><td colspan="7" class="box">' + esc(r.notes || '') + '</td></tr>' +
@@ -746,6 +820,29 @@ function printReport(r) {
     '<p style="font-size:10px;color:#999;text-align:center;margin-top:16px">덕신교회 부서업무 · 인쇄 ' + new Date().toLocaleString('ko-KR') + '</p>' +
     '<script>window.onload=function(){setTimeout(function(){window.print();},200)}<\/script></body></html>';
   w.document.open(); w.document.write(html); w.document.close();
+}
+
+/* 내 정보 — 생일(양력·음력) 저장 */
+async function saveMyBirth() {
+  const birth = val('myBirth');
+  const type = V.myBirthType === 'lunar' ? 'lunar' : (V.myBirthType === 'solar' ? 'solar' : birthTypeOf(S.me));
+  if (!birth) return toast('생일을 골라 주세요', 'err');
+  if (type === 'lunar' && !lunarYearInfo(Number(birth.slice(0, 4)))) return toast('음력 생일은 1930~2050년 사이로 넣어 주세요', 'err');
+  const lunarMmdd = type === 'lunar' ? birthdayMmdd(birth) : '';
+  try {
+    await updateAccountRec(S.me.uid, rec => {
+      rec.birth = birth; rec.birthType = type; rec.birthLunar = lunarMmdd;
+    });
+  } catch (e) {
+    return toast((e && e.message) || '생일을 저장하지 못했습니다', 'err');
+  }
+  S.me.birth = birth; S.me.birthType = type; S.me.birthLunar = lunarMmdd;
+  syncBirthEventOf('account', S.me.uid, S.me, S.me.depts || []);
+  await Sync.save();
+  saveSession();
+  renderApp();
+  const occ = birthOccDate(S.me, curYear());
+  toast('생일을 저장했습니다' + (occ ? ' · ' + curYear() + '년 ' + fmtShort(occ) + '에 일정 표시' : ''), 'ok');
 }
 
 /* ---------------- 시작 ---------------- */
@@ -771,6 +868,7 @@ async function boot() {
       S.ready = true;
       rememberMe();
       V.date = lastSunday(); V.reportDate = lastSunday();
+      if (!S.year) S.year = new Date().getFullYear();
       const ds = visibleDepts(); V.dept = ds.length ? ds[0].id : '';
       renderHomeShell();
       Sync.timer = setInterval(() => {

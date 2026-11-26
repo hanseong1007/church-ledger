@@ -89,9 +89,9 @@ const DEFAULT_ROLES = [
 ];
 
 const BASE_PERMS = {
-  admin: { 'attendance.check': 1, 'attendance.stat': 1, 'report.write': 1, 'report.review': 1, 'notice.write': 1, 'notice.read': 1, 'feed.write': 1, 'member.manage': 1, 'child.link': 1, 'staff.manage': 1, 'schedule.manage': 1, 'user.manage': 1, 'dept.manage': 1, 'plan.read': 1, 'plan.write': 1, 'ledger.manage': 1, 'user.approve': 1 },
+  admin: { 'attendance.check': 1, 'attendance.stat': 1, 'report.write': 1, 'report.review': 1, 'notice.write': 1, 'notice.read': 1, 'feed.write': 1, 'member.manage': 1, 'child.link': 1, 'staff.manage': 1, 'schedule.manage': 1, 'user.manage': 1, 'dept.manage': 1, 'plan.read': 1, 'plan.write': 1, 'ledger.manage': 1, 'user.approve': 1, 'year.manage': 1 },
   pastor: { 'attendance.stat': 1, 'report.write': 1, 'report.review': 1, 'notice.read': 1, 'notice.write': 1, 'feed.write': 1, 'plan.read': 1, 'ledger.manage': 1, 'user.approve': 1, 'schedule.manage': 1 },
-  edu: { 'attendance.check': 1, 'attendance.stat': 1, 'report.write': 1, 'notice.write': 1, 'notice.read': 1, 'feed.write': 1, 'member.manage': 1, 'child.link': 1, 'staff.manage': 1, 'schedule.manage': 1, 'plan.read': 1, 'plan.write': 1, 'ledger.manage': 1, 'user.approve': 1 },
+  edu: { 'attendance.check': 1, 'attendance.stat': 1, 'report.write': 1, 'notice.write': 1, 'notice.read': 1, 'feed.write': 1, 'member.manage': 1, 'child.link': 1, 'staff.manage': 1, 'schedule.manage': 1, 'plan.read': 1, 'plan.write': 1, 'ledger.manage': 1, 'user.approve': 1, 'year.manage': 1 },
   teacher: { 'attendance.check': 1, 'attendance.stat': 1, 'notice.write': 1, 'notice.read': 1, 'feed.write': 1, 'member.manage': 1, 'child.link': 1, 'plan.read': 1, 'plan.write': 1, 'user.approve': 1 },
   parent: { 'attendance.self': 1, 'notice.read': 1, 'feed.read': 1 }
 };
@@ -121,7 +121,8 @@ const PERM_LABELS = [
   ['dept.manage', '부서 관리'],
   ['plan.read', '월별계획표 보기'],
   ['plan.write', '월별계획표 작성'],
-  ['ledger.manage', '회계 관리']
+  ['ledger.manage', '회계 관리'],
+  ['year.manage', '연도·진급 관리']
 ];
 
 const DEFAULT_DEPTS = [
@@ -133,11 +134,11 @@ const DEFAULT_DEPTS = [
 
 function emptyState(seed) {
   return {
-    v: 2,
+    v: 3,
     roles: seed === false ? [] : JSON.parse(JSON.stringify(DEFAULT_ROLES)),
     departments: seed === false ? [] : JSON.parse(JSON.stringify(DEFAULT_DEPTS)),
     classes: [], students: [], attendance: [], reports: [], notices: [], feeds: [], events: [],
-    plans: [], ledger: [],
+    plans: [], ledger: [], years: [],
     people: {},
     settings: { church: '덕신교회', title: '부서업무', updatedAt: 0 },
     rev: 0
@@ -154,6 +155,7 @@ const S = {
   me: null,             // {uid, id, name, roles:[], depts:[], classes:[], students:[]}
   chosen: [],           // 로그인 화면에서 고른 역할
   roleKey: '',
+  year: 0,              // 지금 보고 있는 연도 (자료는 연도별로 나뉩니다)
   dept: '',
   screen: 'home',
   sync: 'idle',         // idle | saving | saved | error | off
@@ -174,6 +176,8 @@ async function buildAccount(dek, info) {
     id: normId(info.id), name: String(info.name || '').trim() || normId(info.id),
     roles: info.roles || [], depts: info.depts || [], classes: info.classes || [],
     students: info.students || [], birth: info.birth || '', grants: info.grants || {},
+    birthType: info.birthType || 'solar', birthLunar: info.birthLunar || '',
+    status: info.status || 'normal', statusNote: info.statusNote || '', statusAt: 0,
     active: info.active !== false, at: Date.now()
   });
   return {
@@ -259,6 +263,14 @@ function mergeState(local, remote) {
     local[key] = Array.from(map.values());
   });
   local.people = Object.assign({}, remote.people || {}, local.people || {});
+  /* 연도 목록은 양쪽을 합칩니다 */
+  const ymap = {};
+  [].concat(remote.years || [], local.years || []).forEach(y => {
+    const n = Number(y && (y.year || y));
+    if (!n) return;
+    ymap[n] = Object.assign({ year: n }, ymap[n] || {}, (typeof y === 'object' ? y : {}));
+  });
+  local.years = Object.keys(ymap).map(k => ymap[k]).sort((a, b) => a.year - b.year);
   const ls = local.settings || {}, rs = remote.settings || {};
   local.settings = (Number(rs.updatedAt) || 0) > (Number(ls.updatedAt) || 0) ? Object.assign({}, ls, rs) : Object.assign({}, rs, ls);
   // 부서에 없는 옛 역할 키가 있으면 기본값 유지
@@ -354,7 +366,7 @@ const SESS_KEY = 'dse.session.v1';
 function saveSession() {
   try {
     sessionStorage.setItem(SESS_KEY, JSON.stringify({
-      me: S.me, chosen: S.chosen, roleKey: S.roleKey, wk: b64(S.wkRaw), rev: S.rev, at: Date.now()
+      me: S.me, chosen: S.chosen, roleKey: S.roleKey, year: S.year, wk: b64(S.wkRaw), rev: S.rev, at: Date.now()
     }));
   } catch (e) { }
 }
@@ -369,6 +381,7 @@ async function restoreSession() {
     S.wkRaw = b64d(s.wk);
     S.dek = await Crypto.importDek(S.wkRaw);
     S.me = s.me; S.chosen = s.chosen || []; S.roleKey = s.roleKey || (s.me.roles || [])[0];
+    S.year = Number(s.year) || 0;
     S.rev = Number(s.rev) || 0;
     return true;
   } catch (e) { return false; }
@@ -430,9 +443,13 @@ function visibleDepts() {
 }
 function deptById(id) { return (S.state.departments || []).find(d => d.id === id) || null; }
 function classById(id) { return (S.state.classes || []).find(c => c.id === id) || null; }
-function studentsOfDept(deptId) { return (S.state.students || []).filter(s => !s._del && s.active !== false && s.deptId === deptId); }
-function studentsOfClass(classId) { return (S.state.students || []).filter(s => !s._del && s.active !== false && s.classId === classId); }
-function classesOfDept(deptId) { return (S.state.classes || []).filter(c => !c._del && c.deptId === deptId).sort((a, b) => (a.order || 0) - (b.order || 0)); }
+function studentsOfDeptIn(deptId, year) { return (S.state.students || []).filter(s => !s._del && s.active !== false && s.deptId === deptId && recYear(s) === Number(year)); }
+function studentsOfClassIn(classId, year) { return (S.state.students || []).filter(s => !s._del && s.active !== false && s.classId === classId && recYear(s) === Number(year)); }
+function classesOfDeptIn(deptId, year) { return (S.state.classes || []).filter(c => !c._del && c.deptId === deptId && recYear(c) === Number(year)).sort((a, b) => (a.order || 0) - (b.order || 0)); }
+function studentsOfDept(deptId) { return studentsOfDeptIn(deptId, curYear()); }
+function studentsOfClass(classId) { return studentsOfClassIn(classId, curYear()); }
+function classesOfDept(deptId) { return classesOfDeptIn(deptId, curYear()); }
+function allStudentsIn(year) { return (S.state.students || []).filter(s => !s._del && s.active !== false && recYear(s) === Number(year)); }
 function peopleOf(uid) { return (S.state.people || {})[uid] || null; }
 function nameOfUid(uid) { const p = peopleOf(uid); return p ? p.name : '(알 수 없음)'; }
 
@@ -468,6 +485,75 @@ function lastSunday(from) {
   return ymd(d);
 }
 
+/* ---------------- 연도 (자료는 1년 단위로 나뉩니다) ----------------
+   출석·주일보고·월별계획표·회계·일반 일정·학생·반은 연도마다 따로 보입니다.
+   연도 칸이 없는 옛 자료(2026년 이전에 만든 것)는 2026년 자료로 읽습니다. */
+const FIRST_YEAR = 2026;
+function curYear() { return Number(S.year) || FIRST_YEAR; }
+function yearOfDate(d) { const y = Number(String(d || '').slice(0, 4)); return y >= 1900 ? y : 0; }
+function recYear(rec) {
+  if (!rec) return 0;
+  return Number(rec.year) || yearOfDate(rec.date || rec.month) || FIRST_YEAR;
+}
+function inYear(rec) { return recYear(rec) === curYear(); }
+function availableYears() {
+  const set = {};
+  set[FIRST_YEAR] = 1;
+  set[new Date().getFullYear()] = 1;
+  set[curYear()] = 1;
+  (S.state.years || []).forEach(y => { const n = Number(y && (y.year || y)); if (n) set[n] = 1; });
+  ['students', 'classes', 'plans', 'ledger', 'reports', 'attendance'].forEach(key => {
+    (S.state[key] || []).forEach(r => {
+      if (!r || r._del) return;
+      const y = Number(r.year) || yearOfDate(r.date || r.month);
+      if (y >= 1900) set[y] = 1;
+    });
+  });
+  return Object.keys(set).map(Number).filter(n => n >= 1900).sort((a, b) => a - b);
+}
+function ensureYear(y) {
+  y = Number(y);
+  if (!y) return null;
+  S.state.years = S.state.years || [];
+  let it = S.state.years.find(x => Number(x && x.year) === y);
+  if (!it) { it = { year: y, created: Date.now() }; S.state.years.push(it); }
+  return it;
+}
+function yearHasData(y) {
+  y = Number(y);
+  return ['students', 'classes', 'plans', 'ledger', 'reports', 'attendance'].some(key =>
+    (S.state[key] || []).some(r => r && !r._del && (Number(r.year) || yearOfDate(r.date || r.month)) === y));
+}
+function setYear(y) {
+  y = Number(y);
+  if (!y || y < 1900) return;
+  S.year = y;
+  if (typeof V !== 'undefined') {
+    const now = new Date();
+    if (y === now.getFullYear()) { V.date = lastSunday(); V.reportDate = V.date; }
+    else { V.date = lastSunday(new Date(y, 0, 1)); V.reportDate = V.date; }
+    V.planMonth = y + '-01';
+    V.ledMonth = y + '-01';
+    V.statMonth = y + '-01';
+    V.statYear = y;
+    V.planDept = V.planDept || '';
+    V.cls = '';
+    V.statCls = '';
+  }
+  saveSession();
+}
+
+/* 날짜를 골랐을 때 그 해로 화면 연도를 맞춥니다 */
+function syncYearToDate(d) {
+  const y = yearOfDate(d);
+  if (!y || y === curYear()) return false;
+  S.year = y;
+  ensureYear(y);
+  if (typeof V !== 'undefined') { V.planMonth = ''; V.ledMonth = ''; V.statMonth = ''; V.statYear = 0; V.cls = ''; V.statCls = ''; }
+  saveSession();
+  return true;
+}
+
 /* ================= 가입 신청 · 승인용 열쇠 교환 (RSA-OAEP + PBKDF2) =================
    신청자는 자기 비밀번호로만 열리는 개인키를 만들어 두고, 공개키만 신청서에 담아 둡니다.
    승인자는 신청자의 공개키로 자료 열쇠(DEK)를 감싸 주고, 신청자는 첫 로그인 때
@@ -500,6 +586,17 @@ const Keys = {
   }
 };
 
+/* 계정 상태 — 정상 / 일시중지 / 차단 (기존 기록은 그대로 보존) */
+const ACCOUNT_STATUS = { normal: '정상', paused: '일시중지', blocked: '차단' };
+function accountStatusOf(rec) { const s = rec && rec.status; return ACCOUNT_STATUS[s] ? s : 'normal'; }
+function accountStatusChip(rec) {
+  const s = accountStatusOf(rec);
+  if (s === 'paused') return '<span class="chip amber">⏸ 일시중지</span>';
+  if (s === 'blocked') return '<span class="chip rose">⛔ 차단</span>';
+  if (rec && rec.active === false) return '<span class="chip gray">사용 중지</span>';
+  return '';
+}
+
 /* 계정 시트 한 줄의 상태 읽기
    - active    : 보통 계정 (rec = 암호문)
    - pending   : 가입 신청만 된 상태 (rec = 평문 신청서, 결재 대기)
@@ -528,6 +625,8 @@ async function buildApplication(info) {
     name: String(info.name || '').trim(),
     id: normId(info.id),
     birth: String(info.birth || '').trim(),
+    birthType: info.birthType === 'lunar' ? 'lunar' : 'solar',
+    birthLunar: info.birthLunar || '',
     roles: info.roles || [],
     depts: info.depts || [],
     classes: info.classes || [],
@@ -579,6 +678,8 @@ async function activateApproved(row, password, info) {
   const rec = await Crypto.sealJson(dek, {
     id: a.id, name: a.name || a.id, roles: a.roles || [], depts: a.depts || [], classes: a.classes || [],
     students: a.students || [], childName: a.childName || '', birth: a.birth || '', grants: a.grants || {},
+    birthType: a.birthType || 'solar', birthLunar: a.birthLunar || '',
+    status: 'normal', statusNote: '', statusAt: 0,
     active: true, at: Date.now()
   });
   const salt = Crypto.randB64(16);
@@ -618,9 +719,52 @@ function shiftMonth(ym, n) {
 }
 function money(n) { return (Number(n) || 0).toLocaleString('ko-KR'); }
 
-/* ---------------- 생일 · 자동 일정 ----------------
-   생일은 해마다 돌아오므로 일정에는 '월-일'(birth)로 보관하고, 화면에서 올해·내년 날짜로 펼쳐 보여 줍니다.
-   계정(가입 승인)과 아동 명단(수기·업로드) 모두 같은 방식으로 자동 등록·갱신합니다. */
+/* ---------------- 생일 (양력·음력) · 자동 일정 ----------------
+   생일은 해마다 돌아오므로 '월-일'로 보관하고, 화면에서 그 해 양력 날짜로 펼쳐 보여 줍니다.
+   음력 생일은 아래 내장 표(한국천문연구원 기준 · 1930~2050년)로 그 해의 양력 날짜를 계산합니다.
+   ⚠ 자료가 늘지 않도록 LUNAR_NY/LUNAR_MD 는 한 줄 문자열입니다(해마다 4자·5자). */
+const LUNAR_FIRST_YEAR = 1930;
+const LUNAR_NY = '01300217020601260214020401240211013102190208012702150205012602130202012202100129' +
+  '02170206012702140204012402120131021902080128021502050125021302020122020901300217' +
+  '02060127021502030123021101310218020701280216020501250213020202200209012902180206' +
+  '01270215020401230210013102190208012802160205012402120201012202090129021802070126' +
+  '02140203012302100131021902080128021602050125021202010122021001290217020701270213' +
+  '02030123021101310219020801280215020401240212020101220210013002170206012602140202' +
+  '0123';
+const LUNAR_MD = '0c6a60052700a570b95600ada006d407751007490fb1300a930052b0d51b0096d00b6a09da400ba4' +
+  '00b4904d4b00a950eaab0052d00aad0baaa00db200da407ea100d4a10d9500a96005560c57500ad5' +
+  '006d20875500ea500e4a0664e00a9b0ead60056a00b590abb2007520072508b2b00a4b109ab002ad' +
+  '0056b0d5a900da900d9208d9500d2514e4d00a56002b60caed006d400da90aed200e9200d260652e' +
+  '00a57109b600b5a006d40a769007490069308a970052b00a5b04aae0036a0edd500ba400b490ad53' +
+  '00a950052d0752d00aad12baa005d200da50aeaa00d4a00a9508a9d0055600ab504ad6006d20c765' +
+  '00ea500e4a0a65600c9b0055a0656d00b6916f520075200b250db0b00a4b004ab0a2bb0056d00b69' +
+  '04daa00d920eea500d2500a4d0ba4d002b6005b5076d1';
+function lunarYearInfo(year) {
+  const i = Number(year) - LUNAR_FIRST_YEAR;
+  if (!(i >= 0) || i * 4 + 4 > LUNAR_NY.length) return null;
+  const ny = LUNAR_NY.slice(i * 4, i * 4 + 4);
+  const md = parseInt(LUNAR_MD.slice(i * 5, i * 5 + 5), 16);
+  if (!ny || !isFinite(md)) return null;
+  return { month: Number(ny.slice(0, 2)), day: Number(ny.slice(2, 4)), leap: (md >> 13) & 15, leapBig: (md >> 12) & 1, bits: md & 0xfff };
+}
+function lunarLeapMonth(year) { const i = lunarYearInfo(year); return i ? i.leap : 0; }
+function lunarMonthLen(year, month) {
+  const i = lunarYearInfo(year);
+  if (!i) return 0;
+  return ((i.bits >> (Number(month) - 1)) & 1) ? 30 : 29;
+}
+/* 음력 날짜 → 양력 'YYYY-MM-DD' (없는 날짜면 그 달 마지막 날로) */
+function lunarToSolar(year, month, day) {
+  const info = lunarYearInfo(year);
+  if (!info) return '';
+  const m = Number(month), d = Number(day);
+  if (!(m >= 1 && m <= 12) || !(d >= 1)) return '';
+  const dt = new Date(Number(year), info.month - 1, info.day);
+  for (let mm = 1; mm < m; mm++) dt.setDate(dt.getDate() + lunarMonthLen(year, mm));
+  if (info.leap && info.leap < m) dt.setDate(dt.getDate() + lunarMonthLen(year, info.leap));
+  dt.setDate(dt.getDate() + Math.min(d, lunarMonthLen(year, m)) - 1);
+  return ymd(dt);
+}
 function birthdayMmdd(birth) {
   const s = String(birth || '').trim();
   let m = s.match(/^(\d{4})\s*[-./년]\s*(\d{1,2})\s*[-./월]\s*(\d{1,2})/);
@@ -638,22 +782,40 @@ function birthdayDateInYear(mmdd, year) {
   if (d.getMonth() !== mo - 1) return year + '-' + pad2(mo) + '-' + pad2(28);   /* 2월 29일 등 */
   return ymd(d);
 }
-function nextBirthdayDate(mmdd, from) {
-  const today = from || ymd();
-  const y = Number(String(today).slice(0, 4));
-  const a = birthdayDateInYear(mmdd, y);
-  if (a && a >= today) return a;
-  return birthdayDateInYear(mmdd, y + 1);
+/* 생일 정보 — {name, birth, birthType, birthLunar} 모양이면 모두 받습니다 */
+function birthTypeOf(rec) { return rec && rec.birthType === 'lunar' ? 'lunar' : 'solar'; }
+function birthMmddOf(rec) {
+  if (!rec) return '';
+  if (birthTypeOf(rec) === 'lunar') return String(rec.birthLunar || birthdayMmdd(rec.birth) || '').slice(0, 5);
+  return birthdayMmdd(rec.birth);
+}
+/* 그 해에 생일이 돌아오는 양력 날짜 */
+function birthOccDate(rec, year) {
+  const mmdd = birthMmddOf(rec);
+  if (!mmdd) return '';
+  if (birthTypeOf(rec) === 'lunar') return lunarToSolar(year, Number(mmdd.slice(0, 2)), Number(mmdd.slice(3, 5)));
+  return birthdayDateInYear(mmdd, year);
+}
+function birthLabel(rec) {
+  if (!rec) return '';
+  const mmdd = birthMmddOf(rec);
+  if (!mmdd) return '';
+  if (birthTypeOf(rec) === 'lunar') {
+    const occ = birthOccDate(rec, new Date().getFullYear());
+    return '음력 ' + Number(mmdd.slice(0, 2)) + '.' + Number(mmdd.slice(3, 5)) + (occ ? ' · 양력 ' + fmtShort(occ) : '');
+  }
+  return String(rec.birth || '').replace(/-/g, '.');
 }
 function birthEventOf(ownerType, ownerId) {
   return (S.state.events || []).find(e => e.auto === 'birth' && e.ownerType === ownerType && e.ownerId === ownerId) || null;
 }
 /* 생일 일정 자동 등록·갱신. deptIds 는 문자열 또는 배열. 생일이 없으면 기존 일정을 지웁니다. */
-function syncBirthEvent(ownerType, ownerId, name, birth, deptIds) {
+function syncBirthEvent(ownerType, ownerId, name, birth, deptIds, birthType, birthLunar) {
   if (!ownerType || !ownerId) return null;
   S.state.events = S.state.events || [];
   let ev = birthEventOf(ownerType, ownerId);
-  const mmdd = birthdayMmdd(birth);
+  const info = { name: name, birth: birth || '', birthType: birthType === 'lunar' ? 'lunar' : 'solar', birthLunar: birthLunar || '' };
+  const mmdd = birthMmddOf(info);
   if (!mmdd) {
     if (ev) { ev._del = true; touch(ev); }
     return null;
@@ -666,15 +828,29 @@ function syncBirthEvent(ownerType, ownerId, name, birth, deptIds) {
   }
   ev.title = '🎂 ' + String(name || '').trim() + ' 생일';
   ev.birth = mmdd;
+  ev.birthType = info.birthType;
+  ev.birthLunar = info.birthType === 'lunar' ? mmdd : '';
   ev.birthYear = String(birth || '').slice(0, 4);
   ev.deptId = deptId;
-  ev.date = nextBirthdayDate(mmdd);
+  ev.date = birthOccDate(info, curYear()) || birthOccDate(info, curYear() + 1) || '';
   ev.time = '';
   ev.place = '';
-  ev.desc = '생일 자동 등록';
+  ev.desc = '생일 자동 등록' + (info.birthType === 'lunar' ? ' (음력)' : '');
   ev._del = false;
   touch(ev);
   return ev;
+}
+/* 계정·학생·교사 기록에서 바로 생일 일정을 맞춥니다. ownerId 는 사람을 가리키는 고정 id */
+function syncBirthEventOf(ownerType, ownerId, person, deptIds) {
+  const p = person || {};
+  return syncBirthEvent(ownerType, ownerId, p.name, p.birth, deptIds, birthTypeOf(p), p.birthLunar || '');
+}
+function nextBirthdayDate(mmdd, from) {
+  const today = from || ymd();
+  const y = Number(String(today).slice(0, 4));
+  const a = birthdayDateInYear(mmdd, y);
+  if (a && a >= today) return a;
+  return birthdayDateInYear(mmdd, y + 1);
 }
 
 /* ---------------- 월별계획표 → 부서 일정 자동 동기화 ---------------- */

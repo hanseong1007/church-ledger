@@ -385,3 +385,32 @@ a.btn { text-decoration: none; display: inline-flex; align-items: center; justif
   display: inline-flex; width: auto; height: 20px; padding: 0 7px; font-size: 11px;
   overflow: visible; text-overflow: clip; vertical-align: 1px;
 }
+
+/* ---------- 연도 막대 ---------- */
+.yearbar {
+  display: flex; align-items: center; gap: 6px; padding: 7px 14px; background: var(--peach);
+  border-bottom: 1px solid var(--line); flex-wrap: wrap;
+}
+.year-btn {
+  height: 29px; padding: 0 11px; border-radius: 10px; background: #fff; border: 1.4px solid var(--line2);
+  font-size: 12.5px; font-weight: 800; color: var(--ink); display: inline-flex; align-items: center; gap: 4px;
+}
+.year-btn span { color: var(--muted); font-size: 10px; }
+.year-nav {
+  width: 28px; height: 29px; border-radius: 9px; background: #fff; border: 1px solid var(--line);
+  font-weight: 800; color: var(--ink2); display: grid; place-items: center;
+}
+.year-nav[disabled] { opacity: .35; }
+.year-nav.wide { width: auto; padding: 0 10px; font-size: 12px; color: var(--coral-d); background: var(--coral-s); border-color: #ffd3c8; }
+.year-note { font-size: 11px; color: var(--muted); font-weight: 700; margin-left: auto; }
+
+/* ---------- 신입 표시 ---------- */
+.new-line {
+  display: inline-block; margin-top: 3px; margin-left: 4px; font-size: 11px; font-weight: 800;
+  color: #a7741a; background: var(--amber-s); border: 1px solid #f3e2b8; border-radius: 8px; padding: 1px 7px;
+}
+.new-line.on { background: var(--amber); color: #fff; border-color: var(--amber); }
+
+@media print {
+  .yearbar { display: none !important; }
+}
