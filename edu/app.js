@@ -89,7 +89,7 @@ async function doLogin() {
     if (rec.active === false) { showLoginError('사용이 중지된 계정입니다. 관리자에게 문의하세요.'); return; }
 
     S.dek = dek; S.wkRaw = raw;
-    S.me = { uid: uid, id: rec.id, name: rec.name, roles: rec.roles || [], depts: rec.depts || [], classes: rec.classes || [], students: rec.students || [] };
+    S.me = { uid: uid, id: rec.id, name: rec.name, roles: rec.roles || [], depts: rec.depts || [], classes: rec.classes || [], students: rec.students || [], birth: rec.birth || '', grants: rec.grants || {} };
     S.chosen = [];
     S.roleKey = highestRoleKey(S.me.roles);
     S.screen = 'home';
@@ -130,6 +130,7 @@ async function afterLogin() {
   const ds = visibleDepts();
   V.dept = ds.length ? ds[0].id : '';
   V.cls = '';
+  if (roleDef(S.roleKey).base === 'pastor') S.screen = 'report';
   saveSession();
   renderHomeShell();
   if (can('user.approve')) loadApps(true);
@@ -137,6 +138,8 @@ async function afterLogin() {
     if (document.hidden) return;
     if (S.screen === 'attendance' && document.activeElement && document.activeElement.tagName === 'INPUT') return;
     Sync.pull(true).then(ch => { if (ch) renderApp(); });
+    S.tick = (S.tick || 0) + 1;
+    if (S.tick % 4 === 0) refreshMyAccount();
   }, 9000);
   document.addEventListener('visibilitychange', () => { if (!document.hidden && S.dek) Sync.pull(true).then(ch => { if (ch) renderApp(); }); });
 }
@@ -195,6 +198,7 @@ async function doSetup() {
 function setScreen(key) {
   S.screen = key;
   if (key === 'admin' && can('user.manage')) { V.accounts = null; loadAccounts(); }
+  if (key === 'staff' && can('staff.manage')) { V.staffAccts = null; loadStaffAccounts(true); }
   if (key === 'approve' && can('user.approve')) { V.apps = null; loadApps(true); }
   renderApp();
 }
@@ -259,9 +263,31 @@ function reportDetailModal(r) {
   if (r.notes) h += '<div class="sect-title">특이사항</div><div class="pre">' + esc(r.notes) + '</div>';
   if (r.prayer) h += '<div class="sect-title">기도제목</div><div class="pre">' + esc(r.prayer) + '</div>';
 
+  /* 이 주의 월별계획·수입 내역 */
+  const wp = plansOfWeek(r.deptId, r.date);
+  const wi = ledgerOfWeek(r.deptId, r.date).filter(e => e.type === 'in');
+  if (wp.length || wi.length) {
+    h += '<div class="card flat" style="padding:12px;margin-top:12px"><h3>🗓️ 이 주 계획·수입</h3>';
+    if (wp.length) {
+      h += '<div class="list">' + wp.map(p => '<div class="item" style="padding:8px 10px;box-shadow:none"><span class="av" style="background:#efe9fd">' + esc(fmtShort(p.date)) + '</span><span class="tx"><b>' + esc(p.title) + '</b><span>' + esc(p.kind || '계획') + (p.detail ? ' · ' + esc(p.detail) : '') + '</span></span></div>').join('') + '</div>';
+    }
+    if (wi.length) {
+      h += '<div class="list" style="margin-top:6px">' + wi.map(e => '<div class="item" style="padding:8px 10px;box-shadow:none"><span class="av" style="background:#e7f7ee">＋</span><span class="tx"><b>' + esc(e.category || '수입') + '</b><span>' + esc(fmtShort(e.date)) + (e.memo ? ' · ' + esc(e.memo) : '') + '</span></span><span class="rt"><b>' + money(e.amount) + '원</b></span></div>').join('') + '</div>';
+      h += '<div class="kv"><span>이 주 수입 합계</span><b>' + money(incomeTotal(wi)) + '원</b></div>';
+    }
+    h += '</div>';
+  }
+
+  if (r.status === 'rejected') h += '<div class="banner coral" style="margin-top:12px">↩ 반려된 보고서입니다' + (r.rejectedByName ? ' · ' + esc(r.rejectedByName) : '') + (r.rejectReason ? '<br>사유: ' + esc(r.rejectReason) : '') + '</div>';
   if (r.status === 'checked') {
     h += '<div class="banner mint" style="margin-top:12px">✅ ' + esc(r.checkedByName || '목회자') + ' 확인 완료' + (r.checkedAt ? ' · ' + timeAgo(r.checkedAt) : '') + '</div>';
     if (r.comment) h += '<div class="notice-body pre">' + esc(r.comment) + '</div>';
+    if (can('report.review')) {
+      h += '<div class="field" style="margin-top:14px"><label>반려 사유 (다시 작성을 요청할 때)</label><textarea id="rjReason" placeholder="예: 헌금란 금액을 다시 확인해 주세요"></textarea></div>';
+      h += '<div class="row"><button class="btn" data-act="modal-close">닫기</button><span class="sp"></span><button class="btn" style="color:#c33e5f" data-act="reject-report" data-id="' + esc(r.id) + '">↩ 반려(재작성 요청)</button></div>';
+    } else {
+      h += '<div class="row" style="margin-top:12px"><button class="btn" data-act="modal-close">닫기</button></div>';
+    }
   } else if (can('report.review')) {
     h += '<div class="field" style="margin-top:14px"><label>목회자 코멘트</label><textarea id="rvComment" placeholder="부서에 전할 한마디">' + esc(r.comment || '') + '</textarea></div>';
     h += '<div class="row"><button class="btn" data-act="modal-close">닫기</button><span class="sp"></span><button class="btn mint" data-act="check-report" data-id="' + esc(r.id) + '">확인 완료</button></div>';
@@ -307,7 +333,9 @@ document.addEventListener('click', async function (ev) {
         if (!s) return;
         if (t.dataset.v === 'absent') { absentReasonModal(s, V.date); return; }
         setAtt(V.date, s.deptId, s.classId, s.id, t.dataset.v);
-        renderApp(); return;
+        renderApp();
+        if (V.autoMsg && t.dataset.v === 'present' && s.guardianPhone) messageModal({ student: s, text: attMsgText(s, 'present') });
+        return;
       }
       case 'att-reason': {
         const s = (S.state.students || []).find(x => x.id === t.dataset.sid);
@@ -456,20 +484,27 @@ document.addEventListener('click', async function (ev) {
         if (!name) return toast('학생 이름을 입력하세요', 'err');
         const clsId = val('sClass');
         const cls = classById(clsId);
+        let s = null;
         if (id) {
-          const s = S.state.students.find(x => x.id === id); if (!s) return;
+          s = S.state.students.find(x => x.id === id); if (!s) return;
           s.name = name; s.birth = val('sBirth'); s.gender = val('sGender'); s.classId = clsId; s.deptId = cls ? cls.deptId : s.deptId;
           s.guardianName = val('sGuardian'); s.guardianPhone = val('sPhone'); s.note = val('sNote'); touch(s);
         } else {
-          S.state.students.push({ id: 'st-' + Crypto.uid(), name: name, birth: val('sBirth'), gender: val('sGender'), classId: clsId, deptId: cls ? cls.deptId : V.dept, guardianName: val('sGuardian'), guardianPhone: val('sPhone'), note: val('sNote'), active: true, joined: ymd(), u: Date.now() });
+          s = { id: 'st-' + Crypto.uid(), name: name, birth: val('sBirth'), gender: val('sGender'), classId: clsId, deptId: cls ? cls.deptId : V.dept, guardianName: val('sGuardian'), guardianPhone: val('sPhone'), note: val('sNote'), active: true, joined: ymd(), u: Date.now() };
+          S.state.students.push(s);
         }
+        syncBirthEvent('student', s.id, s.name, s.birth, s.deptId || V.dept || '');
         closeModal(); await Sync.save(); renderApp(); return;
       }
       case 'del-student': {
         const id = t.dataset.id;
-        confirmBox('학생 삭제', '이 학생을 목록에서 지울까요? 출석 기록은 남습니다.', '삭제', async () => {
+        confirmBox('학생 삭제', '이 학생을 목록에서 지울까요? 출석 기록은 남고, 생일 일정도 함께 지워집니다.', '삭제', async () => {
           const s = S.state.students.find(x => x.id === id);
-          if (s) { s._del = true; touch(s); await Sync.save(); renderApp(); }
+          if (s) {
+            s._del = true; touch(s);
+            syncBirthEvent('student', s.id, s.name, '', []);
+            await Sync.save(); renderApp();
+          }
         });
         return;
       }
@@ -625,6 +660,7 @@ async function saveUser() {
   const id = e.uid ? e.id : normId(val('uId'));
   const name = val('uName');
   const pw = val('uPw');
+  const birth = val('uBirth');
   if (!id) return toast('아이디를 입력하세요', 'err');
   if (!/^[a-zA-Z0-9_.-]{3,24}$/.test(id)) return toast('아이디는 영문·숫자 3~24자입니다', 'err');
   if (!name) return toast('이름을 입력하세요', 'err');
@@ -636,8 +672,10 @@ async function saveUser() {
     const uid = await uidOf(id);
     const exist = await fetchAccount(uid);
     if (exist) return toast('이미 같은 아이디가 있습니다', 'err');
-    const row = await buildAccount(S.dek, { id: id, password: pw, name: name, roles: e.roles, depts: e.depts, classes: e.classes, students: e.students, active: e.active });
+    const row = await buildAccount(S.dek, { id: id, password: pw, name: name, roles: e.roles, depts: e.depts, classes: e.classes, students: e.students, birth: birth, active: e.active });
     await saveAccountRow(row);
+    syncBirthEvent('account', row.uid, name, birth, e.depts || []);
+    await Sync.save();
     toast(name + ' 계정을 만들었습니다', 'ok');
   } else {
     const cur = await fetchAccount(e.uid);
@@ -648,10 +686,12 @@ async function saveUser() {
       const k = await Crypto.kek(pw, salt);
       wrap = JSON.stringify(await Crypto.seal(k, S.wkRaw));
     }
-    const rec = await Crypto.sealJson(S.dek, { id: e.id, name: name, roles: e.roles, depts: e.depts, classes: e.classes, students: e.students, active: e.active, at: Date.now() });
+    const rec = await Crypto.sealJson(S.dek, { id: e.id, name: name, roles: e.roles, depts: e.depts, classes: e.classes, students: e.students, birth: birth, grants: e.grants || {}, active: e.active, at: Date.now() });
     await saveAccountRow({ uid: e.uid, salt: salt, wrap: wrap, rec: JSON.stringify(rec), rev: Date.now(), updated: Date.now(), deleted: '' });
+    syncBirthEvent('account', e.uid, name, birth, e.depts || []);
+    await Sync.save();
     if (e.uid === S.me.uid) {
-      S.me = Object.assign({}, S.me, { name: name, roles: e.roles, depts: e.depts, classes: e.classes, students: e.students });
+      S.me = Object.assign({}, S.me, { name: name, roles: e.roles, depts: e.depts, classes: e.classes, students: e.students, birth: birth, grants: e.grants || S.me.grants || {} });
       if (e.roles.indexOf(S.roleKey) < 0) S.roleKey = e.roles[0] || S.roleKey;
       saveSession();
     }
@@ -736,6 +776,8 @@ async function boot() {
       Sync.timer = setInterval(() => {
         if (document.hidden || !S.dek) return;
         Sync.pull(true).then(ch => { if (ch) renderApp(); });
+        S.tick = (S.tick || 0) + 1;
+        if (S.tick % 4 === 0) refreshMyAccount();
       }, 9000);
       return;
     } catch (e) { /* 세션 복원 실패 → 로그인 */ }

@@ -89,10 +89,10 @@ const DEFAULT_ROLES = [
 ];
 
 const BASE_PERMS = {
-  admin: { 'attendance.check': 1, 'attendance.stat': 1, 'report.write': 1, 'report.review': 1, 'notice.write': 1, 'notice.read': 1, 'feed.write': 1, 'member.manage': 1, 'schedule.manage': 1, 'user.manage': 1, 'dept.manage': 1, 'plan.read': 1, 'plan.write': 1, 'ledger.manage': 1, 'user.approve': 1 },
+  admin: { 'attendance.check': 1, 'attendance.stat': 1, 'report.write': 1, 'report.review': 1, 'notice.write': 1, 'notice.read': 1, 'feed.write': 1, 'member.manage': 1, 'child.link': 1, 'staff.manage': 1, 'schedule.manage': 1, 'user.manage': 1, 'dept.manage': 1, 'plan.read': 1, 'plan.write': 1, 'ledger.manage': 1, 'user.approve': 1 },
   pastor: { 'attendance.stat': 1, 'report.write': 1, 'report.review': 1, 'notice.read': 1, 'notice.write': 1, 'feed.write': 1, 'plan.read': 1, 'ledger.manage': 1, 'user.approve': 1, 'schedule.manage': 1 },
-  edu: { 'attendance.check': 1, 'attendance.stat': 1, 'report.write': 1, 'notice.write': 1, 'notice.read': 1, 'feed.write': 1, 'member.manage': 1, 'schedule.manage': 1, 'plan.read': 1, 'plan.write': 1, 'ledger.manage': 1, 'user.approve': 1 },
-  teacher: { 'attendance.check': 1, 'attendance.stat': 1, 'notice.write': 1, 'notice.read': 1, 'feed.write': 1, 'member.manage': 1, 'plan.read': 1, 'plan.write': 1, 'user.approve': 1 },
+  edu: { 'attendance.check': 1, 'attendance.stat': 1, 'report.write': 1, 'notice.write': 1, 'notice.read': 1, 'feed.write': 1, 'member.manage': 1, 'child.link': 1, 'staff.manage': 1, 'schedule.manage': 1, 'plan.read': 1, 'plan.write': 1, 'ledger.manage': 1, 'user.approve': 1 },
+  teacher: { 'attendance.check': 1, 'attendance.stat': 1, 'notice.write': 1, 'notice.read': 1, 'feed.write': 1, 'member.manage': 1, 'child.link': 1, 'plan.read': 1, 'plan.write': 1, 'user.approve': 1 },
   parent: { 'attendance.self': 1, 'notice.read': 1, 'feed.read': 1 }
 };
 
@@ -113,6 +113,8 @@ const PERM_LABELS = [
   ['feed.write', '피드 작성'],
   ['feed.read', '피드 보기'],
   ['member.manage', '반·학생 관리'],
+  ['child.link', '학부모–자녀 연결'],
+  ['staff.manage', '교사 담임·권한 지정'],
   ['schedule.manage', '일정 관리'],
   ['user.manage', '사용자 관리'],
   ['user.approve', '가입 승인'],
@@ -171,7 +173,8 @@ async function buildAccount(dek, info) {
   const rec = await Crypto.sealJson(dek, {
     id: normId(info.id), name: String(info.name || '').trim() || normId(info.id),
     roles: info.roles || [], depts: info.depts || [], classes: info.classes || [],
-    students: info.students || [], active: info.active !== false, at: Date.now()
+    students: info.students || [], birth: info.birth || '', grants: info.grants || {},
+    active: info.active !== false, at: Date.now()
   });
   return {
     uid: await uidOf(info.id), salt: salt,
@@ -378,11 +381,27 @@ function esc(s) {
 /* ---------------- 권한 ---------------- */
 function roleDef(key) { return (S.state.roles || []).find(r => r.key === key) || DEFAULT_ROLES.find(r => r.key === key) || { key: key, label: key, emoji: '🙂', base: 'parent' }; }
 function activeRole() { return roleDef(S.roleKey); }
+/* 교육부서담당이 교사에게 위임한 권한 (계정에 함께 보관) */
+function grantedPerms() { return (S.me && S.me.grants) || {}; }
 function permsOf(key) {
   const r = roleDef(key);
-  return BASE_PERMS[r.base] || {};
+  const p = Object.assign({}, BASE_PERMS[r.base] || {});
+  if (key === S.roleKey) {
+    const g = grantedPerms();
+    Object.keys(g).forEach(k => { if (g[k]) p[k] = 1; });
+  }
+  return p;
 }
 function can(perm) { return !!permsOf(S.roleKey)[perm]; }
+/* 위임할 수 있는 권한 — 교육부서담당이 교사별로 체크 */
+const DELEGABLE_PERMS = [
+  ['schedule.manage', '일정 관리'],
+  ['ledger.manage', '회계 입력·관리'],
+  ['report.write', '주일보고 작성'],
+  ['plan.write', '월별계획표 작성'],
+  ['attendance.check', '출석 체크'],
+  ['member.manage', '반·학생 관리']
+];
 function myRoleKeys() { return (S.me && S.me.roles) || []; }
 function myRoleDefs() { return myRoleKeys().map(roleDef).filter(Boolean); }
 
@@ -508,6 +527,7 @@ async function buildApplication(info) {
   const app = {
     name: String(info.name || '').trim(),
     id: normId(info.id),
+    birth: String(info.birth || '').trim(),
     roles: info.roles || [],
     depts: info.depts || [],
     classes: info.classes || [],
@@ -558,7 +578,8 @@ async function activateApproved(row, password, info) {
   const a = info.app || {};
   const rec = await Crypto.sealJson(dek, {
     id: a.id, name: a.name || a.id, roles: a.roles || [], depts: a.depts || [], classes: a.classes || [],
-    students: a.students || [], childName: a.childName || '', active: true, at: Date.now()
+    students: a.students || [], childName: a.childName || '', birth: a.birth || '', grants: a.grants || {},
+    active: true, at: Date.now()
   });
   const salt = Crypto.randB64(16);
   const kek2 = await Crypto.kek(password, salt);
@@ -596,6 +617,110 @@ function shiftMonth(ym, n) {
   return d.getFullYear() + '-' + pad2(d.getMonth() + 1);
 }
 function money(n) { return (Number(n) || 0).toLocaleString('ko-KR'); }
+
+/* ---------------- 생일 · 자동 일정 ----------------
+   생일은 해마다 돌아오므로 일정에는 '월-일'(birth)로 보관하고, 화면에서 올해·내년 날짜로 펼쳐 보여 줍니다.
+   계정(가입 승인)과 아동 명단(수기·업로드) 모두 같은 방식으로 자동 등록·갱신합니다. */
+function birthdayMmdd(birth) {
+  const s = String(birth || '').trim();
+  let m = s.match(/^(\d{4})\s*[-./년]\s*(\d{1,2})\s*[-./월]\s*(\d{1,2})/);
+  if (m) return pad2(Number(m[2])) + '-' + pad2(Number(m[3]));
+  m = s.match(/^(\d{1,2})\s*[-./월]\s*(\d{1,2})/);
+  if (m) return pad2(Number(m[1])) + '-' + pad2(Number(m[2]));
+  return '';
+}
+function birthdayDateInYear(mmdd, year) {
+  const m = String(mmdd || '').match(/^(\d{2})-(\d{2})$/);
+  if (!m) return '';
+  let mo = Number(m[1]), dd = Number(m[2]);
+  if (mo < 1 || mo > 12 || dd < 1 || dd > 31) return '';
+  const d = new Date(year, mo - 1, dd);
+  if (d.getMonth() !== mo - 1) return year + '-' + pad2(mo) + '-' + pad2(28);   /* 2월 29일 등 */
+  return ymd(d);
+}
+function nextBirthdayDate(mmdd, from) {
+  const today = from || ymd();
+  const y = Number(String(today).slice(0, 4));
+  const a = birthdayDateInYear(mmdd, y);
+  if (a && a >= today) return a;
+  return birthdayDateInYear(mmdd, y + 1);
+}
+function birthEventOf(ownerType, ownerId) {
+  return (S.state.events || []).find(e => e.auto === 'birth' && e.ownerType === ownerType && e.ownerId === ownerId) || null;
+}
+/* 생일 일정 자동 등록·갱신. deptIds 는 문자열 또는 배열. 생일이 없으면 기존 일정을 지웁니다. */
+function syncBirthEvent(ownerType, ownerId, name, birth, deptIds) {
+  if (!ownerType || !ownerId) return null;
+  S.state.events = S.state.events || [];
+  let ev = birthEventOf(ownerType, ownerId);
+  const mmdd = birthdayMmdd(birth);
+  if (!mmdd) {
+    if (ev) { ev._del = true; touch(ev); }
+    return null;
+  }
+  const list = Array.isArray(deptIds) ? deptIds : (deptIds ? [deptIds] : []);
+  const deptId = list.find(d => deptById(d)) || (ev && ev.deptId) || '';
+  if (!ev) {
+    ev = { id: 'ev-' + Crypto.uid(), auto: 'birth', ownerType: ownerType, ownerId: ownerId, by: S.me ? S.me.uid : '', u: 0 };
+    S.state.events.push(ev);
+  }
+  ev.title = '🎂 ' + String(name || '').trim() + ' 생일';
+  ev.birth = mmdd;
+  ev.birthYear = String(birth || '').slice(0, 4);
+  ev.deptId = deptId;
+  ev.date = nextBirthdayDate(mmdd);
+  ev.time = '';
+  ev.place = '';
+  ev.desc = '생일 자동 등록';
+  ev._del = false;
+  touch(ev);
+  return ev;
+}
+
+/* ---------------- 월별계획표 → 부서 일정 자동 동기화 ---------------- */
+function planEventTitle(p) {
+  const em = p.kind === '행사' ? '🎉' : p.kind === '교육' ? '📚' : p.kind === '공과' ? '📖' : '🗓️';
+  return em + ' ' + String(p.title || '');
+}
+function syncPlanEvent(p) {
+  if (!p || !p.id) return null;
+  S.state.events = S.state.events || [];
+  let ev = S.state.events.find(e => e.srcPlanId === p.id) || null;
+  if (p._del) {
+    if (ev) { ev._del = true; touch(ev); }
+    return null;
+  }
+  if (p.kind === '공과') { if (ev) { ev._del = true; touch(ev); } return null; }
+  if (!p.date || !p.deptId) return null;
+  if (!ev) {
+    ev = { id: 'ev-' + Crypto.uid(), auto: 'plan', srcPlanId: p.id, by: S.me ? S.me.uid : '', u: 0 };
+    S.state.events.push(ev);
+  }
+  ev.title = planEventTitle(p);
+  ev.date = p.date;
+  ev.deptId = p.deptId;
+  ev.kind = p.kind || '계획';
+  ev.desc = (p.kind || '계획') + (p.detail ? ' · ' + p.detail : '') + ' · 월별계획표에서 자동 등록';
+  ev.time = '';
+  ev._del = false;
+  touch(ev);
+  return ev;
+}
+function dropPlanEvent(planId) {
+  const ev = (S.state.events || []).find(e => e.srcPlanId === planId);
+  if (ev) { ev._del = true; touch(ev); }
+}
+
+/* 한 해의 모든 주일(일요일) */
+function sundaysOfYear(year) {
+  const out = [];
+  const d = new Date(Number(year), 0, 1);
+  while (d.getFullYear() === Number(year)) {
+    if (d.getDay() === 0) out.push(ymd(d));
+    d.setDate(d.getDate() + 1);
+  }
+  return out;
+}
 
 /* 계획표 항목 — 부서·주차 */
 function plansOf(deptId, ym) {

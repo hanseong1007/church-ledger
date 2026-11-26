@@ -36,6 +36,7 @@ function signupModal() {
   h += '<div class="field"><label>아이디</label><input id="suId" autocapitalize="none" spellcheck="false" placeholder="영문·숫자 3~24자"></div></div>';
   h += '<div class="grid2"><div class="field"><label>비밀번호 (8자 이상)</label><input id="suPw" type="password" autocomplete="new-password"></div>';
   h += '<div class="field"><label>비밀번호 확인</label><input id="suPw2" type="password" autocomplete="new-password"></div></div>';
+  h += '<div class="field"><label>생년월일 (생일)</label><input id="suBirth" type="date" min="1930-01-01" max="2026-12-31"><div class="hint">가입이 승인되면 소속 부서 일정에 🎂 생일이 자동으로 등록됩니다.</div></div>';
   h += '<div class="field"><label>소속 부서</label><div class="row wrap" style="gap:6px">';
   (S.state.departments || []).filter(d => !d._del).forEach(d => {
     h += '<button type="button" class="chip big ' + (st.depts.indexOf(d.id) >= 0 ? 'coral' : 'gray') + '" data-act="signup-dept" data-id="' + esc(d.id) + '">' + esc((d.emoji || '') + ' ' + d.name) + '</button>';
@@ -63,6 +64,7 @@ async function doSignup() {
   const pw2 = (document.getElementById('suPw2') || {}).value || '';
   const clsName = val('suClassName');
   const child = val('suChild');
+  const birth = val('suBirth');
   const err = document.getElementById('suErr');
   const fail = m => { if (err) { err.innerHTML = esc(m).replace(/\n/g, '<br>'); err.classList.add('show'); } else toast(m, 'err'); };
   if (!st.roles.length) return fail('역할을 하나 이상 골라 주세요.');
@@ -70,6 +72,7 @@ async function doSignup() {
   if (!/^[a-zA-Z0-9_.-]{3,24}$/.test(id)) return fail('아이디는 영문·숫자 3~24자로 정해 주세요.');
   if (pw.length < 8) return fail('비밀번호는 8자 이상으로 정해 주세요.');
   if (pw !== pw2) return fail('비밀번호가 서로 다릅니다.');
+  if (!birth) return fail('생년월일(생일)을 넣어 주세요. 부서 일정에 생일이 자동 등록됩니다.');
   if ((st.roles.indexOf('edu') >= 0 || st.roles.indexOf('teacher') >= 0) && !st.depts.length) return fail('소속 부서를 골라 주세요.');
   if (st.roles.indexOf('parent') >= 0 && !child) return fail('자녀 이름을 적어 주세요.');
 
@@ -85,7 +88,7 @@ async function doSignup() {
     }
     const depts = st.depts.slice();
     const app = await buildApplication({
-      id: id, password: pw, name: name, roles: st.roles, depts: depts,
+      id: id, password: pw, name: name, roles: st.roles, depts: depts, birth: birth,
       classes: [], className: clsName, childName: child, note: ''
     });
     await saveAccountRow(app);
@@ -162,6 +165,7 @@ function approveView() {
     if (depts) h += '<div class="kv"><span>부서</span><b>' + esc(depts) + '</b></div>';
     if (cls || ap.className) h += '<div class="kv"><span>반</span><b>' + esc(cls || ap.className) + '</b></div>';
     if (ap.childName) h += '<div class="kv"><span>자녀</span><b>' + esc(ap.childName) + '</b></div>';
+    if (ap.birth) h += '<div class="kv"><span>생일</span><b>' + esc(String(ap.birth).replace(/-/g, '.')) + '</b></div>';
     h += '<div class="kv"><span>신청</span><b>' + timeAgo(ap.at || a.updated) + '</b></div>';
     h += '<div class="row" style="margin-top:10px"><button class="btn" data-act="reject-app" data-uid="' + esc(a.uid) + '">반려</button><span class="sp"></span><button class="btn primary" data-act="approve-app" data-uid="' + esc(a.uid) + '">승인</button></div></div>';
   });
@@ -194,6 +198,12 @@ async function approveApp(uid, overrides) {
   const info = appRowInfo(raw.row);
   if (info.kind !== 'pending') return toast('이미 처리된 신청입니다', 'err');
   await saveAccountRow(await approveApplication(raw.row, overrides));
+  try {
+    const ov = overrides || {};
+    const birth = ov.birth !== undefined ? ov.birth : (info.app || {}).birth;
+    syncBirthEvent('account', uid, (info.app || {}).name || a.rec.name, birth, ov.depts || (info.app || {}).depts || []);
+    await Sync.save();
+  } catch (e) { /* 생일 등록은 실패해도 승인은 유지 */ }
   closeModal();
   V.apps = (V.apps || []).filter(x => x.uid !== uid);
   if (V.appRows) V.appRows = V.appRows.filter(x => x.uid !== uid);
@@ -207,11 +217,12 @@ function approveModal(uid) {
   const a = (V.appRows || []).find(x => x.uid === uid);
   if (!a) return;
   const ap = a.app || {};
-  V.apprEdit = { uid: uid, depts: (ap.depts || []).slice(), classes: (ap.classes || []).slice(), students: (ap.students || []).slice() };
+  V.apprEdit = { uid: uid, depts: (ap.depts || []).slice(), classes: (ap.classes || []).slice(), students: (ap.students || []).slice(), birth: ap.birth || '' };
   const depts = (S.state.departments || []).filter(d => !d._del);
   const cls = (S.state.classes || []).filter(c => !c._del);
   let h = '<div class="banner sky">' + esc(ap.name || a.rec.name) + ' · ' + esc(((ap.roles || []).map(r => roleDef(r).label).join(' / '))) + '</div>';
   h += '<div class="field"><label>아이디</label><input value="' + esc(ap.id || a.rec.id) + '" readonly></div>';
+  h += '<div class="field"><label>생일 (부서 일정에 자동 등록)</label><input id="apBirth" type="date" value="' + esc(ap.birth || '') + '"></div>';
   h += '<div class="field"><label>담당 부서</label><div class="row wrap" style="gap:6px">' + depts.map(d => '<button type="button" class="chip big ' + (V.apprEdit.depts.indexOf(d.id) >= 0 ? 'coral' : 'gray') + '" data-act="appr-dept" data-id="' + esc(d.id) + '">' + esc((d.emoji || '') + ' ' + d.name) + '</button>').join('') + '</div></div>';
   h += '<div class="field"><label>담당 반</label><div class="row wrap" style="gap:6px">' + (cls.length ? cls.map(c => '<button type="button" class="chip big ' + (V.apprEdit.classes.indexOf(c.id) >= 0 ? 'coral' : 'gray') + '" data-act="appr-cls" data-id="' + esc(c.id) + '">' + esc(((deptById(c.deptId) || {}).name || '') + ' ' + c.name) + '</button>').join('') : '<span class="muted">등록된 반이 없습니다.</span>') + '</div></div>';
   const stus = (S.state.students || []).filter(s => !s._del);
@@ -273,6 +284,7 @@ function saveAbsent(studentId, reason) {
   closeModal();
   renderApp();
   toast('결석 사유를 저장했습니다', 'ok');
+  if (V.autoMsg && s.guardianPhone) messageModal({ student: s, text: attMsgText(s, 'absent', String(reason || '').trim()) });
 }
 
 /* ================= 4. 월별계획표 ================= */
@@ -346,16 +358,20 @@ function savePlan(id) {
   if (!title) return toast('제목을 입력하세요', 'err');
   if (!date) return toast('날짜를 골라 주세요', 'err');
   const week = weekOfMonth(date);
+  let item = null;
   if (id) {
     const p = (S.state.plans || []).find(x => x.id === id);
     if (!p) return;
     p.date = date; p.month = monthKeyOf(date); p.week = week; p.kind = val('plKind') || '계획';
     p.title = title; p.detail = val('plDetail'); touch(p);
+    item = p;
   } else {
-    S.state.plans.push({ id: 'pl-' + Crypto.uid(), deptId: V.planDept, date: date, month: monthKeyOf(date), week: week, kind: val('plKind') || '계획', title: title, detail: val('plDetail'), by: S.me.uid, u: Date.now() });
+    item = { id: 'pl-' + Crypto.uid(), deptId: V.planDept, date: date, month: monthKeyOf(date), week: week, kind: val('plKind') || '계획', title: title, detail: val('plDetail'), by: S.me.uid, u: Date.now() };
+    S.state.plans.push(item);
   }
+  syncPlanEvent(item);
   closeModal();
-  Sync.save().then(() => { renderApp(); toast('계획을 저장했습니다', 'ok'); });
+  Sync.save().then(() => { renderApp(); toast('계획을 저장했습니다 · 부서 일정에도 반영', 'ok'); });
 }
 
 /* ---------- 한글(.hwpx) 읽기 ---------- */
@@ -591,17 +607,19 @@ async function doHwpxImport() {
   const items = (V.hwpxPreview || []).filter(it => it.on);
   if (!items.length) return toast('반영할 항목을 골라 주세요', 'err');
   items.forEach(it => {
-    S.state.plans.push({
+    const item = {
       id: 'pl-' + Crypto.uid(), deptId: V.planDept, date: it.date || '', month: monthKeyOf(it.date || (planState() + '-01')),
       week: it.week || (it.date ? weekOfMonth(it.date) : 0), kind: it.kind || '계획', title: it.title, detail: it.detail || '',
       by: S.me.uid, from: 'hwpx', u: Date.now()
-    });
+    };
+    S.state.plans.push(item);
+    syncPlanEvent(item);
   });
   closeModal();
   V.hwpxPreview = null;
   await Sync.save();
   renderApp();
-  toast(items.length + '건을 계획표에 반영했습니다', 'ok');
+  toast(items.length + '건을 계획표와 부서 일정에 반영했습니다', 'ok');
 }
 
 /* ================= 5. 회계 ================= */
@@ -761,15 +779,103 @@ function statState() {
   if (!V.statMonth) V.statMonth = monthKeyOf(ymd());
   return V.statMonth;
 }
+function statYear() {
+  if (!V.statYear) V.statYear = Number(ymd().slice(0, 4));
+  return V.statYear;
+}
+function yearBar() {
+  return '<div class="daybar"><button class="icon-btn" data-act="stat-year" data-v="-1">‹</button>' +
+    '<div class="month-label">' + statYear() + '년</div>' +
+    '<button class="icon-btn" data-act="stat-year" data-v="1">›</button></div>';
+}
+/* 전 부서 통합 통계 (목회자 주일보고 허브·출석통계 전체 보기에서 함께 씀) */
+function integratedStatsHtml(ym, depts, withAnnual) {
+  ym = ym || statState();
+  depts = depts || visibleDepts();
+  let h = '';
+
+    const rowsAll = (S.state.attendance || []).filter(a => !a._del && !a.staff && monthKeyOf(a.date) === ym && depts.some(d => d.id === a.deptId));
+    const totalP = rowsAll.filter(a => a.status === 'present').length;
+    const totalA = rowsAll.filter(a => a.status === 'absent').length;
+    const totalE = rowsAll.filter(a => a.status === 'excused').length;
+    const totalT = totalP + totalA + totalE;
+    const rateAll = totalT ? Math.round(((totalP + totalE) / totalT) * 100) : 0;
+    const enrolledAll = depts.reduce((n, d) => n + studentsOfDept(d.id).length, 0);
+    h += '<div class="stat-grid" style="margin-bottom:12px"><div class="stat present"><b>' + rateAll + '%</b><span>전체 출석률</span></div><div class="stat enroll"><b>' + enrolledAll + '</b><span>전체 재적</span></div><div class="stat absent"><b>' + totalA + '</b><span>전체 결석</span></div><div class="stat new"><b>' + totalE + '</b><span>전체 인정</span></div></div>';
+
+    h += '<div class="card"><h3>🏫 부서별 비교 <span class="sp"></span><small>' + esc(monthLabel(ym)) + '</small></h3><div class="tbl-wrap"><table class="tbl"><thead><tr><th>부서</th><th class="num">재적</th><th class="num">출석</th><th class="num">결석</th><th class="num">인정</th><th class="num">출석률</th></tr></thead><tbody>';
+    depts.forEach(d => {
+      const rs = rowsAll.filter(a => a.deptId === d.id);
+      const p = rs.filter(a => a.status === 'present').length, ab = rs.filter(a => a.status === 'absent').length, ex = rs.filter(a => a.status === 'excused').length;
+      const t = p + ab + ex;
+      h += '<tr><td>' + esc((d.emoji || '') + ' ' + d.name) + '</td><td class="num">' + studentsOfDept(d.id).length + '</td><td class="num">' + p + '</td><td class="num">' + ab + '</td><td class="num">' + ex + '</td><td class="num"><b>' + (t ? Math.round(((p + ex) / t) * 100) : 0) + '%</b></td></tr>';
+    });
+    h += '</tbody></table></div></div>';
+
+    h += '<div class="card"><h3>👥 전체 명단 <span class="sp"></span><small>' + enrolledAll + '명</small></h3>';
+    if (!enrolledAll) h += '<p class="muted" style="margin:0">등록된 학생이 없습니다.</p>';
+    else {
+      h += '<div class="tbl-wrap"><table class="tbl"><thead><tr><th>부서</th><th>반</th><th>이름</th><th>생일</th><th class="num">출석</th><th class="num">결석</th><th class="num">인정</th><th class="num">출석률</th></tr></thead><tbody>';
+      depts.forEach(d => {
+        studentsOfDept(d.id).forEach(s => {
+          const rs = rowsAll.filter(a => a.studentId === s.id);
+          const p = rs.filter(a => a.status === 'present').length, ab = rs.filter(a => a.status === 'absent').length, ex = rs.filter(a => a.status === 'excused').length;
+          const t = p + ab + ex;
+          h += '<tr><td>' + esc(d.name) + '</td><td>' + esc((classById(s.classId) || {}).name || '-') + '</td><td>' + esc(s.name) + '</td><td>' + esc(s.birth ? birthShort(s.birth) : '-') + '</td><td class="num">' + p + '</td><td class="num">' + ab + '</td><td class="num">' + ex + '</td><td class="num"><b>' + (t ? Math.round(((p + ex) / t) * 100) : 0) + '%</b></td></tr>';
+        });
+      });
+      h += '</tbody></table></div>';
+    }
+    h += '</div>';
+
+    if (withAnnual !== false) {
+      h += '<div class="sect-title">📅 연간 통합 출결표 · ' + statYear() + '년</div>';
+      h += annualSheetHtml({ year: statYear(), deptIds: depts.map(d => d.id), showDept: true, compact: true });
+    }
+  return h;
+}
+
 function statsView() {
   if (!can('attendance.stat')) return '<div class="card">' + emptyBox('🔒', '출석통계를 볼 권한이 없습니다') + '</div>';
   const ym = statState();
   const depts = visibleDepts();
   if (!depts.length) return '<div class="card">' + emptyBox('🏫', '볼 수 있는 부서가 없습니다') + '</div>';
-  if (!V.statDept || !depts.some(d => d.id === V.statDept)) V.statDept = depts[0].id;
-  const dept = deptById(V.statDept);
-  const classes = classesOfDept(dept.id);
+  if (V.statDept === undefined) V.statDept = depts[0].id;
+  if (V.statDept && !depts.some(d => d.id === V.statDept)) V.statDept = depts[0].id;
+  const allMode = V.statDept === '' && canSeeAllDepts();
+  const view = V.statView || 'month';
+  const dept = allMode ? null : deptById(V.statDept);
+  const classes = allMode ? [] : classesOfDept(dept.id);
   if (V.statCls && !classes.some(c => c.id === V.statCls)) V.statCls = '';
+
+  const right = view === 'annual'
+    ? '<button class="btn sm" data-act="annual-print">🖨 인쇄</button><button class="btn sm" data-act="annual-csv">⬇ CSV</button>'
+    : '<button class="btn sm" data-act="stat-print">🖨 인쇄</button>';
+  let h = subHead('출석통계', '출석률·추이·연간 출결표를 한눈에 봅니다', right);
+  h += '<div class="card flat" style="padding:12px">';
+  h += '<div class="row wrap" style="gap:6px;margin-bottom:8px"><button class="chip big ' + (view === 'month' ? 'coral' : 'gray') + '" data-act="stat-view" data-v="month">월별 통계</button><button class="chip big ' + (view === 'annual' ? 'coral' : 'gray') + '" data-act="stat-view" data-v="annual">📅 연간 출석부</button></div>';
+  if (view === 'annual') h += yearBar(); else h += monthBar('statMonth', ym, 'stat-month');
+  h += '<div class="row wrap" style="gap:6px">';
+  if (canSeeAllDepts()) h += '<button class="chip big ' + (allMode ? 'coral' : 'gray') + '" data-act="stat-dept" data-id="">🏫 전체 부서</button>';
+  h += depts.map(d => '<button class="chip big ' + (dept && d.id === dept.id ? 'coral' : 'gray') + '" data-act="stat-dept" data-id="' + esc(d.id) + '">' + esc((d.emoji || '') + ' ' + d.name) + '</button>').join('');
+  h += '</div>';
+  if (classes.length && view === 'month') {
+    h += '<div class="row wrap" style="gap:6px;margin-top:8px"><button class="chip big ' + (!V.statCls ? 'coral' : 'gray') + '" data-act="stat-cls" data-id="">부서 전체</button>' +
+      classes.map(c => '<button class="chip big ' + (c.id === V.statCls ? 'coral' : 'gray') + '" data-act="stat-cls" data-id="' + esc(c.id) + '">' + esc(c.name) + '</button>').join('') + '</div>';
+  }
+  h += '</div>';
+
+  /* 연간 출석부 */
+  if (view === 'annual') {
+    h += annualSheetHtml({ year: statYear(), deptIds: allMode ? depts.map(d => d.id) : [V.statDept], showDept: allMode });
+    return h;
+  }
+
+  /* 전체 부서 통합 통계 */
+  if (allMode) {
+    h += integratedStatsHtml(ym, depts);
+    return h;
+  }
 
   const studs = V.statCls ? studentsOfClass(V.statCls) : studentsOfDept(dept.id);
   const rows = (S.state.attendance || []).filter(a => !a._del && !a.staff && monthKeyOf(a.date) === ym && a.deptId === dept.id && (!V.statCls || a.classId === V.statCls));
@@ -784,16 +890,6 @@ function statsView() {
   });
   const totalP = perStudent.reduce((n, x) => n + x.p, 0), totalA = perStudent.reduce((n, x) => n + x.ab, 0), totalE = perStudent.reduce((n, x) => n + x.ex, 0), totalT = totalP + totalA + totalE;
   const rate = totalT ? Math.round(((totalP + totalE) / totalT) * 100) : 0;
-
-  let h = subHead('출석통계', '출석률·추이·학생별 현황과 결석 사유를 한눈에 봅니다',
-    '<button class="btn sm" data-act="stat-print">🖨 인쇄</button>');
-  h += '<div class="card flat" style="padding:12px">' + monthBar('statMonth', ym, 'stat-month') +
-    '<div class="row wrap" style="gap:6px">' + depts.map(d => '<button class="chip big ' + (d.id === dept.id ? 'coral' : 'gray') + '" data-act="stat-dept" data-id="' + esc(d.id) + '">' + esc((d.emoji || '') + ' ' + d.name) + '</button>').join('') + '</div>';
-  if (classes.length) {
-    h += '<div class="row wrap" style="gap:6px;margin-top:8px"><button class="chip big ' + (!V.statCls ? 'coral' : 'gray') + '" data-act="stat-cls" data-id="">부서 전체</button>' +
-      classes.map(c => '<button class="chip big ' + (c.id === V.statCls ? 'coral' : 'gray') + '" data-act="stat-cls" data-id="' + esc(c.id) + '">' + esc(c.name) + '</button>').join('') + '</div>';
-  }
-  h += '</div>';
 
   h += '<div class="stat-grid" style="margin-bottom:12px"><div class="stat present"><b>' + rate + '%</b><span>출석률</span></div><div class="stat enroll"><b>' + studs.length + '</b><span>재적</span></div><div class="stat absent"><b>' + totalA + '</b><span>결석</span></div><div class="stat new"><b>' + totalE + '</b><span>인정결석</span></div></div>';
 
@@ -815,9 +911,9 @@ function statsView() {
   h += '<div class="card"><h3>👥 학생별 현황</h3>';
   if (!perStudent.length) h += '<p class="muted" style="margin:0">학생이 없습니다.</p>';
   else {
-    h += '<div class="tbl-wrap"><table class="tbl"><thead><tr><th>이름</th><th>반</th><th class="num">출석</th><th class="num">결석</th><th class="num">인정</th><th class="num">출석률</th></tr></thead><tbody>';
+    h += '<div class="tbl-wrap"><table class="tbl"><thead><tr><th>이름</th><th>반</th><th>생일</th><th class="num">출석</th><th class="num">결석</th><th class="num">인정</th><th class="num">출석률</th></tr></thead><tbody>';
     perStudent.forEach(x => {
-      h += '<tr><td>' + esc(x.s.name) + '</td><td>' + esc((classById(x.s.classId) || {}).name || '-') + '</td><td class="num">' + x.p + '</td><td class="num">' + x.ab + '</td><td class="num">' + x.ex + '</td><td class="num"><b>' + x.rate + '%</b></td></tr>';
+      h += '<tr><td>' + esc(x.s.name) + '</td><td>' + esc((classById(x.s.classId) || {}).name || '-') + '</td><td>' + esc(x.s.birth ? birthShort(x.s.birth) : '-') + '</td><td class="num">' + x.p + '</td><td class="num">' + x.ab + '</td><td class="num">' + x.ex + '</td><td class="num"><b>' + x.rate + '%</b></td></tr>';
     });
     h += '</tbody></table></div>';
   }
@@ -898,7 +994,7 @@ document.addEventListener('click', async function (ev) {
       case 'do-approve': {
         const ed = V.apprEdit || {};
         const uid = t.dataset.uid;
-        try { await approveApp(uid, { depts: ed.depts || [], classes: ed.classes || [], students: ed.students || [] }); }
+        try { await approveApp(uid, { depts: ed.depts || [], classes: ed.classes || [], students: ed.students || [], birth: val('apBirth') || ed.birth || '' }); }
         catch (e) { toast((e && e.message) || '승인하지 못했습니다', 'err'); }
         return;
       }
@@ -923,9 +1019,9 @@ document.addEventListener('click', async function (ev) {
       case 'save-plan': savePlan(t.dataset.id); return;
       case 'del-plan': {
         const id = t.dataset.id;
-        confirmBox('계획 삭제', '이 계획을 지울까요?', '삭제', async () => {
+        confirmBox('계획 삭제', '이 계획을 지울까요? 부서 일정에 자동 등록된 항목도 함께 사라집니다.', '삭제', async () => {
           const p = (S.state.plans || []).find(x => x.id === id);
-          if (p) { p._del = true; touch(p); await Sync.save(); renderApp(); }
+          if (p) { p._del = true; touch(p); dropPlanEvent(id); await Sync.save(); renderApp(); }
         });
         return;
       }
@@ -991,7 +1087,7 @@ document.addEventListener('click', async function (ev) {
       case 'stat-month': V.statMonth = shiftMonth(statState(), Number(t.dataset.v)); renderApp(); return;
       case 'stat-dept': V.statDept = t.dataset.id; V.statCls = ''; renderApp(); return;
       case 'stat-cls': V.statCls = t.dataset.id; renderApp(); return;
-      case 'stat-print': printStats(); return;
+      case 'stat-print': printStatsSafe(); return;
     }
   } catch (e) {
     console.error(e);
