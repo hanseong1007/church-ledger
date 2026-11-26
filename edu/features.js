@@ -194,6 +194,10 @@ async function approveApp(uid, overrides) {
   const info = appRowInfo(raw.row);
   if (info.kind !== 'pending') return toast('이미 처리된 신청입니다', 'err');
   await saveAccountRow(await approveApplication(raw.row, overrides));
+  closeModal();
+  V.apps = (V.apps || []).filter(x => x.uid !== uid);
+  if (V.appRows) V.appRows = V.appRows.filter(x => x.uid !== uid);
+  renderApp();
   toast((a.app && a.app.name ? a.app.name : '신청자') + ' 님 가입을 승인했습니다', 'ok');
   await loadApps(true);
 }
@@ -236,6 +240,9 @@ async function doReject(uid) {
   if (!raw.ok || !raw.row) return toast('신청서를 불러오지 못했습니다', 'err');
   await saveAccountRow(rejectApplication(raw.row, why));
   closeModal();
+  V.apps = (V.apps || []).filter(x => x.uid !== uid);
+  if (V.appRows) V.appRows = V.appRows.filter(x => x.uid !== uid);
+  renderApp();
   toast('반려했습니다', 'ok');
   await loadApps(true);
 }
@@ -358,8 +365,7 @@ function fileInput(accept, onPick) {
     el = document.createElement('input');
     el.type = 'file';
     el.id = 'eduFilePicker';
-    el.style.position = 'fixed';
-    el.style.left = '-9999px';
+    el.style.display = 'none';
     document.body.appendChild(el);
   }
   el.value = '';
@@ -610,11 +616,10 @@ function ledgerView() {
   const depts = visibleDepts();
   if (!depts.length) return '<div class="card">' + emptyBox('🏫', '볼 수 있는 부서가 없습니다') + '</div>';
   const all = (S.state.ledger || []).filter(e => !e._del);
-  const inScope = deptId => deptId ? all.filter(e => e.deptId === deptId) : all;
-  const list = (V.ledDept && inScope(V.ledDept) || []).filter(e => monthKeyOf(e.date) === ym).sort((a, b) => String(a.date).localeCompare(String(b.date)));
-  const scopeAll = inScope(V.ledDept);
+  const scopeAll = V.ledDept ? all.filter(e => e.deptId === V.ledDept) : all;
+  const list = scopeAll.filter(e => monthKeyOf(e.date) === ym).sort((a, b) => String(a.date).localeCompare(String(b.date)));
   const inc = incomeTotal(list), exp = expenseTotal(list);
-  const cumInc = incomeTotal(scopeAll.filter(e => e.date <= ym + '-31' && monthKeyOf(e.date) <= ym));
+  const cumInc = incomeTotal(scopeAll.filter(e => monthKeyOf(e.date) <= ym));
   const cumExp = expenseTotal(scopeAll.filter(e => monthKeyOf(e.date) <= ym));
 
   let h = subHead('회계 관리', '부서 수입·지출과 영수증을 한 곳에서 정리합니다',
@@ -893,7 +898,7 @@ document.addEventListener('click', async function (ev) {
       case 'do-approve': {
         const ed = V.apprEdit || {};
         const uid = t.dataset.uid;
-        try { await approveApp(uid, { depts: ed.depts || [], classes: ed.classes || [], students: ed.students || [] }); closeModal(); }
+        try { await approveApp(uid, { depts: ed.depts || [], classes: ed.classes || [], students: ed.students || [] }); }
         catch (e) { toast((e && e.message) || '승인하지 못했습니다', 'err'); }
         return;
       }
