@@ -22,20 +22,16 @@ function confirmBox(title, text, okLabel, cb) {
 /* ---------------- 로그인 화면 ---------------- */
 function showLogin(msg) {
   document.body.innerHTML = '<div id="root"></div><div id="modalRoot" style="display:none"></div><div id="toastWrap"></div>';
-  const roles = (S.state.roles && S.state.roles.length ? S.state.roles : DEFAULT_ROLES).filter(r => !r._del);
+  const roles = [];
   let h = '';
   h += '<div class="login-wrap"><div class="login-card">';
   h += '<div class="login-brand"><div class="login-logo">🏫</div><h1>덕신교회 부서업무</h1><p>주일학교 · 교육부서 통합 관리</p></div>';
-  h += '<div class="role-pick"><span class="lbl">역할을 선택하세요 (여러 개 선택 가능)</span><div class="role-grid">';
-  roles.forEach(r => {
-    h += '<button type="button" class="role-opt" data-act="pick-role" data-key="' + esc(r.key) + '"><span class="ck">✓</span><span class="em">' + esc(r.emoji || '🙂') + '</span><span>' + esc(r.label) + '</span></button>';
-  });
-  h += '</div></div>';
   h += '<div class="login-field"><label>아이디</label><input id="loginId" autocomplete="username" autocapitalize="none" spellcheck="false" placeholder="아이디"></div>';
   h += '<div class="login-field"><label>비밀번호</label><input id="loginPw" type="password" autocomplete="current-password" placeholder="비밀번호"></div>';
   h += '<div class="login-err" id="loginErr"></div>';
   h += '<button class="login-btn" id="loginBtn" data-act="do-login">로그인</button>';
-  h += '<div class="login-note">' + (Api.on() ? '모든 자료는 암호화되어 기기 간에 동기화됩니다.' : '동기화 서버에 연결되지 않았습니다. 관리자에게 문의하세요.') + '</div>';
+  h += '<button class="login-signup" data-act="open-signup">회원가입 신청</button>';
+  h += '<div class="login-note">' + (Api.on() ? '모든 자료는 암호화되어 기기 간에 동기화됩니다.<br>가입은 윗단계 담당자의 승인 후에 완료됩니다.' : '동기화 서버에 연결되지 않았습니다. 관리자에게 문의하세요.') + '</div>';
   h += '</div><div class="login-foot">덕신교회 교육부서 · 문의는 부서 담당자에게</div></div>';
   document.getElementById('root').innerHTML = h;
   const pw = document.getElementById('loginPw');
@@ -48,16 +44,11 @@ function showLogin(msg) {
 
 function showLoginError(m) {
   const e = document.getElementById('loginErr');
-  if (e) { e.textContent = m; e.classList.add('show'); }
-}
-
-function pickedRoles() {
-  return Array.from(document.querySelectorAll('.role-opt.on')).map(x => x.dataset.key);
+  if (e) { e.innerHTML = esc(m).replace(/\n/g, '<br>'); e.classList.add('show'); }
 }
 
 async function doLogin() {
   const id = val('loginId'), pw = (document.getElementById('loginPw') || {}).value || '';
-  const chosen = pickedRoles();
   const btn = document.getElementById('loginBtn');
   if (!id) return showLoginError('아이디를 입력해 주세요.');
   if (!pw) return showLoginError('비밀번호를 입력해 주세요.');
@@ -67,25 +58,40 @@ async function doLogin() {
     const uid = await uidOf(id);
     const row = await fetchAccount(uid);
     if (!row) { showLoginError('아이디 또는 비밀번호가 맞지 않습니다.'); return; }
-    let raw = null;
-    try {
-      const kek = await Crypto.kek(pw, row.salt);
-      raw = await Crypto.open(kek, JSON.parse(row.wrap));
-    } catch (e) { showLoginError('아이디 또는 비밀번호가 맞지 않습니다.'); return; }
-    const dek = await Crypto.importDek(raw);
-    let rec = null;
-    try { rec = await Crypto.openJson(dek, JSON.parse(row.rec)); } catch (e) { showLoginError('계정 정보를 읽을 수 없습니다. 관리자에게 문의하세요.'); return; }
+    const info = appRowInfo(row);
+    if (info.kind === 'pending') {
+      const lbl = info.app && (info.app.roles || []).length ? roleDef(info.app.roles[0]).label : '담당';
+      showLoginError('아직 승인 전입니다.\n' + lbl + '의 윗단계 담당자가 [가입 승인]에서 승인하면 로그인할 수 있습니다.');
+      return;
+    }
+    if (info.kind === 'rejected') {
+      showLoginError('가입 신청이 반려되었습니다.' + (info.note ? '\n사유: ' + info.note : '') + '\n다시 신청하시려면 [회원가입 신청]을 눌러 주세요.');
+      return;
+    }
+
+    let dek = null, raw = null, rec = null;
+    if (info.kind === 'approved') {
+      try {
+        const boot = await activateApproved(row, pw, info);
+        dek = boot.dek; raw = boot.raw; rec = boot.rec;
+      } catch (e) {
+        showLoginError('승인은 되었지만 열쇠를 풀지 못했습니다. 비밀번호를 확인해 주세요.');
+        return;
+      }
+    } else {
+      try {
+        const kek = await Crypto.kek(pw, row.salt);
+        raw = await Crypto.open(kek, JSON.parse(row.wrap));
+      } catch (e) { showLoginError('아이디 또는 비밀번호가 맞지 않습니다.'); return; }
+      dek = await Crypto.importDek(raw);
+      try { rec = await Crypto.openJson(dek, JSON.parse(row.rec)); } catch (e) { showLoginError('계정 정보를 읽을 수 없습니다. 관리자에게 문의하세요.'); return; }
+    }
     if (rec.active === false) { showLoginError('사용이 중지된 계정입니다. 관리자에게 문의하세요.'); return; }
 
     S.dek = dek; S.wkRaw = raw;
     S.me = { uid: uid, id: rec.id, name: rec.name, roles: rec.roles || [], depts: rec.depts || [], classes: rec.classes || [], students: rec.students || [] };
-    S.chosen = chosen;
-    const held = S.me.roles || [];
-    S.roleKey = (chosen.find(k => held.indexOf(k) >= 0)) || held[0] || 'parent';
-    if (chosen.length && held.indexOf(S.roleKey) < 0) {
-      showLoginError('선택한 역할의 권한이 이 계정에 없습니다. 담당 역할을 다시 선택해 주세요.');
-      S.dek = null; return;
-    }
+    S.chosen = [];
+    S.roleKey = highestRoleKey(S.me.roles);
     S.screen = 'home';
     S.rev = 0;
     S.state = emptyState(false);
@@ -98,6 +104,12 @@ async function doLogin() {
   }
 }
 
+/* 역할이 여러 개면 가장 높은 단계로 시작합니다 (내 정보에서 바꿀 수 있습니다) */
+function highestRoleKey(keys) {
+  const list = (keys || []).slice().sort((a, b) => rankOfRoleKey(b) - rankOfRoleKey(a));
+  return list[0] || 'parent';
+}
+
 async function afterLogin() {
   S.ready = false;
   await Sync.pull(true);
@@ -106,8 +118,8 @@ async function afterLogin() {
   rememberMe();
   const isAdmin = roleDef(S.roleKey).base === 'admin';
   if (S.rev === 0 || before !== JSON.stringify(S.state.people || {})) {
-    // 첫 자료(관리자) 또는 내 이름 정보가 시트에 없을 때 한 번 올린다
-    if (isAdmin || S.rev === 0) await Sync.save();
+    // 첫 자료(관리자)이거나 내 이름 정보가 시트에 없을 때 한 번 올린다
+    await Sync.save();
   }
   if (!(S.state.departments || []).length && isAdmin) {
     S.state.departments = JSON.parse(JSON.stringify(DEFAULT_DEPTS));
@@ -120,6 +132,7 @@ async function afterLogin() {
   V.cls = '';
   saveSession();
   renderHomeShell();
+  if (can('user.approve')) loadApps(true);
   Sync.timer = setInterval(() => {
     if (document.hidden) return;
     if (S.screen === 'attendance' && document.activeElement && document.activeElement.tagName === 'INPUT') return;
@@ -182,6 +195,7 @@ async function doSetup() {
 function setScreen(key) {
   S.screen = key;
   if (key === 'admin' && can('user.manage')) { V.accounts = null; loadAccounts(); }
+  if (key === 'approve' && can('user.approve')) { V.apps = null; loadApps(true); }
   renderApp();
 }
 
@@ -264,7 +278,7 @@ document.addEventListener('click', async function (ev) {
   const act = t.dataset.act;
   try {
     switch (act) {
-      case 'pick-role': t.classList.toggle('on'); return;
+      case 'pick-role': return;
       case 'do-login': await doLogin(); return;
       case 'do-setup': await doSetup(); return;
       case 'nav': setScreen(t.dataset.screen); return;
@@ -291,8 +305,14 @@ document.addEventListener('click', async function (ev) {
       case 'att': {
         const s = (S.state.students || []).find(x => x.id === t.dataset.sid);
         if (!s) return;
+        if (t.dataset.v === 'absent') { absentReasonModal(s, V.date); return; }
         setAtt(V.date, s.deptId, s.classId, s.id, t.dataset.v);
         renderApp(); return;
+      }
+      case 'att-reason': {
+        const s = (S.state.students || []).find(x => x.id === t.dataset.sid);
+        if (s) absentReasonModal(s, V.date);
+        return;
       }
       case 'att-staff':
         setStaffAtt(V.date, V.dept, t.dataset.uid, t.dataset.v);

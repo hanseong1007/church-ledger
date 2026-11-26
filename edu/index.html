@@ -19,8 +19,18 @@
 <div id="modalRoot" style="display:none"></div>
 <div id="toastWrap"></div>
 <script>window.__EDU_SYNC_URL__ = 'https://script.google.com/macros/s/AKfycbx6LAfuhJ_TnfcWdbBiyYJFxmAkyymAB3pSGFXQozoBGJNsmBZpGsM1NhG3ME5XgTzm/exec';</script>
+<script src="jszip.min.js"></script>
 <script src="core.js"></script>
 <script src="ui.js"></script>
+<script src="features.js"></script>
 <script src="app.js"></script>
+<script>
+/* 오프라인·APK 캐시 (홈 화면/웹뷰에서도 열리도록) */
+if ('serviceWorker' in navigator && location.protocol === 'https:') {
+  window.addEventListener('load', function () {
+    navigator.serviceWorker.register('sw.js').catch(function () { });
+  });
+}
+</script>
 </body>
 </html>

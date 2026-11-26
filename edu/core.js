@@ -89,16 +89,22 @@ const DEFAULT_ROLES = [
 ];
 
 const BASE_PERMS = {
-  admin: { 'attendance.check': 1, 'attendance.stat': 1, 'report.write': 1, 'report.review': 1, 'notice.write': 1, 'notice.read': 1, 'feed.write': 1, 'member.manage': 1, 'schedule.manage': 1, 'user.manage': 1, 'dept.manage': 1 },
-  pastor: { 'attendance.stat': 1, 'report.review': 1, 'notice.read': 1, 'feed.write': 1 },
-  edu: { 'attendance.check': 1, 'attendance.stat': 1, 'report.write': 1, 'notice.write': 1, 'notice.read': 1, 'feed.write': 1, 'member.manage': 1, 'schedule.manage': 1 },
-  teacher: { 'attendance.check': 1, 'notice.write': 1, 'notice.read': 1, 'feed.write': 1, 'member.manage': 1 },
+  admin: { 'attendance.check': 1, 'attendance.stat': 1, 'report.write': 1, 'report.review': 1, 'notice.write': 1, 'notice.read': 1, 'feed.write': 1, 'member.manage': 1, 'schedule.manage': 1, 'user.manage': 1, 'dept.manage': 1, 'plan.read': 1, 'plan.write': 1, 'ledger.manage': 1, 'user.approve': 1 },
+  pastor: { 'attendance.stat': 1, 'report.write': 1, 'report.review': 1, 'notice.read': 1, 'notice.write': 1, 'feed.write': 1, 'plan.read': 1, 'ledger.manage': 1, 'user.approve': 1, 'schedule.manage': 1 },
+  edu: { 'attendance.check': 1, 'attendance.stat': 1, 'report.write': 1, 'notice.write': 1, 'notice.read': 1, 'feed.write': 1, 'member.manage': 1, 'schedule.manage': 1, 'plan.read': 1, 'plan.write': 1, 'ledger.manage': 1, 'user.approve': 1 },
+  teacher: { 'attendance.check': 1, 'attendance.stat': 1, 'notice.write': 1, 'notice.read': 1, 'feed.write': 1, 'member.manage': 1, 'plan.read': 1, 'plan.write': 1, 'user.approve': 1 },
   parent: { 'attendance.self': 1, 'notice.read': 1, 'feed.read': 1 }
 };
 
+/* 역할 계층 — 가입 승인은 '바로 윗단계'가 합니다 (관리자 > 목회자 > 교육부서담당 > 교사 > 학부모) */
+const ROLE_RANK = { admin: 5, pastor: 4, edu: 3, teacher: 2, parent: 1 };
+function rankOfRoleKey(key) { return ROLE_RANK[roleDef(key).base] || 0; }
+function rankOfKeys(keys) { return (keys || []).reduce((m, k) => Math.max(m, rankOfRoleKey(k)), 0); }
+function myRank() { return rankOfKeys(S.me && S.me.roles); }
+
 const PERM_LABELS = [
   ['attendance.check', '출석 체크'],
-  ['attendance.stat', '부서 전체 출석 현황'],
+  ['attendance.stat', '출석 통계·현황'],
   ['attendance.self', '자녀 출석 조회'],
   ['report.write', '주일보고 작성·제출'],
   ['report.review', '주일보고 확인(목회자)'],
@@ -109,7 +115,11 @@ const PERM_LABELS = [
   ['member.manage', '반·학생 관리'],
   ['schedule.manage', '일정 관리'],
   ['user.manage', '사용자 관리'],
-  ['dept.manage', '부서 관리']
+  ['user.approve', '가입 승인'],
+  ['dept.manage', '부서 관리'],
+  ['plan.read', '월별계획표 보기'],
+  ['plan.write', '월별계획표 작성'],
+  ['ledger.manage', '회계 관리']
 ];
 
 const DEFAULT_DEPTS = [
@@ -125,13 +135,14 @@ function emptyState(seed) {
     roles: seed === false ? [] : JSON.parse(JSON.stringify(DEFAULT_ROLES)),
     departments: seed === false ? [] : JSON.parse(JSON.stringify(DEFAULT_DEPTS)),
     classes: [], students: [], attendance: [], reports: [], notices: [], feeds: [], events: [],
+    plans: [], ledger: [],
     people: {},
     settings: { church: '덕신교회', title: '부서업무', updatedAt: 0 },
     rev: 0
   };
 }
 
-const COLLS = ['roles', 'departments', 'classes', 'students', 'attendance', 'reports', 'notices', 'feeds', 'events'];
+const COLLS = ['roles', 'departments', 'classes', 'students', 'attendance', 'reports', 'notices', 'feeds', 'events', 'plans', 'ledger'];
 
 /* ---------------- 앱 상태 ---------------- */
 const S = {
@@ -181,9 +192,17 @@ async function listAccounts() {
   const out = [];
   for (const row of (r.rows || [])) {
     if (String(row.deleted) === '1') continue;
+    const info = appRowInfo(row);
+    if (info.kind !== 'active') {
+      const a = info.app || {};
+      out.push({ uid: String(row.uid), salt: row.salt, wrap: row.wrap, status: info.kind,
+        rec: { id: a.id || '?', name: a.name || '(이름 없음)', roles: a.roles || [], depts: a.depts || [], classes: a.classes || [], students: [] },
+        app: a, note: info.note || '', updated: Number(row.updated) || 0 });
+      continue;
+    }
     let rec = null;
     try { rec = await Crypto.openJson(S.dek, JSON.parse(row.rec)); } catch (e) { rec = { id: '?', name: '(읽을 수 없음)', roles: [] }; }
-    out.push({ uid: String(row.uid), salt: row.salt, wrap: row.wrap, rec: rec, updated: Number(row.updated) || 0 });
+    out.push({ uid: String(row.uid), salt: row.salt, wrap: row.wrap, rec: rec, status: 'active', updated: Number(row.updated) || 0 });
   }
   out.sort((a, b) => (a.rec.name || '').localeCompare(b.rec.name || '', 'ko'));
   return out;
@@ -429,3 +448,174 @@ function lastSunday(from) {
   d.setDate(d.getDate() - day);
   return ymd(d);
 }
+
+/* ================= 가입 신청 · 승인용 열쇠 교환 (RSA-OAEP + PBKDF2) =================
+   신청자는 자기 비밀번호로만 열리는 개인키를 만들어 두고, 공개키만 신청서에 담아 둡니다.
+   승인자는 신청자의 공개키로 자료 열쇠(DEK)를 감싸 주고, 신청자는 첫 로그인 때
+   자기 비밀번호로 개인키를 풀어 DEK 를 얻은 뒤 곧바로 자기 비밀번호 봉인으로 바꿉니다.
+   → 승인자는 신청자의 비밀번호를 몰라도 되고, 자료는 계속 종단간 암호화됩니다. */
+const Keys = {
+  b64(buf) { return b64(buf); },
+  async newPair() {
+    const kp = await crypto.subtle.generateKey(
+      { name: 'RSA-OAEP', modulusLength: 2048, publicExponent: new Uint8Array([1, 0, 1]), hash: 'SHA-256' },
+      true, ['encrypt', 'decrypt']);
+    return {
+      pub: b64(await crypto.subtle.exportKey('spki', kp.publicKey)),
+      priv: new Uint8Array(await crypto.subtle.exportKey('pkcs8', kp.privateKey))
+    };
+  },
+  async importPub(pubB64) {
+    return crypto.subtle.importKey('spki', b64d(pubB64), { name: 'RSA-OAEP', hash: 'SHA-256' }, false, ['encrypt']);
+  },
+  async importPriv(privBytes) {
+    return crypto.subtle.importKey('pkcs8', privBytes, { name: 'RSA-OAEP', hash: 'SHA-256' }, false, ['decrypt']);
+  },
+  async sealTo(pubB64, rawDek) {
+    const pub = await this.importPub(pubB64);
+    return b64(await crypto.subtle.encrypt({ name: 'RSA-OAEP' }, pub, rawDek));
+  },
+  async openFrom(privBytes, b64ct) {
+    const priv = await this.importPriv(privBytes);
+    return new Uint8Array(await crypto.subtle.decrypt({ name: 'RSA-OAEP' }, priv, b64d(b64ct)));
+  }
+};
+
+/* 계정 시트 한 줄의 상태 읽기
+   - active    : 보통 계정 (rec = 암호문)
+   - pending   : 가입 신청만 된 상태 (rec = 평문 신청서, 결재 대기)
+   - approved  : 승인되어 DEK 를 받아 두었으나 아직 첫 로그인 전
+   - rejected  : 반려됨
+   deleted 열: '' = 정상, 'P' = 가입 절차 중, 'R' = 반려, '1' = 삭제 */
+function appRowInfo(row) {
+  if (!row) return { kind: 'none' };
+  const del = String(row.deleted || '');
+  let rec = null;
+  try { rec = JSON.parse(String(row.rec || 'null')); } catch (e) { rec = null; }
+  const plain = !!(rec && rec.app);
+  if (del === '1') return { kind: 'deleted' };
+  if (del === 'R' || (plain && rec.status === 'rejected')) return { kind: 'rejected', app: rec && rec.app, note: rec && rec.note };
+  if (plain) return { kind: rec.status === 'approved' ? 'approved' : 'pending', app: rec.app, pub: rec.pub, dek: rec.dek, by: rec.by, byName: rec.byName, at: rec.at };
+  return { kind: 'active' };
+}
+
+/* 신청서를 시트 한 줄로 (평문 — 승인자가 읽어야 하므로 이름·부서만 담고 비밀번호는 담지 않습니다) */
+async function buildApplication(info) {
+  const pair = await Keys.newPair();
+  const salt = Crypto.randB64(16);
+  const kek = await Crypto.kek(info.password, salt);
+  const wrap = await Crypto.seal(kek, pair.priv);
+  const app = {
+    name: String(info.name || '').trim(),
+    id: normId(info.id),
+    roles: info.roles || [],
+    depts: info.depts || [],
+    classes: info.classes || [],
+    className: info.className || '',
+    childName: String(info.childName || '').trim(),
+    note: String(info.note || '').trim(),
+    at: Date.now()
+  };
+  return {
+    uid: await uidOf(info.id),
+    salt: salt,
+    wrap: JSON.stringify(wrap),
+    rec: JSON.stringify({ app: app, pub: pair.pub, status: 'pending' }),
+    rev: Date.now(), updated: Date.now(), deleted: 'P'
+  };
+}
+
+/* 승인: 관리 중인 자료 열쇠(DEK)를 신청자 공개키로 감싸 신청서에 넣붙입니다.
+   승인자가 부서·반을 바로잡아 줄 수 있도록 overrides 를 받습니다. */
+async function approveApplication(row, overrides) {
+  const info = appRowInfo(row);
+  if (!info.pub) throw new Error('신청서에 공개키가 없습니다');
+  const sealed = await Keys.sealTo(info.pub, S.wkRaw);
+  const app = Object.assign({}, info.app || {}, overrides || {});
+  return {
+    uid: String(row.uid), salt: row.salt, wrap: row.wrap,
+    rec: JSON.stringify({ app: app, pub: info.pub, dek: sealed, status: 'approved', by: S.me.uid, byName: S.me.name, at: Date.now() }),
+    rev: Date.now(), updated: Date.now(), deleted: 'P'
+  };
+}
+
+function rejectApplication(row, why) {
+  const info = appRowInfo(row);
+  return {
+    uid: String(row.uid), salt: row.salt, wrap: row.wrap,
+    rec: JSON.stringify({ app: info.app, pub: info.pub, status: 'rejected', by: S.me.uid, byName: S.me.name, at: Date.now(), note: String(why || '') }),
+    rev: Date.now(), updated: Date.now(), deleted: 'R'
+  };
+}
+
+/* 승인받은 신청자의 첫 로그인: 개인키 복호 → DEK 획득 → 자기 비밀번호 봉인으로 전환 */
+async function activateApproved(row, password, info) {
+  const kek = await Crypto.kek(password, row.salt);
+  const privBytes = await Crypto.open(kek, JSON.parse(row.wrap));
+  const raw = await Keys.openFrom(privBytes, info.dek);
+  if (!raw || raw.length !== 32) throw new Error('자료 열쇠를 풀지 못했습니다');
+  const dek = await Crypto.importDek(raw);
+  const a = info.app || {};
+  const rec = await Crypto.sealJson(dek, {
+    id: a.id, name: a.name || a.id, roles: a.roles || [], depts: a.depts || [], classes: a.classes || [],
+    students: a.students || [], childName: a.childName || '', active: true, at: Date.now()
+  });
+  const salt = Crypto.randB64(16);
+  const kek2 = await Crypto.kek(password, salt);
+  const wrap = await Crypto.seal(kek2, raw);
+  const row2 = {
+    uid: String(row.uid), salt: salt, wrap: JSON.stringify(wrap), rec: JSON.stringify(rec),
+    rev: Date.now(), updated: Date.now(), deleted: ''
+  };
+  await saveAccountRow(row2);
+  return { dek: dek, raw: raw, rec: a };
+}
+
+/* ---------------- 주차·기간 도우미 ---------------- */
+/* 달력 주차(일요일 시작) — 2026년 11월 2일은 1주차, 9일은 2주차 … */
+function weekOfMonth(dateStr) {
+  if (!dateStr) return 0;
+  const d = parseYmd(dateStr);
+  const first = new Date(d.getFullYear(), d.getMonth(), 1);
+  const start = new Date(first.getTime());
+  start.setDate(1 - first.getDay());
+  return Math.floor(Math.round((d - start) / 86400000) / 7) + 1;
+}
+/* 주일(일요일)이 속한 주의 일~토 범위 */
+function weekRangeAround(dateStr) {
+  const d = parseYmd(dateStr);
+  const from = new Date(d.getTime()); from.setDate(d.getDate() - d.getDay());
+  const to = new Date(from.getTime()); to.setDate(from.getDate() + 6);
+  return { from: ymd(from), to: ymd(to) };
+}
+function monthKeyOf(dateStr) { return String(dateStr || '').slice(0, 7); }
+function monthLabel(ym) { const p = String(ym || '').split('-'); return Number(p[0]) + '년 ' + Number(p[1]) + '월'; }
+function shiftMonth(ym, n) {
+  const p = String(ym || '').split('-');
+  const d = new Date(Number(p[0]), Number(p[1]) - 1 + n, 1);
+  return d.getFullYear() + '-' + pad2(d.getMonth() + 1);
+}
+function money(n) { return (Number(n) || 0).toLocaleString('ko-KR'); }
+
+/* 계획표 항목 — 부서·주차 */
+function plansOf(deptId, ym) {
+  return (S.state.plans || []).filter(p => !p._del && p.deptId === deptId && monthKeyOf(p.date || p.month) === ym)
+    .sort((a, b) => String(a.date || '').localeCompare(String(b.date || '')) || (a.order || 0) - (b.order || 0));
+}
+/* 주일보고 연계: 그 주일이 속한 주(일~토)의 계획 */
+function plansOfWeek(deptId, dateStr) {
+  const r = weekRangeAround(dateStr);
+  return (S.state.plans || []).filter(p => !p._del && p.deptId === deptId && p.date >= r.from && p.date <= r.to)
+    .sort((a, b) => String(a.date || '').localeCompare(String(b.date || '')));
+}
+/* 회계: 그 주(일~토)의 수입만 */
+function ledgerOfWeek(deptId, dateStr) {
+  const r = weekRangeAround(dateStr);
+  return ledgerIn(deptId, r.from, r.to);
+}
+function ledgerIn(deptId, from, to) {
+  return (S.state.ledger || []).filter(e => !e._del && (deptId ? e.deptId === deptId : true) && e.date >= from && e.date <= to)
+    .sort((a, b) => String(a.date).localeCompare(String(b.date)));
+}
+function incomeTotal(list) { return list.filter(e => e.type === 'in').reduce((s, e) => s + (Number(e.amount) || 0), 0); }
+function expenseTotal(list) { return list.filter(e => e.type === 'out').reduce((s, e) => s + (Number(e.amount) || 0), 0); }
