@@ -118,9 +118,13 @@ function kidsOfAccount(a) {
   const out = [];
   const seen = {};
   const uid = a ? a.uid : '';
-  ((a && a.rec && a.rec.students) || []).forEach(id => { const s = (S.state.students || []).find(x => x.id === id && !x._del && inYear(x)); if (s && !seen[s.id]) { seen[s.id] = 1; out.push(s); } });
+  const ids = ((a && a.rec && a.rec.students) || []);
+  const pids = {};
+  (S.state.students || []).forEach(s => { if (s && ids.indexOf(s.id) >= 0) pids[s.personId || s.id] = 1; });
   (S.state.students || []).forEach(s => {
-    if (!s._del && inYear(s) && uid && guardianIdsOf(s).indexOf(uid) >= 0 && !seen[s.id]) { seen[s.id] = 1; out.push(s); }
+    if (!s || s._del || !inYear(s)) return;
+    const mine = ids.indexOf(s.id) >= 0 || (uid && guardianIdsOf(s).indexOf(uid) >= 0) || !!pids[s.personId || s.id];
+    if (mine && !seen[s.id]) { seen[s.id] = 1; out.push(s); }
   });
   return out;
 }

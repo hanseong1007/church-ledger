@@ -76,13 +76,16 @@ function statusChip(st) {
 function attLabel(s) { return s === 'present' ? '출석' : s === 'absent' ? '결석' : s === 'excused' ? '인정' : '-'; }
 
 /* 내 자녀 — 계정에 적힌 자녀(student id)와 아이 쪽 학부모 연결을 모두 봅니다.
-   역할이 교사여도 연결된 자녀는 그대로 남습니다(학부모 겸 교사). */
+   역할이 교사여도 연결된 자녀는 그대로 남습니다(학부모 겸 교사).
+   해가 바뀌어 명단이 새로 만들어져도 같은 사람(personId)이면 자녀로 이어 줍니다. */
 function myChildren() {
   if (!S.me) return [];
   const uid = S.me.uid;
   const ids = S.me.students || [];
+  const pids = {};
+  (S.state.students || []).forEach(s => { if (s && ids.indexOf(s.id) >= 0) pids[s.personId || s.id] = 1; });
   return (S.state.students || []).filter(s => !s._del && inYear(s) &&
-    (ids.indexOf(s.id) >= 0 || guardianIdsOf(s).indexOf(uid) >= 0));
+    (ids.indexOf(s.id) >= 0 || guardianIdsOf(s).indexOf(uid) >= 0 || !!pids[s.personId || s.id]));
 }
 function parentRoleKeyOf() {
   const hit = myRoleDefs().find(r => roleDef(r.key).base === 'parent');
