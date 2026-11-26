@@ -116,6 +116,11 @@ function rows_(sh, head) {
   return sh.getRange(2, 1, lr - 1, head.length).getValues();
 }
 
+/* 셀 값이 '=' '+' '-' 로 시작하면 시트가 수식으로 해석해 #ERROR! 가 됩니다.
+   저장할 때 '~' 를 붙이고 읽을 때 떼어, 어떤 값도 수식이 되지 않게 합니다. */
+function enc_(v) { return '~' + String(v == null ? '' : v); }
+function dec_(v) { const s = String(v == null ? '' : v); return s.charAt(0) === '~' ? s.slice(1) : s; }
+
 function obj_(head, row) {
   const o = {};
   for (let i = 0; i < head.length; i++) o[head[i]] = row[i];
@@ -138,12 +143,17 @@ function acctGet_(uid) {
   if (!hit) return { ok: true, row: null };
   const o = obj_(A_HEAD, hit.row);
   if (String(o.deleted) === '1') return { ok: true, row: null };
+  o.salt = dec_(o.salt); o.wrap = dec_(o.wrap); o.rec = dec_(o.rec);
   return { ok: true, row: o };
 }
 
 function acctList_() {
   const s = sheet_();
-  const rows = rows_(s.acct, A_HEAD).map(function (r) { return obj_(A_HEAD, r); });
+  const rows = rows_(s.acct, A_HEAD).map(function (r) {
+    const o = obj_(A_HEAD, r);
+    o.salt = dec_(o.salt); o.wrap = dec_(o.wrap); o.rec = dec_(o.rec);
+    return o;
+  });
   return { ok: true, rows: rows };
 }
 
@@ -154,11 +164,13 @@ function acctSave_(row) {
   const lock = LockService.getScriptLock();
   lock.waitLock(LOCK_MS);
   try {
-    const vals = [uid, String(row.salt || ''), String(row.wrap || ''), String(row.rec || ''), Number(row.rev) || Date.now(), Number(row.updated) || Date.now(), String(row.deleted || '')];
+    const vals = [uid, enc_(row.salt), enc_(row.wrap), enc_(row.rec), Number(row.rev) || Date.now(), Number(row.updated) || Date.now(), String(row.deleted || '')];
     const hit = acctIndex_(s.acct, uid);
     if (hit) s.acct.getRange(hit.i, 1, 1, A_HEAD.length).setValues([vals]);
     else s.acct.appendRow(vals);
-    return { ok: true, row: obj_(A_HEAD, vals) };
+    const out = obj_(A_HEAD, vals);
+    out.salt = dec_(out.salt); out.wrap = dec_(out.wrap); out.rec = dec_(out.rec);
+    return { ok: true, row: out };
   } finally {
     try { lock.releaseLock(); } catch (e) { }
   }
@@ -200,7 +212,7 @@ function docPull2_(s, wantRev) {
   picked.sort(function (a, b) { return (Number(a[2]) || 0) - (Number(b[2]) || 0); });
   return {
     ok: true, rev: rev, top: top,
-    chunks: picked.map(function (r) { return String(r[3] || ''); }),
+    chunks: picked.map(function (r) { return dec_(r[3]); }),
     savedAt: Number(picked[0][4]) || 0,
     updated: Number(picked[0][4]) || 0,
     device: String(picked[0][5] || '')
@@ -231,7 +243,7 @@ function docPush_(b) {
     const rev = top + 1;
     const now = Date.now();
     const device = String(b.device || '').slice(0, 60);
-    const vals = chunks.map(function (c, i) { return [SLOT, rev, i, String(c), now, device]; });
+    const vals = chunks.map(function (c, i) { return [SLOT, rev, i, enc_(c), now, device]; });
     sh.getRange(sh.getLastRow() + 1, 1, vals.length, D_HEAD.length).setValues(vals);
     docPrune_(sh);
     return { ok: true, rev: rev, top: rev, savedAt: now, chunks: chunks.length };
