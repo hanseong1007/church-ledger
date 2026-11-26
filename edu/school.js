@@ -328,8 +328,33 @@ document.addEventListener('click', async function (ev) {
         confirmBox('진급·이관 실행', '학생 ' + n + '명을 ' + ny + '년 명단으로 옮기고, 보고 있는 연도를 ' + ny + '년으로 바꿉니다. 계속할까요?', '실행', runPromotion);
         return;
       }
-      case 'acct-status': await accountStatusModal(t.dataset.uid); return;
-      case 'acct-status-set': {
+      case 'bulk-class': bulkClassModal(t.dataset.dept || V.dept); return;
+      case 'bc-pick': {
+        if (!V.bulkClass) return;
+        toggleIn(V.bulkClass.sids, t.dataset.sid);
+        t.classList.toggle('coral');
+        t.classList.toggle('gray');
+        return;
+      }
+      case 'bc-save': {
+        if (!V.bulkClass) return;
+        const clsId = val('bcClass');
+        const c = classById(clsId);
+        if (!c) return toast('반을 골라 주세요', 'err');
+        const n = V.bulkClass.sids.length;
+        V.bulkClass.sids.forEach(sid => {
+          const s = (S.state.students || []).find(x => x.id === sid);
+          if (!s) return;
+          s.classId = c.id; s.deptId = c.deptId; touch(s);
+        });
+        await Sync.save();
+        closeModal();
+        V.bulkClass = null;
+        renderApp();
+        toast(n + '명을 ' + c.name + '으로 지정했습니다', 'ok');
+        return;
+      }
+      case 'acct-status': await accountStatusModal(t.dataset.uid); return;      case 'acct-status-set': {
         if (!V.acctStatus) return;
         V.acctStatus.status = t.dataset.v;
         V.acctStatus.note = val('astNote');
@@ -337,8 +362,7 @@ document.addEventListener('click', async function (ev) {
         return;
       }
       case 'acct-status-save': await saveAcctStatus(); return;
-      case 'reopen-report': reopenModal(t.dataset.id); return;
-      case 'reopen-send': await sendReopen(t.dataset.id); return;
+      case 'reopen-report': reopenModal(t.dataset.id); return;      case 'reopen-send': await sendReopen(t.dataset.id); return;
       case 'stat-period': V.statPeriod = t.dataset.v; renderApp(); return;
       case 'period-print': printPeriodStats(V.statPeriod || 'month'); return;
       case 'my-birth-type': V.myBirthType = t.dataset.v; renderApp(); return;

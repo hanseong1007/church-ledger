@@ -816,7 +816,7 @@ function membersView() {
     h += '</div>';
   });
   if (unassigned.length) {
-    h += '<div class="card" style="margin-top:12px"><h3>반 미지정 <small>' + unassigned.length + '명</small></h3><div class="list">';
+    h += '<div class="card" style="margin-top:12px"><h3>반 미지정 <small>' + unassigned.length + '명</small><span class="sp"></span><button class="btn sm" data-act="bulk-class" data-dept="' + esc(dept.id) + '">반 일괄 지정</button></h3><div class="list">';
     unassigned.forEach(s => { h += '<button class="item" data-act="edit-student" data-id="' + esc(s.id) + '"><span class="av">' + esc((s.name || '?').slice(0, 1)) + '</span><span class="tx"><b>' + esc(s.name) + '</b><span>' + esc(s.guardianName || '보호자 미등록') + (s.guardianPhone ? ' · ' + esc(s.guardianPhone) : '') + ' · 반을 지정해 주세요</span></span></button>'; });
     h += '</div></div>';
   }
@@ -1136,6 +1136,26 @@ function studentModal(s, classId) {
   }
   h += '<div class="row"><span class="sp"></span>' + (isNew ? '' : '<button class="btn" style="color:#c33e5f" data-act="del-student" data-id="' + esc(s.id) + '">삭제</button>') + '<button class="btn" data-act="modal-close">취소</button><button class="btn primary" data-act="save-student" data-id="' + esc(isNew ? '' : s.id) + '">저장</button></div>';
   openModal(isNew ? '학생 추가' : '학생 정보', h, { focus: 'sName' });
+}
+
+/* 반 일괄 지정 — 진급 후 새 학년도 반 나누기를 한 번에 */
+function bulkClassModal(deptId) {
+  if (!can('member.manage')) return toast('반·학생을 고칠 권한이 없습니다', 'err');
+  const cls = classesOfDept(deptId);
+  if (!cls.length) return toast('이 부서에 반이 없습니다. 먼저 반을 만들어 주세요', 'err');
+  const studs = studentsOfDept(deptId).filter(s => !s.classId || !cls.some(c => c.id === s.classId));
+  if (!studs.length) return toast('반 미지정 학생이 없습니다', 'err');
+  V.bulkClass = { deptId: deptId, clsId: cls[0].id, sids: studs.map(s => s.id) };
+  const d = deptById(deptId) || {};
+  let h = '<div class="banner sky">' + esc(d.name || '') + ' 반 미지정 ' + studs.length + '명을 한 번에 지정합니다.</div>';
+  h += '<div class="field"><label>반</label><select id="bcClass">' + opts(cls.map(c => [c.id, c.name]), V.bulkClass.clsId) + '</select></div>';
+  h += '<div class="field"><label>학생 (' + studs.length + '명)</label><div class="row wrap" style="gap:6px">';
+  studs.forEach(s => {
+    h += '<button type="button" class="chip big ' + (V.bulkClass.sids.indexOf(s.id) >= 0 ? 'coral' : 'gray') + '" data-act="bc-pick" data-sid="' + esc(s.id) + '">' + esc(s.name) + '</button>';
+  });
+  h += '</div><div class="hint">빼려는 학생은 한 번 더 눌러 해제하세요.</div></div>';
+  h += '<div class="row" style="margin-top:10px"><button class="btn" data-act="modal-close">취소</button><span class="sp"></span><button class="btn primary" data-act="bc-save">반 지정</button></div>';
+  openModal('반 일괄 지정', h);
 }
 
 function classModal(c, deptId) {
