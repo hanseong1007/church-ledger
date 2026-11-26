@@ -788,6 +788,7 @@ async function approveApplication(row, overrides) {
   if (!info.pub) throw new Error('신청서에 공개키가 없습니다');
   const sealed = await Keys.sealTo(info.pub, S.wkRaw);
   const app = Object.assign({}, info.app || {}, overrides || {});
+  if (Array.isArray(app.depts)) app.depts = Array.from(new Set(app.depts.map(canonDeptId)));
   return {
     uid: String(row.uid), salt: row.salt, wrap: row.wrap,
     rec: JSON.stringify({ app: app, pub: info.pub, dek: sealed, status: 'approved', by: S.me.uid, byName: S.me.name, at: Date.now() }),
@@ -813,7 +814,7 @@ async function activateApproved(row, password, info) {
   const dek = await Crypto.importDek(raw);
   const a = info.app || {};
   const rec = await Crypto.sealJson(dek, {
-    id: a.id, name: a.name || a.id, roles: a.roles || [], depts: a.depts || [], classes: a.classes || [],
+    id: a.id, name: a.name || a.id, roles: a.roles || [], depts: Array.from(new Set((a.depts || []).map(canonDeptId))), classes: a.classes || [],
     students: a.students || [], childName: a.childName || '', birth: a.birth || '', grants: a.grants || {},
     birthType: a.birthType || 'solar', birthLunar: a.birthLunar || '',
     status: 'normal', statusNote: '', statusAt: 0,

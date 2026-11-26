@@ -124,7 +124,7 @@ function canApprove(a) {
   if (base === 'admin' || base === 'pastor') return true;
   const myDepts = S.me.depts || [];
   const myClasses = S.me.classes || [];
-  const appDepts = (a.app && a.app.depts) || a.rec.depts || [];
+  const appDepts = ((a.app && a.app.depts) || a.rec.depts || []).map(canonDeptId);
   const appClasses = (a.app && a.app.classes) || a.rec.classes || [];
   if (!myDepts.length && !myClasses.length) return true;
   if (!appDepts.length && !appClasses.length) return true;   // 신청서에 부서·반이 적히지 않은 경우 — 승인하면서 지정
