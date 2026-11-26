@@ -1,0 +1,28 @@
+{
+  "id": "./",
+  "name": "덕신교회 부서업무",
+  "short_name": "부서업무",
+  "description": "덕신교회 주일학교·교육부서 통합 관리 — 출석, 주일보고, 알림장, 부서 일정",
+  "lang": "ko",
+  "dir": "ltr",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "display_override": ["standalone", "minimal-ui", "browser"],
+  "orientation": "any",
+  "background_color": "#fffaf6",
+  "theme_color": "#fff4ee",
+  "categories": ["education", "productivity"],
+  "prefer_related_applications": false,
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" },
+    { "src": "icons/apple-touch-icon.png", "sizes": "180x180", "type": "image/png", "purpose": "any" }
+  ],
+  "shortcuts": [
+    { "name": "출석 체크", "short_name": "출석", "url": "./#attendance" },
+    { "name": "주일보고", "short_name": "주일보고", "url": "./#report" },
+    { "name": "알림장", "short_name": "알림장", "url": "./#notice" }
+  ]
+}
