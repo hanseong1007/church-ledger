@@ -201,7 +201,7 @@ function normalizeDeptRefs(includeMe) {
     const t = canonDeptId(rec.deptId);
     if (t !== rec.deptId) { rec.deptId = t; rec.u = Math.max(Number(rec.u) || 0, now); changed++; }
   };
-  ['classes', 'students', 'attendance', 'reports', 'notices', 'feeds', 'events', 'plans', 'ledger'].forEach(key => {
+  ['classes', 'students', 'attendance', 'reports', 'notices', 'feeds', 'events', 'plans', 'ledger', 'budgets'].forEach(key => {
     (st[key] || []).forEach(fix);
   });
   /* 반이 옮겨진 학생은 반의 부서를 따라갑니다 */
@@ -229,14 +229,14 @@ function emptyState(seed) {
     roles: seed === false ? [] : JSON.parse(JSON.stringify(DEFAULT_ROLES)),
     departments: seed === false ? [] : JSON.parse(JSON.stringify(DEFAULT_DEPTS)),
     classes: [], students: [], attendance: [], reports: [], notices: [], feeds: [], events: [],
-    plans: [], ledger: [], years: [], requests: [],
+    plans: [], ledger: [], budgets: [], years: [], requests: [],
     people: {},
     settings: { church: '덕신교회', title: '부서업무', updatedAt: 0 },
     rev: 0
   };
 }
 
-const COLLS = ['roles', 'departments', 'classes', 'students', 'attendance', 'reports', 'notices', 'feeds', 'events', 'plans', 'ledger', 'requests'];
+const COLLS = ['roles', 'departments', 'classes', 'students', 'attendance', 'reports', 'notices', 'feeds', 'events', 'plans', 'ledger', 'budgets', 'requests'];
 
 /* ---------------- 앱 상태 ---------------- */
 const S = {

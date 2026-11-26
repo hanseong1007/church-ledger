@@ -414,3 +414,27 @@ a.btn { text-decoration: none; display: inline-flex; align-items: center; justif
 @media print {
   .yearbar { display: none !important; }
 }
+
+/* ---- 회계 통계 · 항목별 조회 · 연말 결산/예산 보고서 (2026-11-27) ---- */
+.led-form { width: 100%; border-collapse: collapse; font-size: 12px; table-layout: fixed; background: #fff; }
+.led-form th, .led-form td { border: 1px solid #ded2c9; padding: 6px 7px; height: 30px; vertical-align: middle; }
+.led-form th { background: #f6f0ea; font-size: 11.5px; font-weight: 800; text-align: center; color: var(--ink2); }
+.led-form td.it { font-weight: 600; word-break: break-all; }
+.led-form .num { text-align: right; font-variant-numeric: tabular-nums; }
+.led-form .ctr { text-align: center; }
+.led-form th.title { background: #fff; font-size: 14px; font-weight: 800; letter-spacing: .4px; }
+.led-form tr.grp th { background: #eee5dc; font-size: 12.5px; color: #4a3f37; }
+.led-form tr.sub th { background: #f8f4f0; }
+.led-form tr.total td { background: #fbf6f1; font-weight: 800; }
+.led-form.yr { font-size: 11.5px; }
+.tbl-wrap .led-form { min-width: 520px; }
+.tbl-wrap .led-form.yr { min-width: 790px; }
+.led-form.yr th, .led-form.yr td { padding: 5px 5px; }
+.bg-row { display: flex; gap: 6px; align-items: center; margin-bottom: 6px; }
+.bg-row input.bg-cat { flex: 1 1 auto; min-width: 0; }
+.bg-row input.bg-amt { flex: 0 0 118px; text-align: right; font-variant-numeric: tabular-nums; }
+@media (max-width: 560px) {
+  .led-form { font-size: 11px; }
+  .led-form th, .led-form td { padding: 4px 4px; height: 26px; }
+  .bg-row input.bg-amt { flex-basis: 96px; }
+}

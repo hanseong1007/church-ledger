@@ -930,8 +930,8 @@ function ledgerState() {
   if (V.ledDept === undefined) V.ledDept = '';
   return V.ledMonth;
 }
-function ledgerView() {
-  if (!can('ledger.manage')) return '<div class="card">' + emptyBox('🔒', '회계는 교육부서담당·목회자·관리자만 볼 수 있습니다') + '</div>';
+/* 장부 화면 본문 — 화면 틀(제목·모드 탭)은 ledger-report.js 의 ledgerView 가 그립니다 */
+function ledgerBookBody() {
   const ym = ledgerState();
   const depts = visibleDepts();
   if (!depts.length) return '<div class="card">' + emptyBox('🏫', '볼 수 있는 부서가 없습니다') + '</div>';
@@ -942,9 +942,7 @@ function ledgerView() {
   const cumInc = incomeTotal(scopeAll.filter(e => monthKeyOf(e.date) <= ym));
   const cumExp = expenseTotal(scopeAll.filter(e => monthKeyOf(e.date) <= ym));
 
-  let h = subHead('회계 관리', '부서 수입·지출과 영수증을 한 곳에서 정리합니다',
-    '<button class="btn sm" data-act="led-print">🖨 인쇄</button>');
-  h += '<div class="card flat" style="padding:12px">' + monthBar('ledMonth', ym, 'led-month') +
+  let h = '<div class="card flat" style="padding:12px">' + monthBar('ledMonth', ym, 'led-month') +
     '<div class="row wrap" style="gap:6px"><button class="chip big ' + (!V.ledDept ? 'coral' : 'gray') + '" data-act="led-dept" data-id="">전체 부서</button>' +
     depts.map(d => '<button class="chip big ' + (d.id === V.ledDept ? 'coral' : 'gray') + '" data-act="led-dept" data-id="' + esc(d.id) + '">' + esc((d.emoji || '') + ' ' + d.name) + '</button>').join('') + '</div></div>';
 
@@ -974,13 +972,13 @@ function ledgerModal(entry, type) {
   const isNew = !entry;
   const e = entry || { date: ymd(), type: type || 'in', category: '', memo: '', amount: '', deptId: V.ledDept || (visibleDepts()[0] || {}).id || '' };
   V.receiptDraft = e.receipt || null;
-  const cats = e.type === 'in' ? ['헌금', '주일헌금', '감사헌금', '특별헌금', '찬조', '기타수입'] : ['교육자료', '간식·식비', '행사물품', '선물·상품', '교통비', '기타지출'];
+  const cats = (typeof catListFor === 'function') ? catListFor(e.type, e.category) : (e.type === 'in' ? ['헌금', '주일헌금', '감사헌금', '특별헌금', '찬조', '기타수입'] : ['교육자료', '간식·식비', '행사물품', '선물·상품', '교통비', '기타지출']);
   let h = '';
   h += '<div class="row" style="gap:6px;margin-bottom:10px"><button class="chip big ' + (e.type === 'in' ? 'mint' : 'gray') + '" data-act="led-type" data-v="in">수입</button><button class="chip big ' + (e.type === 'out' ? 'rose' : 'gray') + '" data-act="led-type" data-v="out">지출</button></div>';
   h += '<div class="grid2"><div class="field"><label>날짜</label><input id="lgDate" type="date" value="' + esc(e.date) + '"></div>';
   h += '<div class="field"><label>금액(원)</label><input id="lgAmount" type="text" inputmode="numeric" value="' + esc(e.amount === '' ? '' : money(e.amount).replace(/,/g, '')) + '" placeholder="0"></div></div>';
   h += '<div class="field"><label>항목</label><select id="lgCat">' + opts(cats.map(c => [c, c]).concat([['직접입력', '＋ 직접 입력…']]), e.category) + '</select></div>';
-  h += '<div class="field"><label>내용</label><input id="lgMemo" value="' + esc(e.memo || '') + '" placeholder="예: 11월 둘째주일 헌금"></div>';
+  h += '<div class="field"><label>세부 내역(적요)</label><input id="lgMemo" value="' + esc(e.memo || '') + '" placeholder="예: 11월 둘째주일 헌금 / 1여전도회"><div class="hint">통계·개별 항목 조회에서 이 이름이 표의 <b>항목</b> 칸에 들어갑니다.</div></div>';
   h += '<div class="field"><label>부서</label><select id="lgDept">' + opts(visibleDepts().map(d => [d.id, d.name]), e.deptId) + '</select></div>';
   h += '<div class="field"><label>영수증 사진</label><div class="row"><button class="btn sm" data-act="pick-receipt">📷 사진 올리기</button><span class="sp"></span><span class="muted" id="rcvInfo">' + (V.receiptDraft ? '첨부됨' : '없음') + '</span></div><div id="rcvBox">' + (V.receiptDraft ? receiptImg(V.receiptDraft, 120) : '') + '</div><div class="hint">사진은 이 기기에서 줄이고 암호화해 저장합니다(원본은 보내지 않습니다).</div></div>';
   h += '<div class="row" style="margin-top:10px">' + (isNew ? '' : '<button class="btn" style="color:#c33e5f" data-act="del-ledger" data-id="' + esc(e.id) + '">삭제</button>') + '<span class="sp"></span><button class="btn" data-act="modal-close">취소</button><button class="btn primary" data-act="save-ledger" data-id="' + esc(isNew ? '' : e.id) + '">저장</button></div>';
