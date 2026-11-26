@@ -47,80 +47,204 @@ function yearsView() {
   h += '<div class="row" style="gap:8px"><input id="newYear" type="number" min="2026" max="2100" value="' + (Math.max.apply(null, yrs.concat([y])) + 1) + '" style="max-width:130px"><button class="btn primary" data-act="year-add">연도 만들기</button></div>';
   h += '</div>';
 
-  /* 진급 마법사 */
-  h += '<div class="card flat" style="border:1.5px solid #ded3f7;background:#faf8ff"><h3>🎓 연말 진급·새 학년도 이관</h3>';
-  h += '<p class="muted" style="margin:0 0 10px">학생을 한 학년 위 부서로 옮기고, 교사 이동까지 한 번에 처리합니다. 옮긴 뒤 각 부서 담당자가 새 연도에서 반을 나누면 됩니다.</p>';
-  h += '<div class="row wrap" style="gap:6px;margin-bottom:8px">' + depts.map((d, i) => '<span class="chip big">' + esc((d.emoji || '') + ' ' + d.name) + (depts[i + 1] ? ' → ' + esc(depts[i + 1].name) : ' → 졸업') + '</span>').join('') + '</div>';
-  h += '<button class="btn primary block" data-act="grade-open">' + (V.gradeOpen ? '진급 마법사 접기' : '진급 마법사 열기') + '</button>';
+  /* 연말 진급 — 1차 연도 변경, 2차 부서 변경 */
+  h += '<div class="card flat" style="border:1.5px solid #ded3f7;background:#faf8ff"><h3>🎓 연말 진급 — 1차 연도, 2차 부서</h3>';
+  h += '<p class="muted" style="margin:0 0 8px">연도가 바뀌면 나이·학년이 한 살 올라갑니다. 먼저 <b>1차</b>로 새 연도 명단을 만들고, <b>2차</b>에서 그 해 나이·학년에 맞춰 부서를 바꿉니다.</p>';
+  h += '<div class="row wrap" style="gap:6px;margin-bottom:8px">' + depts.map((d, i) => '<span class="chip big">' + esc((d.emoji || '') + ' ' + d.name) + (depts[i + 1] ? ' → ' + esc(depts[i + 1].name) : ' → 🎓 졸업') + '</span>').join('') + '</div>';
+  h += '<p class="hint" style="margin:0 0 8px">유치부는 7세까지 · 초등부는 초6까지 · 청소년부는 고3까지입니다.</p>';
+  h += '<div class="row wrap" style="gap:6px"><button class="btn ' + (V.rollOpen ? 'dark' : 'primary') + '" data-act="roll-open">1️⃣ 연도 바꾸기</button><button class="btn ' + (V.promoteOpen ? 'dark' : 'primary') + '" data-act="promo-open">2️⃣ 부서 진급</button></div>';
   h += '</div>';
-
-  if (V.gradeOpen) h += gradeWizardHtml(depts);
+  if (V.rollOpen) h += rollCardHtml(depts);
+  if (V.promoteOpen) h += promoteCardHtml(depts);
   return h;
 }
 
-function gradeWizardHtml(depts) {
+/* ================= 1차: 연도 바꾸기 (명단·반 복사, 부서는 그대로) ================= */
+function rollCardHtml(depts) {
   const srcYear = curYear();
-  const ny = Number(V.gradeYear) || (Math.max.apply(null, availableYears().concat([srcYear])) + 1);
-  V.gradeYear = ny;
-  const lastMode = V.gradeLast || 'graduate';
-  let h = '<div class="card"><h3>🎓 ' + srcYear + '년 → 새 학년도 이관</h3>';
-  h += '<div class="grid2"><div class="field"><label>새 연도</label><input id="gradeYear" type="number" min="' + (srcYear + 1) + '" max="2100" value="' + ny + '" data-change="grade-year"></div>';
-  h += '<div class="field"><label>' + srcYear + '년 학생</label><input value="' + allStudentsIn(srcYear).length + '명" readonly></div></div>';
-
-  h += '<div class="sect-title">① 학생 진급</div><div class="card flat" style="padding:8px 12px">';
-  depts.forEach((d, i) => {
-    const n = studentsOfDeptIn(d.id, srcYear).length;
-    const next = depts[i + 1];
-    h += '<div class="kv"><span>' + esc((d.emoji || '') + ' ' + d.name) + ' <b>' + n + '명</b></span><b>' + (next ? '→ ' + esc((next.emoji || '') + ' ' + next.name) : (lastMode === 'keep' ? '→ ' + esc(d.name) + ' 유지' : '→ 졸업(명단 제외)')) + '</b></div>';
+  const ny = Number(V.rollYear) || (Math.max.apply(null, availableYears().concat([srcYear])) + 1);
+  V.rollYear = ny;
+  const clsMode = V.rollClasses || 'keep';
+  const total = depts.reduce((n, d) => n + studentsOfDeptIn(d.id, srcYear).length, 0);
+  let h = '<div class="card" style="margin-top:10px"><h3>1️⃣ ' + srcYear + '년 → 새 연도</h3>';
+  h += '<div class="banner sky">연도만 먼저 바꿉니다. 학생은 <b>지금 부서 그대로</b> 새 연도 명단으로 옮겨지고, 나이·학년만 한 살 올라갑니다. 부서 이동은 2차에서 합니다.</div>';
+  h += '<div class="grid2"><div class="field"><label>새 연도</label><input id="rollYear" type="number" min="' + (srcYear + 1) + '" max="2100" value="' + ny + '"></div>';
+  h += '<div class="field"><label>' + srcYear + '년 학생</label><input value="' + total + '명" readonly></div></div>';
+  h += '<div class="card flat" style="padding:8px 12px">';
+  depts.forEach(d => {
+    h += '<div class="kv"><span>' + esc((d.emoji || '') + ' ' + d.name) + '</span><b>' + studentsOfDeptIn(d.id, srcYear).length + '명 → ' + esc(d.name) + ' (부서 유지)</b></div>';
   });
   h += '</div>';
-  if (depts.length) {
-    const last = depts[depts.length - 1];
-    h += '<div class="field" style="margin-top:8px"><label>' + esc(last.name) + ' 처리</label><div class="row wrap" style="gap:6px">';
-    h += '<button type="button" class="chip big ' + (lastMode === 'graduate' ? 'coral' : 'gray') + '" data-act="grade-last" data-v="graduate">🎓 졸업 (명단에서 제외)</button>';
-    h += '<button type="button" class="chip big ' + (lastMode === 'keep' ? 'coral' : 'gray') + '" data-act="grade-last" data-v="keep">' + esc(last.name) + '에 그대로 두기</button>';
-    h += '</div><div class="hint">졸업한 학생의 지난 기록은 그대로 남고, 새 연도 명단에서만 빠집니다.</div></div>';
-  }
-  const clsMode = V.gradeClasses || 'none';
   h += '<div class="field"><label>새 연도 반</label><div class="row wrap" style="gap:6px">';
-  h += '<button type="button" class="chip big ' + (clsMode === 'none' ? 'coral' : 'gray') + '" data-act="grade-classes" data-v="none">반은 새로 만들기 (권장)</button>';
-  h += '<button type="button" class="chip big ' + (clsMode === 'keep' ? 'coral' : 'gray') + '" data-act="grade-classes" data-v="keep">지난해 반 이름 그대로</button>';
-  h += '</div><div class="hint">새로 만들면 학생은 반 미지정으로 옮기고, 각 부서 담당자가 새 연도에서 반을 나눕니다.</div></div>';
+  h += '<button type="button" class="chip big ' + (clsMode === 'keep' ? 'coral' : 'gray') + '" data-act="roll-classes" data-v="keep">지난해 반 이름 그대로</button>';
+  h += '<button type="button" class="chip big ' + (clsMode === 'none' ? 'coral' : 'gray') + '" data-act="roll-classes" data-v="none">반은 새로 만들기</button>';
+  h += '</div><div class="hint">이름 그대로면 학생이 같은 반으로 옮겨집니다. 새로 만들면 반 미지정으로 옮겨지고, 2차 뒤에 [반 일괄 지정]으로 나누면 됩니다.</div></div>';
+  h += '<div class="banner coral" style="margin-top:8px">실행하면 <b>' + ny + '년</b>이 만들어지고 보고 있는 연도가 ' + ny + '년으로 바뀝니다. ' + ny + '년에 이미 자료가 있으면 실행되지 않습니다.</div>';
+  h += '<button class="btn primary block" data-act="roll-run">1️⃣ ' + ny + '년 만들고 명단 옮기기</button>';
+  h += '</div>';
+  return h;
+}
 
-  h += '<div class="sect-title">② 교사 이동</div>';
+async function runYearRoll() {
+  const depts = (S.state.departments || []).filter(d => !d._del).sort((a, b) => (a.order || 0) - (b.order || 0));
+  if (!depts.length) return toast('부서가 없습니다', 'err');
+  const srcYear = curYear();
+  const ny = Number(val('rollYear')) || Number(V.rollYear);
+  if (!ny || ny <= srcYear) return toast('새 연도를 ' + (srcYear + 1) + '년 이후로 정해 주세요', 'err');
+  if (ny > 2100) return toast('연도를 다시 확인해 주세요', 'err');
+  if (yearHasData(ny)) return toast(ny + '년에는 이미 자료가 있습니다. 다른 연도를 골라 주세요', 'err');
+  const keepClasses = (V.rollClasses || 'keep') === 'keep';
+  const now = Date.now();
+  let made = 0;
+
+  /* 반을 그대로 옮기는 경우: 새 연도 반을 먼저 만들고 옛 반 → 새 반을 이어 줍니다 */
+  const clsMap = {};
+  if (keepClasses) {
+    depts.forEach(d => {
+      classesOfDeptIn(d.id, srcYear).forEach(c => {
+        const nc = { id: 'cl-' + Crypto.uid(), name: c.name, deptId: c.deptId, note: c.note || '', order: c.order || 0, year: ny, u: now };
+        S.state.classes.push(nc);
+        clsMap[c.id] = nc.id;
+      });
+    });
+  }
+  depts.forEach(d => {
+    studentsOfDeptIn(d.id, srcYear).forEach(s => {
+      const copy = {
+        id: 'st-' + Crypto.uid(), personId: s.personId || s.id, name: s.name, birth: s.birth || '',
+        birthType: birthTypeOf(s), birthLunar: s.birthLunar || '', gender: s.gender || '',
+        deptId: d.id, classId: keepClasses ? (clsMap[s.classId] || '') : '',
+        guardianName: s.guardianName || '', guardianPhone: s.guardianPhone || '', guardianUid: s.guardianUid || '',
+        note: s.note || '', newcomer: false, active: true,
+        year: ny, promotedFrom: s.id, joined: ny + '-03-01', u: now
+      };
+      S.state.students.push(copy);
+      try { syncBirthEventOf('student', copy.personId, copy, d.id); } catch (e) { }
+      made++;
+    });
+  });
+  ensureYear(ny);
+  await Sync.save();
+  setYear(ny);
+  V.rollOpen = false;
+  V.promoteOpen = true;      /* 이어서 2차 부서 진급으로 */
+  V.promoSel = {};
+  V.dept = '';
+  V.cls = '';
+  renderApp();
+  toast(ny + '년 명단을 만들었습니다 · 학생 ' + made + '명. 이제 2차 부서 진급을 확인하세요', 'ok');
+}
+
+/* ================= 2차: 부서 진급 (나이·학년 기준) ================= */
+/* 진급 대상 — 지금 부서와 나이·학년 기준 부서가 다른 학생 */
+function promoteRows(year) {
+  const y = Number(year) || curYear();
+  const out = [];
+  allStudentsIn(y).forEach(s => {
+    if (s.promoKept === y) return;
+    const age = ageInYear(s, y);
+    const target = deptIdForAge(age);
+    if (!age) { out.push({ s: s, age: 0, label: '', target: '', cur: s.deptId }); return; }
+    if (target === 'graduate') { out.push({ s: s, age: age, label: gradeLabelOfAge(age), target: 'graduate', cur: s.deptId }); return; }
+    if (target !== s.deptId) out.push({ s: s, age: age, label: gradeLabelOfAge(age), target: target, cur: s.deptId });
+  });
+  return out;
+}
+function promoDefault(row) {
+  if (!row.age) return 'keep';
+  if (row.target === 'graduate') return V.promoLast === 'keep' ? 'dept-teen' : 'graduate';
+  return row.target || 'keep';
+}
+function promoSelection(row) {
+  const v = (V.promoSel || {})[row.s.id];
+  return v === undefined ? promoDefault(row) : v;
+}
+function promoteCardHtml(depts) {
+  const y = curYear();
+  const rows = promoteRows(y);
+  const keptCount = allStudentsIn(y).filter(s => s.promoKept === y).length;
+  V.promoSel = V.promoSel || {};
+  let h = '<div class="card" style="margin-top:10px"><h3>2️⃣ ' + y + '년 부서 진급</h3>';
+  h += '<div class="banner sky">' + y + '년 기준 나이·학년으로 계산했습니다. <b>유치부 7세까지 · 초등부 초6까지 · 청소년부 고3까지</b>, 20세부터는 졸업입니다. 학생마다 바꿀 부서를 고르거나 <b>유지</b>할 수 있습니다.</div>';
+  if (!rows.length) {
+    h += '<div class="banner mint">✅ ' + y + '년에 부서를 바꿀 학생이 없습니다. 모두 나이에 맞는 부서에 있습니다.' + (keptCount ? ' (유지로 정한 학생 ' + keptCount + '명)' : '') + '</div>';
+    if (keptCount) h += '<button class="btn sm block" data-act="promo-reset">↺ 유지한 학생 다시 보기 (' + keptCount + '명)</button>';
+    h += '<button class="btn block" style="margin-top:6px" data-act="promo-open">접기</button>';
+    h += '</div>';
+    return h;
+  }
+  const gradRows = rows.filter(r => r.target === 'graduate');
+  const deptRows = rows.filter(r => r.target && r.target !== 'graduate');
+  const noBirth = rows.filter(r => !r.age);
+  h += '<div class="row wrap" style="gap:6px;margin-bottom:8px"><span class="chip coral big">진급 ' + deptRows.length + '명</span>' + (gradRows.length ? '<span class="chip gray big">졸업 ' + gradRows.length + '명</span>' : '') + (noBirth.length ? '<span class="chip amber big">생년월일 없음 ' + noBirth.length + '명</span>' : '') + '</div>';
+
+  const rowHtml = (r) => {
+    const sel = promoSelection(r);
+    const curName = deptNameCanon(r.cur) || '부서 미지정';
+    const opts = [];
+    opts.push(['keep', '유지']);
+    if (r.target && r.target !== 'graduate') opts.push([r.target, deptNameCanon(r.target) + '로']);
+    if (r.target === 'graduate') opts.push(['graduate', '🎓 졸업']);
+    if (!r.age) depts.forEach(d => opts.push([d.id, d.name + '로']));
+    let row = '<div style="padding:8px 0;border-bottom:1px dashed var(--line)"><div class="row" style="gap:6px"><b style="font-size:13px">' + esc(r.s.name) + '</b>';
+    row += '<span class="chip sky">' + esc(r.label || '생년월일 없음') + '</span>';
+    row += '<span class="sp" style="flex:1"></span><span class="muted" style="font-size:11.5px">' + esc(curName) + (r.target ? ' → ' + (r.target === 'graduate' ? '졸업' : esc(deptNameCanon(r.target))) : ' (직접 지정)') + '</span></div>';
+    row += '<div class="row wrap" style="gap:5px;margin-top:5px">';
+    opts.forEach(o => {
+      row += '<button type="button" class="chip big ' + (sel === o[0] ? (o[0] === 'graduate' ? 'gray' : 'coral') : 'gray') + '" data-act="promo-pick" data-sid="' + esc(r.s.id) + '" data-v="' + esc(o[0]) + '">' + esc(o[1]) + '</button>';
+    });
+    row += '</div></div>';
+    return row;
+  };
+
+  if (gradRows.length) {
+    h += '<div class="sect-title" style="margin:8px 0 4px">🎓 고등학교 졸업 (20세 이상)</div>';
+    h += '<div class="row wrap" style="gap:5px;margin-bottom:4px"><button type="button" class="chip big ' + (V.promoLast !== 'keep' ? 'coral' : 'gray') + '" data-act="promo-last" data-v="graduate">모두 졸업</button><button type="button" class="chip big ' + (V.promoLast === 'keep' ? 'coral' : 'gray') + '" data-act="promo-last" data-v="keep">청소년부에 그대로 두기</button></div>';
+    h += '<div class="card flat" style="padding:4px 12px">' + gradRows.map(rowHtml).join('') + '</div>';
+  }
+  if (deptRows.length) {
+    const byMove = {};
+    deptRows.forEach(r => { const k = r.cur + '>' + r.target; (byMove[k] = byMove[k] || []).push(r); });
+    Object.keys(byMove).forEach(k => {
+      const a = deptNameCanon(k.split('>')[0]) || '부서 미지정', b = deptNameCanon(k.split('>')[1]) || '부서';
+      h += '<div class="sect-title" style="margin:10px 0 4px">' + esc(a) + ' → ' + esc(b) + ' <small>' + byMove[k].length + '명</small></div>';
+      h += '<div class="card flat" style="padding:4px 12px">' + byMove[k].map(rowHtml).join('') + '</div>';
+    });
+  }
+  if (noBirth.length) {
+    h += '<div class="sect-title" style="margin:10px 0 4px">생년월일 없음 <small>' + noBirth.length + '명</small></div>';
+    h += '<div class="banner amber" style="margin-bottom:6px">생년월일이 없어 부서를 계산할 수 없습니다. 그대로 두거나 직접 고르세요. (학생 정보에 생년월일을 넣으면 다음부터 자동으로 계산됩니다)</div>';
+    h += '<div class="card flat" style="padding:4px 12px">' + noBirth.map(rowHtml).join('') + '</div>';
+  }
+
+  /* 교사 부서 이동 */
+  h += '<div class="sect-title" style="margin:12px 0 4px">🧑‍🏫 교사 부서 이동 (선택)</div>';
   if (V.gradeAccts === undefined) {
     loadGradeAccounts();
     h += '<div class="card flat"><p class="muted" style="margin:0">교사 계정을 불러오는 중…</p></div>';
   } else if (!V.gradeAccts.length) {
     h += '<div class="card flat"><p class="muted" style="margin:0">등록된 교사 계정이 없습니다.</p></div>';
   } else {
-    h += '<p class="hint" style="margin:0 0 6px">새 학년도에 담당할 부서를 골라 주세요. 고르지 않으면 지금 부서 그대로 둡니다.</p>';
     V.gradeTeachers = V.gradeTeachers || {};
-    h += '<div class="card flat" style="padding:8px 12px">';
+    h += '<p class="hint" style="margin:0 0 6px">옮길 교사만 부서를 골라 주세요. 고르지 않으면 그대로 둡니다.</p><div class="card flat" style="padding:8px 12px">';
     V.gradeAccts.forEach(a => {
       const cur = accountDeptIds(a)[0] || '';
-      const pick = V.gradeTeachers[a.uid] !== undefined ? V.gradeTeachers[a.uid] : cur;
-      h += '<div style="padding:7px 0;border-bottom:1px dashed var(--line)"><div class="row" style="gap:8px"><b style="font-size:13px">' + esc(a.rec.name) + '</b><span class="muted">@' + esc(a.rec.id) + '</span><span class="sp" style="flex:1"></span><span class="muted">' + esc((deptById(cur) || {}).name || '부서 미지정') + '</span></div>';
-      h += '<div class="row wrap" style="gap:5px;margin-top:5px">';
+      const pick = V.gradeTeachers[a.uid] !== undefined ? V.gradeTeachers[a.uid] : '';
+      h += '<div style="padding:7px 0;border-bottom:1px dashed var(--line)"><div class="row" style="gap:8px"><b style="font-size:13px">' + esc(a.rec.name) + '</b><span class="muted">@' + esc(a.rec.id) + '</span><span class="sp" style="flex:1"></span><span class="muted">' + esc(deptNameCanon(cur) || '부서 미지정') + '</span></div><div class="row wrap" style="gap:5px;margin-top:5px">';
       depts.forEach(d => {
-        h += '<button type="button" class="chip big ' + (pick === d.id ? 'coral' : 'gray') + '" data-act="grade-teacher" data-uid="' + esc(a.uid) + '" data-id="' + esc(d.id) + '">' + esc((d.emoji || '') + ' ' + d.name) + '</button>';
+        h += '<button type="button" class="chip big ' + (pick === d.id ? 'coral' : 'gray') + '" data-act="promo-teacher" data-uid="' + esc(a.uid) + '" data-id="' + esc(d.id) + '">' + esc((d.emoji || '') + ' ' + d.name) + '</button>';
       });
-      h += '<button type="button" class="chip big ' + (!pick ? 'coral' : 'gray') + '" data-act="grade-teacher" data-uid="' + esc(a.uid) + '" data-id="">그대로</button>';
+      h += '<button type="button" class="chip big ' + (!pick ? 'coral' : 'gray') + '" data-act="promo-teacher" data-uid="' + esc(a.uid) + '" data-id="">그대로</button>';
       h += '</div></div>';
     });
     h += '</div>';
   }
 
-  h += '<div class="banner coral" style="margin-top:10px">진급을 실행하면 <b>' + ny + '년</b> 명단이 새로 만들어지고, 보고 있는 연도가 ' + ny + '년으로 바뀝니다. 같은 연도에 이미 자료가 있으면 실행되지 않습니다.</div>';
-  h += '<button class="btn primary block" data-act="grade-run">🎓 ' + ny + '년으로 진급·이관 실행</button>';
+  h += '<div class="banner coral" style="margin-top:10px">2차를 실행하면 고른 대로 부서가 바뀝니다. <b>유지</b>를 고른 학생은 ' + y + '년에 다시 묻지 않습니다. 졸업은 지난 기록을 지우지 않고 ' + y + '년 명단에서만 뺍니다.</div>';
+  h += '<button class="btn primary block" data-act="promo-run">2️⃣ 부서 진급 실행 (' + rows.length + '명 확인)</button>';
+  h += '<p class="hint" style="text-align:center">다시 확인하고 싶으면 이 화면을 나중에 다시 열면 됩니다. 이미 바뀐 학생은 목록에 나오지 않습니다.</p>';
   h += '</div>';
   return h;
-}
-
-function gradeRememberYear() {
-  const el = document.getElementById('gradeYear');
-  const n = el ? Number(el.value) : 0;
-  if (n) V.gradeYear = n;
 }
 
 function loadGradeAccounts() {
@@ -135,71 +259,57 @@ function loadGradeAccounts() {
   }).then(() => { V.gradeLoading = false; if (S.screen === 'years') renderApp(); });
 }
 
-async function runPromotion() {
-  const depts = (S.state.departments || []).filter(d => !d._del).sort((a, b) => (a.order || 0) - (b.order || 0));
-  if (!depts.length) return toast('부서가 없습니다', 'err');
-  const srcYear = curYear();
-  const ny = Number(val('gradeYear')) || Number(V.gradeYear);
-  if (!ny || ny === srcYear) return toast('새 연도를 ' + (srcYear + 1) + '년 이후로 정해 주세요', 'err');
-  if (yearHasData(ny)) return toast(ny + '년에는 이미 자료가 있습니다. 다른 연도를 골라 주세요', 'err');
-  const lastMode = V.gradeLast || 'graduate';
-  const keepClasses = V.gradeClasses === 'keep';
-  let made = 0, grad = 0;
-  const tag = '승급 ' + ny;
-
-  depts.forEach((d, i) => {
-    const next = depts[i + 1];
-    studentsOfDeptIn(d.id, srcYear).forEach(s => {
-      const person = s.personId || s.id;
-      if (!next && lastMode !== 'keep') {
-        if (s.promotedTo !== ny) { s.promotedTo = ny; s.graduatedAt = ny; touch(s); }
-        grad++;
-        return;
-      }
-      const deptId = next ? next.id : d.id;
-      const copy = {
-        id: 'st-' + Crypto.uid(), personId: person, name: s.name, birth: s.birth || '',
-        birthType: birthTypeOf(s), birthLunar: s.birthLunar || '', gender: s.gender || '',
-        deptId: deptId, classId: '', guardianName: s.guardianName || '', guardianPhone: s.guardianPhone || '',
-        guardianUid: s.guardianUid || '', note: s.note || '', newcomer: false, active: true,
-        year: ny, promotedFrom: s.id, joined: ny + '-03-01', u: Date.now()
-      };
-      S.state.students.push(copy);
-      syncBirthEventOf('student', person, copy, deptId);
-      made++;
-    });
-    /* 반 이름은 그대로 두고 새 연도 반을 만들어 두는 선택 */
-    if (keepClasses) {
-      classesOfDeptIn(d.id, srcYear).forEach(c => {
-        S.state.classes.push({ id: 'cl-' + Crypto.uid(), name: c.name, deptId: c.deptId, note: c.note || '', order: c.order || 0, year: ny, u: Date.now() });
-      });
+async function runDeptPromote() {
+  const y = curYear();
+  const rows = promoteRows(y);
+  if (!rows.length) return toast('부서를 바꿀 학생이 없습니다', 'err');
+  let moved = 0, grad = 0, kept = 0, skipped = 0;
+  rows.forEach(r => {
+    const sel = promoSelection(r);
+    const s = r.s;
+    if (!sel || sel === 'keep') {
+      if (sel === 'keep' && r.age) { s.promoKept = y; touch(s); kept++; } else skipped++;
+      return;
+    }
+    if (sel === 'graduate') {
+      s.active = false; s.graduatedAt = y; s.gradReason = '고등학교 졸업'; touch(s);
+      grad++;
+      return;
+    }
+    if (sel !== s.deptId) {
+      s.deptId = sel;
+      const c = classById(s.classId);
+      if (c && c.deptId !== sel) s.classId = '';
+      touch(s);
+      try { syncBirthEventOf('student', s.personId || s.id, s, sel); } catch (e) { }
+      moved++;
     }
   });
-
-  /* 교사 이동 */
-  let moved = 0, failed = 0;
+  /* 교사 부서 이동 */
+  let tMoved = 0, tFail = 0;
   const picks = V.gradeTeachers || {};
-  for (const uid of Object.keys(picks)) {
-    const to = picks[uid];
+  for (const uidKey of Object.keys(picks)) {
+    const to = picks[uidKey];
     if (!to) continue;
     try {
-      const upd = await updateAccountRec(uid, rec => { rec.depts = [to]; rec.classes = []; });
-      if (upd) syncBirthEventOf('account', uid, upd, upd.depts || []);
-      moved++;
-    } catch (e) { failed++; }
+      const upd = await updateAccountRec(uidKey, rec => { rec.depts = [to]; rec.classes = []; });
+      if (upd) { try { syncBirthEventOf('account', uidKey, upd, upd.depts || []); } catch (e) { } }
+      tMoved++;
+    } catch (e) { tFail++; }
   }
-
-  ensureYear(ny);
   await Sync.save();
-  setYear(ny);
-  V.gradeOpen = false;
+  V.promoSel = {};
   V.gradeTeachers = {};
   V.gradeAccts = undefined;
   V.dept = '';
   V.cls = '';
-  S.screen = 'members';
   renderApp();
-  toast(ny + '년 진급 완료 · 학생 ' + made + '명' + (grad ? ' · 졸업 ' + grad + '명' : '') + (moved ? ' · 교사 ' + moved + '명 이동' : '') + (failed ? ' · 교사 ' + failed + '명은 첫 로그인 뒤 지정' : ''), 'ok');
+  let msg = y + '년 부서 진급 완료 · 부서 이동 ' + moved + '명';
+  if (grad) msg += ' · 졸업 ' + grad + '명';
+  if (kept) msg += ' · 유지 ' + kept + '명';
+  if (tMoved) msg += ' · 교사 ' + tMoved + '명 이동';
+  if (tFail) msg += ' · 교사 ' + tFail + '명 실패';
+  toast(msg, 'ok');
 }
 
 /* ================= 계정 상태 (정상 / 일시중지 / 차단) ================= */
@@ -311,21 +421,40 @@ document.addEventListener('click', async function (ev) {
         toast(y + '년을 만들었습니다. 이제 자료를 쌓으면 됩니다', 'ok');
         return;
       }
-      case 'grade-open': V.gradeOpen = !V.gradeOpen; if (V.gradeOpen) { V.gradeYear = 0; V.gradeAccts = undefined; V.gradeClasses = 'none'; } renderApp(); return;
-      case 'grade-last': gradeRememberYear(); V.gradeLast = t.dataset.v; renderApp(); return;
-      case 'grade-classes': gradeRememberYear(); V.gradeClasses = t.dataset.v; renderApp(); return;
-      case 'grade-teacher': {
-        gradeRememberYear();
+      case 'roll-open': V.rollOpen = !V.rollOpen; if (V.rollOpen) { V.rollYear = 0; V.promoteOpen = false; } renderApp(); return;
+      case 'roll-classes': V.rollClasses = t.dataset.v; renderApp(); return;
+      case 'roll-run': {
+        const ny = Number(val('rollYear')) || Number(V.rollYear);
+        const n = allStudentsIn(curYear()).length;
+        confirmBox('1차 · 연도 바꾸기', '학생 ' + n + '명을 ' + ny + '년 명단으로 옮기고(부서는 그대로), 보고 있는 연도를 ' + ny + '년으로 바꿉니다. 계속할까요?', '연도 바꾸기', runYearRoll);
+        return;
+      }
+      case 'promo-open': V.promoteOpen = !V.promoteOpen; if (V.promoteOpen) { V.rollOpen = false; V.gradeAccts = undefined; V.promoSel = {}; } renderApp(); return;
+      case 'promo-pick': {
+        V.promoSel = V.promoSel || {};
+        V.promoSel[t.dataset.sid] = t.dataset.v;
+        renderApp();
+        return;
+      }
+      case 'promo-last': V.promoLast = t.dataset.v; V.promoSel = {}; renderApp(); return;
+      case 'promo-reset': {
+        const y = curYear();
+        allStudentsIn(y).forEach(s => { if (s.promoKept === y) { delete s.promoKept; touch(s); } });
+        V.promoSel = {};
+        Sync.save().then(() => renderApp());
+        toast('유지로 정했던 학생을 다시 보여 줍니다', 'ok');
+        return;
+      }
+      case 'promo-teacher': {
         V.gradeTeachers = V.gradeTeachers || {};
         V.gradeTeachers[t.dataset.uid] = t.dataset.id || '';
         renderApp();
         return;
       }
-      case 'grade-run': {
-        const depts = (S.state.departments || []).filter(d => !d._del).sort((a, b) => (a.order || 0) - (b.order || 0));
-        const n = depts.reduce((s, d) => s + studentsOfDeptIn(d.id, curYear()).length, 0);
-        const ny = Number(val('gradeYear')) || Number(V.gradeYear);
-        confirmBox('진급·이관 실행', '학생 ' + n + '명을 ' + ny + '년 명단으로 옮기고, 보고 있는 연도를 ' + ny + '년으로 바꿉니다. 계속할까요?', '실행', runPromotion);
+      case 'promo-run': {
+        const rows = promoteRows(curYear());
+        const n = rows.length;
+        confirmBox('2차 · 부서 진급 실행', curYear() + '년 기준 나이·학년에 맞춰 고른 대로 부서를 바꿉니다. 계속할까요? (확인할 학생 ' + n + '명)', '실행', runDeptPromote);
         return;
       }
       case 'bulk-class': bulkClassModal(t.dataset.dept || V.dept); return;
@@ -363,8 +492,13 @@ document.addEventListener('click', async function (ev) {
       }
       case 'acct-status-save': await saveAcctStatus(); return;
       case 'reopen-report': reopenModal(t.dataset.id); return;      case 'reopen-send': await sendReopen(t.dataset.id); return;
-      case 'stat-period': V.statPeriod = t.dataset.v; renderApp(); return;
-      case 'period-print': printPeriodStats(V.statPeriod || 'month'); return;
+      case 'stat-period': {
+        V.statPeriod = t.dataset.v;
+        if (t.dataset.v === 'year') V.statYear = Number(String(statState()).slice(0, 4)) || statYear();
+        renderApp();
+        return;
+      }
+      case 'period-print': periodPrintModal(V.statPeriod || 'month'); return;
       case 'my-birth-type': V.myBirthType = t.dataset.v; renderApp(); return;
       case 'u-birth-type': {
         if (!V.editUser) return;

@@ -862,15 +862,109 @@ function statPeriodRange(kind) {
     const r = weekRangeAround(sun);
     return { from: r.from, to: r.to, year: y, label: fmtShort(r.from) + '~' + fmtShort(r.to) + ' 주간', sun: sun };
   }
+  if (kind === 'quarter') {
+    const q = Math.floor((m - 1) / 3) + 1;          /* 1~3월 1분기 · 4~6월 2분기 · 7~9월 3분기 · 10~12월 4분기 */
+    const fm = (q - 1) * 3 + 1, tm = fm + 2;
+    const dim = new Date(y, tm, 0).getDate();
+    return {
+      from: y + '-' + pad2(fm) + '-01', to: y + '-' + pad2(tm) + '-' + pad2(dim), year: y, quarter: q,
+      months: [fm, tm], label: y + '년 ' + q + '분기 (' + fm + '~' + tm + '월)'
+    };
+  }
   if (kind === 'half') {
     const first = m <= 6;
     return {
       from: y + (first ? '-01-01' : '-07-01'), to: y + (first ? '-06-30' : '-12-31'), year: y,
+      half: first ? 1 : 2,
       label: y + '년 ' + (first ? '상반기 (1~6월)' : '하반기 (7~12월)')
     };
   }
   const dim = new Date(y, m, 0).getDate();
   return { from: ym + '-01', to: ym + '-' + pad2(dim), year: y, label: monthLabel(ym) };
+}
+
+/* 기간 이동 막대 — 주간은 1주, 월간은 1달, 분기는 3달, 반기는 6달씩 움직입니다 */
+function periodNavBar(kind) {
+  if (kind === 'year') return yearBar();
+  const step = kind === 'quarter' ? 3 : kind === 'half' ? 6 : 1;
+  const r = statPeriodRange(kind);
+  const ym = statState();
+  const mid = kind === 'half' ? (r.half === 1 ? '상반기' : '하반기') : kind === 'quarter' ? r.quarter + '분기' : monthLabel(ym);
+  const sub = kind === 'half' || kind === 'quarter' ? ' <small style="font-weight:600;color:#999;font-size:10.5px">' + esc(ym.slice(0, 4)) + '년</small>' : '';
+  return '<div class="daybar"><button class="icon-btn" data-act="stat-period-move" data-v="-' + step + '">‹</button>' +
+    '<div class="month-label">' + esc(mid) + sub + '</div>' +
+    '<button class="icon-btn" data-act="stat-period-move" data-v="' + step + '">›</button></div>';
+}
+
+/* 선택한 기간 안의 주일(일요일) 날짜 */
+function periodSundays(r) {
+  return sundaysOfYear(Number(r.year) || curYear()).filter(d => d >= r.from && d <= r.to);
+}
+/* 기간별 전체 아동 · 날짜별 출결 자료 */
+function periodRoster(r, depts) {
+  const sundays = periodSundays(r);
+  const mark = {};
+  (S.state.attendance || []).forEach(a => {
+    if (!a || a._del || a.staff || !a.studentId) return;
+    if (a.date < r.from || a.date > r.to) return;
+    mark[a.studentId + '|' + a.date] = a.status;
+  });
+  const groups = [];
+  (depts || []).forEach(d => {
+    const studs = studentsOfDeptIn(d.id, r.year).slice().sort((a, b) => {
+      const ca = classById(a.classId), cb = classById(b.classId);
+      const oa = ca ? (ca.order || 0) : 999, ob = cb ? (cb.order || 0) : 999;
+      if (oa !== ob) return oa - ob;
+      return String(a.name).localeCompare(String(b.name), 'ko');
+    });
+    if (!studs.length) return;
+    groups.push({ dept: d, studs: studs });
+  });
+  return { sundays: sundays, mark: mark, groups: groups, total: groups.reduce((n, g) => n + g.studs.length, 0) };
+}
+function rosterMark(st) { return st === 'present' ? '○' : st === 'absent' ? '✕' : st === 'excused' ? '◎' : '-'; }
+function rosterCountOf(mark, sid, sundays) {
+  const c = { p: 0, a: 0, e: 0, n: 0 };
+  sundays.forEach(d => {
+    const st = mark[sid + '|' + d];
+    if (st === 'present') c.p++;
+    else if (st === 'absent') c.a++;
+    else if (st === 'excused') c.e++;
+    else c.n++;
+  });
+  c.t = c.p + c.a + c.e;
+  c.rate = c.t ? Math.round(((c.p + c.e) / c.t) * 100) : 0;
+  return c;
+}
+/* 화면용 — 기간 안 주일별 출결 표 (옆으로 밀어서 봄) */
+function periodRosterHtml(r, depts) {
+  const data = periodRoster(r, depts);
+  let h = '<div class="card"><h3>👥 전체 아동 · 날짜별 출결 <span class="sp"></span><small>' + data.total + '명 · 주일 ' + data.sundays.length + '회</small></h3>';
+  if (!data.total) return h + '<p class="muted" style="margin:0">등록된 아동이 없습니다.</p></div>';
+  h += '<p class="muted" style="margin:0 0 8px">○ 출석 · ✕ 결석 · ◎ 인정 · - 미기록 &nbsp;|&nbsp; 표를 옆으로 밀어 보세요. 인쇄는 🖨️ 인쇄 → <b>전체 아동 날짜별 출결</b>을 켜면 됩니다.</p>';
+  data.groups.forEach(g => {
+    h += '<div class="sect-title" style="margin:10px 0 6px">' + esc((g.dept.emoji || '') + ' ' + g.dept.name) + ' <small>' + g.studs.length + '명</small></div>';
+    h += '<div class="tbl-wrap"><table class="tbl annual"><thead><tr><th>반</th><th>이름</th>';
+    data.sundays.forEach(d => { h += '<th class="sun">' + esc(fmtShort(d)) + '</th>'; });
+    h += '<th class="num">출석</th><th class="num">결석</th><th class="num">인정</th><th class="num">출석률</th></tr></thead><tbody>';
+    g.studs.forEach(s => {
+      const c = rosterCountOf(data.mark, s.id, data.sundays);
+      h += '<tr><td>' + esc((classById(s.classId) || {}).name || '-') + '</td><td>' + esc(s.name) + (c.n === data.sundays.length ? '' : '') + '</td>';
+      data.sundays.forEach(d => {
+        const st = data.mark[s.id + '|' + d];
+        h += '<td class="sun att-' + (st || 'none') + '">' + rosterMark(st) + '</td>';
+      });
+      h += '<td class="num">' + c.p + '</td><td class="num">' + c.a + '</td><td class="num">' + c.e + '</td><td class="num"><b>' + c.rate + '%</b></td></tr>';
+    });
+    /* 부서 소계 */
+    const sum = g.studs.reduce((t, s) => { const c = rosterCountOf(data.mark, s.id, data.sundays); t.p += c.p; t.a += c.a; t.e += c.e; t.t += c.t; return t; }, { p: 0, a: 0, e: 0, t: 0 });
+    h += '<tr style="background:#faf7f4"><td colspan="2"><b>소계</b></td>';
+    for (let i = 0; i < data.sundays.length; i++) h += '<td class="sun"></td>';
+    h += '<td class="num"><b>' + sum.p + '</b></td><td class="num"><b>' + sum.a + '</b></td><td class="num"><b>' + sum.e + '</b></td><td class="num"><b>' + (sum.t ? Math.round(((sum.p + sum.e) / sum.t) * 100) : 0) + '%</b></td></tr>';
+    h += '</tbody></table></div>';
+  });
+  h += '</div>';
+  return h;
 }
 function periodStatsHtml(kind, depts) {
   const r = statPeriodRange(kind);
@@ -922,57 +1016,122 @@ function periodStatsHtml(kind, depts) {
     h += '</div>';
   }
 
-  /* 월간·주간은 부서·반별 전체 명단도 함께 */
-  if (kind === 'month' || kind === 'week') {
-    h += '<div class="card"><h3>👥 전체 명단 <span class="sp"></span><small>' + enrolled + '명</small></h3>';
-    if (!enrolled) h += '<p class="muted" style="margin:0">등록된 학생이 없습니다.</p>';
-    else {
-      h += '<div class="tbl-wrap"><table class="tbl"><thead><tr><th>부서</th><th>반</th><th>이름</th><th>생일</th><th class="num">출석</th><th class="num">결석</th><th class="num">출석률</th></tr></thead><tbody>';
-      depts.forEach(d => {
-        studentsOfDeptIn(d.id, r.year).forEach(s => {
-          const rs = rowsAll.filter(a => a.studentId === s.id);
-          const sp = rs.filter(a => a.status === 'present').length, sa = rs.filter(a => a.status === 'absent').length, se = rs.filter(a => a.status === 'excused').length;
-          const st = sp + sa + se;
-          h += '<tr><td>' + esc(d.name) + '</td><td>' + esc((classById(s.classId) || {}).name || '-') + '</td><td>' + esc(s.name) + '</td><td>' + esc(s.birth ? (birthTypeOf(s) === 'lunar' ? '음 ' + (birthMmddOf(s) || '') : birthShort(s.birth)) : '-') + '</td><td class="num">' + sp + '</td><td class="num">' + sa + '</td><td class="num"><b>' + (st ? Math.round(((sp + se) / st) * 100) : 0) + '%</b></td></tr>';
-        });
-      });
-      h += '</tbody></table></div>';
-    }
-    h += '</div>';
-  }
+  /* 기간 안 전체 아동 · 주일별 출결표 */
+  h += periodRosterHtml(r, depts);
   return h;
 }
-function printPeriodStats(kind) {
+/* ================= 기간 통계 인쇄 (선택: 요약 / 전체 아동 날짜별 출결) ================= */
+function printRosterTableHtml(g, sundays, mark) {
+  /* 달 묶음 머리글 — 1월 · 2월 … */
+  const months = [];
+  sundays.forEach(d => {
+    const k = String(d).slice(5, 7);
+    const last = months[months.length - 1];
+    if (last && last.k === k) last.n++;
+    else months.push({ k: k, n: 1 });
+  });
+  let h = '<table class="roster"><colgroup><col class="c-cls"><col class="c-nm">';
+  for (let i = 0; i < sundays.length; i++) h += '<col class="c-d">';
+  h += '<col class="c-t"><col class="c-t"><col class="c-t"><col class="c-r"></colgroup><thead><tr>';
+  h += '<th rowspan="2">반</th><th rowspan="2">이름</th>';
+  months.forEach(m => { h += '<th colspan="' + m.n + '" class="m">' + Number(m.k) + '월</th>'; });
+  h += '<th rowspan="2">출석</th><th rowspan="2">결석</th><th rowspan="2">인정</th><th rowspan="2">출석률</th></tr><tr>';
+  sundays.forEach(d => { h += '<th class="d">' + Number(String(d).slice(5, 7)) + '/' + Number(String(d).slice(8, 10)) + '</th>'; });
+  h += '</tr></thead><tbody>';
+  let sum = { p: 0, a: 0, e: 0, t: 0 };
+  g.studs.forEach(s => {
+    const c = rosterCountOf(mark, s.id, sundays);
+    sum.p += c.p; sum.a += c.a; sum.e += c.e; sum.t += c.t;
+    h += '<tr><td class="cl">' + esc((classById(s.classId) || {}).name || '-') + '</td><td class="nm">' + esc(s.name) + '</td>';
+    sundays.forEach(d => {
+      const st = mark[s.id + '|' + d];
+      h += '<td class="d ' + (st || 'none') + '">' + rosterMark(st) + '</td>';
+    });
+    h += '<td class="t">' + c.p + '</td><td class="t">' + c.a + '</td><td class="t">' + c.e + '</td><td class="t"><b>' + c.rate + '%</b></td></tr>';
+  });
+  h += '<tr class="sub"><td colspan="2">소계 · ' + g.studs.length + '명</td>';
+  for (let i = 0; i < sundays.length; i++) h += '<td class="d"></td>';
+  h += '<td class="t">' + sum.p + '</td><td class="t">' + sum.a + '</td><td class="t">' + sum.e + '</td><td class="t">' + (sum.t ? Math.round(((sum.p + sum.e) / sum.t) * 100) : 0) + '%</td></tr>';
+  h += '</tbody></table>';
+  return h;
+}
+function periodPrintHtml(kind, opts) {
+  opts = opts || {};
+  const withSummary = opts.summary !== false;
+  const withRoster = opts.roster !== false;
   const r = statPeriodRange(kind);
   const depts = visibleDepts();
   const rowsAll = (S.state.attendance || []).filter(a => !a._del && !a.staff && a.date >= r.from && a.date <= r.to && depts.some(d => d.id === a.deptId));
   const p = rowsAll.filter(a => a.status === 'present').length, ab = rowsAll.filter(a => a.status === 'absent').length, ex = rowsAll.filter(a => a.status === 'excused').length;
   const t = p + ab + ex;
   const enrolled = depts.reduce((n, d) => n + studentsOfDeptIn(d.id, r.year).length, 0);
-  let body = '';
-  depts.forEach(d => {
-    const rs = rowsAll.filter(a => a.deptId === d.id);
-    const dp = rs.filter(a => a.status === 'present').length, da = rs.filter(a => a.status === 'absent').length, de = rs.filter(a => a.status === 'excused').length;
-    const dt = dp + da + de;
-    body += '<tr><td>' + esc(d.name) + '</td><td class="num">' + studentsOfDeptIn(d.id, r.year).length + '</td><td class="num">' + dp + '</td><td class="num">' + da + '</td><td class="num">' + de + '</td><td class="num">' + (dt ? Math.round(((dp + de) / dt) * 100) : 0) + '%</td></tr>';
-  });
+  const church = (S.state.settings && S.state.settings.church) || '덕신교회';
+  let h = '<!doctype html><html lang="ko"><head><meta charset="utf-8"><title>통합 출석통계 · ' + esc(r.label) + '</title><style>' +
+    '@page{size:A4 ' + (withRoster ? 'landscape' : 'portrait') + ';margin:8mm}' +
+    'body{font-family:"Malgun Gothic","Apple SD Gothic Neo",sans-serif;color:#222;margin:0}' +
+    'h1{font-size:16px;text-align:center;margin:0 0 2px}h2{font-size:11px;color:#666;text-align:center;margin:0 0 8px;font-weight:600}' +
+    'h3{font-size:11.5px;margin:8px 0 3px}' +
+    '.sum{display:flex;gap:6px;margin:0 0 7px;font-size:10px}.sum div{flex:1;border:1px solid #999;border-radius:5px;padding:4px;text-align:center}.sum b{display:block;font-size:13px}' +
+    '.st{border-collapse:collapse;width:100%;font-size:10.5px;margin-bottom:6px}.st th,.st td{border:1px solid #999;padding:3px 5px}.st th{background:#f2eeea}.st td.num{text-align:right}' +
+    '.roster{border-collapse:collapse;width:100%;table-layout:fixed;font-size:7px;margin-bottom:8px}' +
+    '.roster th,.roster td{border:1px solid #aaa;padding:1px 0;text-align:center;line-height:1.15}' +
+    '.roster thead{display:table-header-group}.roster tr{page-break-inside:avoid}' +
+    '.roster th{background:#f2eeea;font-weight:700}.roster th.m{background:#eae4de}' +
+    '.roster td.cl,.roster td.nm{text-align:left;padding-left:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}' +
+    '.roster td.d.present{color:#137a4b;font-weight:700}.roster td.d.absent{color:#c02a4e;font-weight:700}.roster td.d.excused{color:#8a6d00}.roster td.d.none{color:#bbb}' +
+    '.roster td.t{font-weight:700}.roster tr.sub td{background:#f7f4f1;font-weight:700}' +
+    '.roster col.c-cls{width:44px}.roster col.c-nm{width:64px}.roster col.c-t{width:24px}.roster col.c-r{width:34px}' +
+    '.brk{page-break-before:always}.foot{font-size:8px;color:#999;text-align:center;margin-top:6px}' +
+    '</style></head><body>';
+  h += '<h1>' + esc(church) + ' 교육부서 통합 출석통계</h1>';
+  h += '<h2>' + esc(r.label) + ' · ' + esc(fmtShort(r.from)) + '~' + esc(fmtShort(r.to)) + ' · ' + (canSeeAllDepts() ? '전체 부서' : (depts.length ? depts.map(d => esc(d.name)).join(' · ') : '부서')) + '</h2>';
+  h += '<div class="sum"><div><b>' + (t ? Math.round(((p + ex) / t) * 100) : 0) + '%</b>출석률</div><div><b>' + enrolled + '</b>재적</div><div><b>' + p + '</b>출석</div><div><b>' + ab + '</b>결석</div><div><b>' + ex + '</b>인정</div></div>';
+  if (withSummary) {
+    let body = '';
+    depts.forEach(d => {
+      const rs = rowsAll.filter(a => a.deptId === d.id);
+      const dp = rs.filter(a => a.status === 'present').length, da = rs.filter(a => a.status === 'absent').length, de = rs.filter(a => a.status === 'excused').length;
+      const dt = dp + da + de;
+      body += '<tr><td>' + esc(d.name) + '</td><td class="num">' + studentsOfDeptIn(d.id, r.year).length + '</td><td class="num">' + dp + '</td><td class="num">' + da + '</td><td class="num">' + de + '</td><td class="num">' + (dt ? Math.round(((dp + de) / dt) * 100) : 0) + '%</td></tr>';
+    });
+    h += '<table class="st"><thead><tr><th>부서</th><th>재적</th><th>출석</th><th>결석</th><th>인정</th><th>출석률</th></tr></thead><tbody>' + body +
+      '<tr><td><b>전체</b></td><td class="num"><b>' + enrolled + '</b></td><td class="num"><b>' + p + '</b></td><td class="num"><b>' + ab + '</b></td><td class="num"><b>' + ex + '</b></td><td class="num"><b>' + (t ? Math.round(((p + ex) / t) * 100) : 0) + '%</b></td></tr></tbody></table>';
+  }
+  if (withRoster) {
+    const data = periodRoster(r, depts);
+    h += '<h3>👥 전체 아동 · 날짜별 출결 (○ 출석 · ✕ 결석 · ◎ 인정 · - 미기록) · ' + data.total + '명 · 주일 ' + data.sundays.length + '회</h3>';
+    if (!data.total) h += '<p style="font-size:10px;color:#777">등록된 아동이 없습니다.</p>';
+    else if (!data.sundays.length) h += '<p style="font-size:10px;color:#777">이 기간에 주일이 없습니다.</p>';
+    else {
+      data.groups.forEach((g, i) => {
+        h += '<div class="' + (i ? 'brk' : '') + '"><div style="font-size:10.5px;font-weight:800;margin:4px 0 2px">' + esc((g.dept.emoji || '') + ' ' + g.dept.name) + ' <span style="font-weight:600;color:#777">' + g.studs.length + '명</span></div>';
+        h += printRosterTableHtml(g, data.sundays, data.mark) + '</div>';
+      });
+    }
+  }
+  if (!withSummary && !withRoster) h += '<p style="font-size:11px;text-align:center;color:#777">인쇄할 항목을 골라 주세요.</p>';
+  h += '<p class="foot">' + esc(church) + ' 부서업무 · 인쇄 ' + new Date().toLocaleString('ko-KR') + '</p>' +
+    '<script>window.onload=function(){setTimeout(function(){window.print();},200)}<\/script></body></html>';
+  return h;
+}
+function printPeriodStats(kind, opts) {
   const w = window.open('', '_blank');
   if (!w) return toast('팝업이 차단되었습니다', 'err');
-  const html = '<!doctype html><html lang="ko"><head><meta charset="utf-8"><title>통합 출석통계</title><style>@page{size:A4 portrait;margin:12mm}' +
-    'body{font-family:"Malgun Gothic","Apple SD Gothic Neo",sans-serif;padding:8px;color:#222}h1{font-size:17px;text-align:center;margin:0 0 3px}h2{font-size:11.5px;color:#777;text-align:center;margin:0 0 14px;font-weight:600}' +
-    'table{border-collapse:collapse;width:100%;font-size:11.5px}th,td{border:1px solid #999;padding:6px 7px}th{background:#f2eeea}td.num{text-align:right}tfoot td{font-weight:700;background:#faf7f4}' +
-    '.sum{display:flex;gap:10px;margin:0 0 12px;font-size:11.5px}.sum div{flex:1;border:1px solid #999;border-radius:6px;padding:8px;text-align:center}.sum b{display:block;font-size:15px}' +
-    '</style></head><body><h1>' + esc((S.state.settings && S.state.settings.church) || '덕신교회') + ' 교육부서 통합 출석통계</h1>' +
-    '<h2>' + esc(r.label) + ' · ' + esc(fmtShort(r.from)) + '~' + esc(fmtShort(r.to)) + ' · 전체 부서</h2>' +
-    '<div class="sum"><div><b>' + (t ? Math.round(((p + ex) / t) * 100) : 0) + '%</b>출석률</div><div><b>' + enrolled + '</b>재적</div><div><b>' + p + '</b>출석</div><div><b>' + ab + '</b>결석</div><div><b>' + ex + '</b>인정</div></div>' +
-    '<table><thead><tr><th>부서</th><th>재적</th><th>출석</th><th>결석</th><th>인정</th><th>출석률</th></tr></thead><tbody>' + body +
-    '<tr><td><b>전체</b></td><td class="num"><b>' + enrolled + '</b></td><td class="num"><b>' + p + '</b></td><td class="num"><b>' + ab + '</b></td><td class="num"><b>' + ex + '</b></td><td class="num"><b>' + (t ? Math.round(((p + ex) / t) * 100) : 0) + '%</b></td></tr>' +
-    '</tbody></table>' +
-    '<p style="font-size:9px;color:#999;text-align:center;margin-top:12px">덕신교회 부서업무 · 인쇄 ' + new Date().toLocaleString('ko-KR') + '</p>' +
-    '<script>window.onload=function(){setTimeout(function(){window.print();},200)}<\/script></body></html>';
+  const html = periodPrintHtml(kind, opts);
   w.document.open(); w.document.write(html); w.document.close();
 }
-
+/* 인쇄 옵션 — 요약만 / 전체 아동 날짜별 출결까지 */
+function periodPrintModal(kind) {
+  const k = kind || V.statPeriod || 'month';
+  const labels = { week: '주간', month: '월간', quarter: '분기', half: '반기', year: '연간' };
+  const r = statPeriodRange(k);
+  const data = periodRoster(r, visibleDepts());
+  let h = '<div class="banner sky"><b>' + esc(r.label) + '</b> 기준으로 인쇄합니다.</div>';
+  h += '<div class="field"><label style="display:flex;gap:8px;align-items:center;font-weight:700"><input type="checkbox" id="prSummary" checked style="width:18px;height:18px"> 요약 통계 (부서별 비교 · 출석률)</label></div>';
+  h += '<div class="field"><label style="display:flex;gap:8px;align-items:center;font-weight:700"><input type="checkbox" id="prRoster" checked style="width:18px;height:18px"> 전체 아동 명단 + 날짜별 출결 (' + data.total + '명 · 주일 ' + data.sundays.length + '회)</label><div class="hint">○ 출석 · ✕ 결석 · ◎ 인정 · - 미기록. 명단을 넣으면 A4 가로로 인쇄됩니다.</div></div>';
+  h += '<div class="row" style="margin-top:10px"><button class="btn" data-act="modal-close">취소</button><span class="sp"></span><button class="btn primary" data-act="period-print-go" data-v="' + esc(k) + '">🖨️ 인쇄</button></div>';
+  openModal(labels[k] + ' 통계 인쇄', h);
+}
 function statsView() {
   if (!can('attendance.stat')) return '<div class="card">' + emptyBox('🔒', '출석통계를 볼 권한이 없습니다') + '</div>';
   const ym = statState();
@@ -1223,6 +1382,15 @@ document.addEventListener('click', async function (ev) {
 
       /* --- 출석통계 --- */
       case 'stat-month': V.statMonth = shiftMonth(statState(), Number(t.dataset.v)); renderApp(); return;
+      case 'stat-period-move': V.statMonth = shiftMonth(statState(), Number(t.dataset.v)); renderApp(); return;
+      case 'period-print-go': {
+        const sm = document.getElementById('prSummary');
+        const rs = document.getElementById('prRoster');
+        const opts = { summary: !sm || sm.checked, roster: !rs || rs.checked };
+        closeModal();
+        printPeriodStats(t.dataset.v || V.statPeriod || 'month', opts);
+        return;
+      }
       case 'stat-dept': V.statDept = t.dataset.id; V.statCls = ''; renderApp(); return;
       case 'stat-cls': V.statCls = t.dataset.id; renderApp(); return;
       case 'stat-print': printStatsSafe(); return;
@@ -1240,6 +1408,15 @@ document.addEventListener('change', function (ev) {
   if (t.dataset.change === 'plan-date') {
     const w = document.getElementById('plWeek');
     if (w) w.textContent = (weekOfMonth(t.value) || '-') + '주차';
+  }
+  if (t.dataset.change === 's-birth') {
+    const hint = document.getElementById('sPromoHint');
+    if (hint) {
+      const p = promoOf({ birth: t.value }, curYear());
+      hint.innerHTML = p.age
+        ? '<b>' + curYear() + '년 기준 ' + p.age + '세 · ' + esc(p.label) + '</b> · 진급 부서: <b>' + esc(p.deptName) + '</b>'
+        : '생년월일을 넣으면 나이·학년과 진급 부서를 바로 보여 줍니다.';
+    }
   }
 });
 

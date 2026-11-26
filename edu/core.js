@@ -125,12 +125,103 @@ const PERM_LABELS = [
   ['year.manage', '연도·진급 관리']
 ];
 
+/* 부서는 세 개입니다 — 유치부(7세까지) · 초등부(초1~초6) · 청소년부(중1~고3) */
 const DEFAULT_DEPTS = [
-  { id: 'dept-nursery', name: '유아부', emoji: '🌱', color: '#ffb4a2', note: '', order: 1, active: true, u: 1 },
-  { id: 'dept-kids', name: '유치부', emoji: '🌿', color: '#ffd6a5', note: '', order: 2, active: true, u: 1 },
-  { id: 'dept-elem', name: '초등부', emoji: '🌳', color: '#a8d8b9', note: '', order: 3, active: true, u: 1 },
-  { id: 'dept-teen', name: '중등부', emoji: '🌲', color: '#b8c8ee', note: '', order: 4, active: true, u: 1 }
+  { id: 'dept-kids', name: '유치부', emoji: '🌿', color: '#ffd6a5', note: '', order: 1, active: true, u: 1 },
+  { id: 'dept-elem', name: '초등부', emoji: '🌳', color: '#a8d8b9', note: '', order: 2, active: true, u: 1 },
+  { id: 'dept-teen', name: '청소년부', emoji: '🌲', color: '#b8c8ee', note: '', order: 3, active: true, u: 1 }
 ];
+
+/* ---------------- 부서 이름·자료 호환 (v5) ----------------
+   예전 네 부서(유아부·유치부·초등부·중등부) 자료를 세 부서로 이어 붙입니다.
+   · 유아부(dept-nursery) 자료 → 유치부(dept-kids) 로 병합
+   · 유치부(dept-kids) → 이름 그대로 유치부
+   · 초등부(dept-elem) → 이름 그대로 초등부
+   · 중등부(dept-teen) → 청소년부로 이름 변경
+   저장된 자료(학생·반·출석·주일보고·계정·일정·계획·회계)의 deptId 를 모두 옮겨
+   화면 어디에서도 옛 부서 이름이 보이지 않게 합니다. */
+const DEPT_SCHEMA = 2;
+const DEPT_CANON = DEFAULT_DEPTS.map(d => ({ id: d.id, name: d.name, emoji: d.emoji, color: d.color, order: d.order }));
+const DEPT_ALIAS = { 'dept-nursery': 'dept-kids' };
+const DEPT_OLD_NAMES = { '유아부': 'dept-kids', '중등부': 'dept-teen' };
+function canonDeptId(id) { return DEPT_ALIAS[String(id || '')] || String(id || ''); }
+function canonDeptByName(name) { return DEPT_OLD_NAMES[String(name || '').trim()] || ''; }
+function deptNameCanon(id) { const c = DEPT_CANON.find(x => x.id === canonDeptId(id)); return c ? c.name : ''; }
+/* 지금 상태의 부서·자료를 세 부서 기준으로 맞춥니다. 바뀐 항목 수를 돌려줍니다. */
+function normalizeDeptRefs(includeMe) {
+  const st = S.state;
+  if (!st || !Array.isArray(st.departments)) return 0;
+  const now = Date.now();
+  let changed = 0;
+
+  /* 1) 부서 목록 — 같은 부서로 합쳐지면 이름이 제대로 된 쪽(정식 id)을 남깁니다 */
+  const picks = {};
+  const extras = [];
+  const tomb = [];
+  st.departments.forEach(d => {
+    if (!d || !d.id) return;
+    if (d._del) { tomb.push(d); return; }
+    let tid = canonDeptId(d.id);
+    if (!DEPT_CANON.some(c => c.id === tid)) tid = canonDeptByName(d.name) || tid;
+    if (DEPT_CANON.some(c => c.id === tid)) {
+      const prev = picks[tid];
+      if (!prev) picks[tid] = d;
+      else {
+        /* 정식 id 를 가진 기록을 우선하고, 메모는 비어 있지 않은 쪽을 씁니다 */
+        const better = (d.id === tid && prev.id !== tid) ? d : prev;
+        const other = better === d ? prev : d;
+        if (!better.note && other.note) better.note = other.note;
+        picks[tid] = better;
+      }
+    } else {
+      extras.push(d);
+    }
+  });
+  const next = [];
+  DEPT_CANON.forEach(c => {
+    const cur = picks[c.id];
+    const d = cur || { id: c.id, note: '', active: true, u: 0 };
+    if (d.id !== c.id || d.name !== c.name || d.emoji !== c.emoji || d.color !== c.color || d.order !== c.order || d.active === false) {
+      d.id = c.id; d.name = c.name; d.emoji = c.emoji; d.color = c.color; d.order = c.order; d.active = true;
+      d.u = now; changed++;
+    }
+    next.push(d);
+  });
+  extras.sort((a, b) => (a.order || 0) - (b.order || 0)).forEach(d => {
+    d.order = (d.order || 0) > 3 ? d.order : next.length + 1;
+    next.push(d);
+  });
+  /* 지운 부서 기록은 남겨 두어 다른 기기와 어긋나지 않게 합니다 */
+  tomb.forEach(d => next.push(d));
+  st.departments = next;
+
+  /* 2) 자료의 deptId 옮기기 */
+  const fix = rec => {
+    if (!rec || !rec.deptId) return;
+    const t = canonDeptId(rec.deptId);
+    if (t !== rec.deptId) { rec.deptId = t; rec.u = Math.max(Number(rec.u) || 0, now); changed++; }
+  };
+  ['classes', 'students', 'attendance', 'reports', 'notices', 'feeds', 'events', 'plans', 'ledger'].forEach(key => {
+    (st[key] || []).forEach(fix);
+  });
+  /* 반이 옮겨진 학생은 반의 부서를 따라갑니다 */
+  const clsDept = {};
+  (st.classes || []).forEach(c => { if (c && c.id && !c._del) clsDept[c.id] = c.deptId; });
+  (st.students || []).forEach(s => {
+    if (!s || s._del) return;
+    const cd = clsDept[s.classId];
+    if (cd && s.deptId !== cd) { s.deptId = cd; s.u = Math.max(Number(s.u) || 0, now); changed++; }
+  });
+
+  /* 3) 내 계정의 부서 */
+  if (includeMe && S.me) {
+    const before = JSON.stringify(S.me.depts || []);
+    S.me.depts = Array.from(new Set((S.me.depts || []).map(canonDeptId)));
+    if (JSON.stringify(S.me.depts) !== before) changed++;
+  }
+  st.deptSchema = DEPT_SCHEMA;
+  return changed;
+}
 
 function emptyState(seed) {
   return {
@@ -203,12 +294,13 @@ async function listAccounts() {
     if (info.kind !== 'active') {
       const a = info.app || {};
       out.push({ uid: String(row.uid), salt: row.salt, wrap: row.wrap, status: info.kind,
-        rec: { id: a.id || '?', name: a.name || '(이름 없음)', roles: a.roles || [], depts: a.depts || [], classes: a.classes || [], students: [] },
+        rec: { id: a.id || '?', name: a.name || '(이름 없음)', roles: a.roles || [], depts: (a.depts || []).map(canonDeptId), classes: a.classes || [], students: [] },
         app: a, note: info.note || '', updated: Number(row.updated) || 0 });
       continue;
     }
     let rec = null;
     try { rec = await Crypto.openJson(S.dek, JSON.parse(row.rec)); } catch (e) { rec = { id: '?', name: '(읽을 수 없음)', roles: [] }; }
+    if (rec && Array.isArray(rec.depts)) rec.depts = Array.from(new Set(rec.depts.map(canonDeptId)));
     out.push({ uid: String(row.uid), salt: row.salt, wrap: row.wrap, rec: rec, status: 'active', updated: Number(row.updated) || 0 });
   }
   out.sort((a, b) => (a.rec.name || '').localeCompare(b.rec.name || '', 'ko'));
@@ -262,6 +354,7 @@ function mergeState(local, remote) {
     });
     local[key] = Array.from(map.values());
   });
+  local.deptSchema = Math.max(Number(local.deptSchema) || 0, Number(remote.deptSchema) || 0);
   local.people = Object.assign({}, remote.people || {}, local.people || {});
   /* 연도 목록은 양쪽을 합칩니다 */
   const ymap = {};
@@ -275,6 +368,8 @@ function mergeState(local, remote) {
   local.settings = (Number(rs.updatedAt) || 0) > (Number(ls.updatedAt) || 0) ? Object.assign({}, ls, rs) : Object.assign({}, rs, ls);
   // 부서에 없는 옛 역할 키가 있으면 기본값 유지
   if (!(local.roles || []).length) local.roles = JSON.parse(JSON.stringify(DEFAULT_ROLES));
+  /* 예전 부서 이름(유아부·중등부) 자료를 세 부서로 이어 붙입니다 */
+  try { normalizeDeptRefs(false); } catch (e) { }
   return local;
 }
 
@@ -305,6 +400,7 @@ const Sync = {
   async save() {
     if (!Api.on()) { setSync('off', '동기화 꺼짐'); return false; }
     if (!S.dek) return false;
+    try { normalizeDeptRefs(true); } catch (e) { }
     if (this.busy) { this.again = true; return false; }
     this.busy = true;
     setSync('saving', '저장 중…');
@@ -422,7 +518,7 @@ function scopeDeptIds() {
   if (!S.me) return [];
   const base = roleDef(S.roleKey).base;
   if (permsOf(S.roleKey)['user.manage'] || base === 'pastor' || base === 'admin') return 'all';
-  const list = (S.me.depts || []).slice();
+  const list = (S.me.depts || []).map(canonDeptId).filter(Boolean);
   if (base === 'parent') {
     (S.me.students || []).forEach(sid => {
       const st = (S.state.students || []).find(x => x.id === sid);
@@ -552,6 +648,47 @@ function syncYearToDate(d) {
   if (typeof V !== 'undefined') { V.planMonth = ''; V.ledMonth = ''; V.statMonth = ''; V.statYear = 0; V.cls = ''; V.statCls = ''; }
   saveSession();
   return true;
+}
+
+/* ================= 나이·학년 (진급 판정) =================
+   사용자 기준: 유치부는 7세까지, 초등부는 6학년까지, 청소년부는 고등학교까지.
+   한국 나이 = 그 해 - 출생연도 + 1. 8세=초1 … 13세=초6, 14세=중1 … 19세=고3, 20세부터 졸업. */
+function birthYearOf(rec) {
+  const m = String((rec && (rec.birth || rec.birthYear)) || '').match(/(\d{4})/);
+  return m ? Number(m[1]) : 0;
+}
+function ageInYear(rec, year) {
+  const by = birthYearOf(rec);
+  const y = Number(year) || curYear();
+  return by ? (y - by + 1) : 0;
+}
+function gradeLabelOfAge(age) {
+  const a = Number(age) || 0;
+  if (!a) return '';
+  if (a <= 7) return a + '세';
+  if (a <= 13) return '초' + (a - 7);
+  if (a <= 16) return '중' + (a - 13);
+  if (a <= 19) return '고' + (a - 16);
+  return '졸업';
+}
+function ageLabelOf(rec, year) { return gradeLabelOfAge(ageInYear(rec, year)); }
+/* 나이에 맞는 부서 id — '' (생년월일 없음) 또는 'graduate'(20세 이상) */
+function deptIdForAge(age) {
+  const a = Number(age) || 0;
+  if (!a) return '';
+  if (a <= 7) return 'dept-kids';
+  if (a <= 13) return 'dept-elem';
+  if (a <= 19) return 'dept-teen';
+  return 'graduate';
+}
+/* 그 해 기준 진급 판정 — {age, label, deptId, deptName} */
+function promoOf(student, year) {
+  const age = ageInYear(student, year);
+  const deptId = deptIdForAge(age);
+  return {
+    age: age, label: gradeLabelOfAge(age), deptId: deptId,
+    deptName: deptId === 'graduate' ? '졸업' : (deptNameCanon(deptId) || deptId)
+  };
 }
 
 /* ================= 가입 신청 · 승인용 열쇠 교환 (RSA-OAEP + PBKDF2) =================

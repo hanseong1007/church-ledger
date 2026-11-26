@@ -236,7 +236,7 @@ select { appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmln
 .pre { white-space: pre-wrap; line-height: 1.65; font-size: 14px; }
 .notice-body { background: var(--peach); border-radius: 13px; padding: 13px; margin-top: 8px; }
 .banner {
-  display: flex; gap: 10px; align-items: center; padding: 12px 13px; border-radius: 14px; font-size: 12.5px; font-weight: 700;
+  display: block; padding: 12px 13px; border-radius: 14px; font-size: 12.5px; font-weight: 700;
   background: var(--amber-s); color: #8a6114; border: 1px solid #f3e2b8; margin-bottom: 12px; line-height: 1.5;
 }
 .banner.coral { background: var(--coral-s); color: #c14a3b; border-color: #ffd3c8; }

@@ -551,11 +551,11 @@ function pastorHubView() {
     const per = V.statPeriod || 'month';
     h += '<div class="card flat" style="padding:12px">';
     h += '<div class="row wrap" style="gap:6px;margin-bottom:9px">';
-    [['week', '주간'], ['month', '월간'], ['half', '반기'], ['year', '연간']].forEach(x => {
+    [['week', '주간'], ['month', '월간'], ['quarter', '분기'], ['half', '반기'], ['year', '연간']].forEach(x => {
       h += '<button class="chip big ' + (per === x[0] ? 'coral' : 'gray') + '" data-act="stat-period" data-v="' + x[0] + '">' + x[1] + '</button>';
     });
     h += '<span class="sp" style="flex:1"></span><button class="btn sm" data-act="period-print">🖨️ 인쇄</button></div>';
-    h += per === 'year' ? yearBar() : monthBar('statMonth', statState(), 'stat-month');
+    h += periodNavBar(per);
     h += '</div>';
     h += periodStatsHtml(per, visibleDepts());
     return h;
@@ -809,7 +809,10 @@ function membersView() {
     h += '<div class="list">';
     if (!studs.length) h += '<p class="muted" style="margin:0">학생이 없습니다.</p>';
     studs.forEach(s => {
-      h += '<button class="item" data-act="edit-student" data-id="' + esc(s.id) + '"><span class="av">' + esc((s.name || '?').slice(0, 1)) + '</span><span class="tx"><b>' + esc(s.name) + (s.guardianUid ? ' <span class="chip mint">학부모 연결</span>' : (s.guardianName ? ' <span class="chip amber">연결 필요</span>' : '')) + '</b><span>' + (s.birth ? esc(birthShort(s.birth)) + ' · ' : '') + esc(s.guardianName || '보호자 미등록') + (s.guardianPhone ? ' · ' + esc(s.guardianPhone) : '') + '</span></span><span class="rt"><span class="chip gray">' + esc(s.gender === 'm' ? '남' : s.gender === 'f' ? '여' : '') + '</span></span></button>';
+      const pr = promoOf(s, curYear());
+      const gradeTxt = pr.age ? esc(pr.label) : '';
+      const moveTxt = (pr.deptId && pr.deptId !== s.deptId && pr.deptId !== 'graduate') ? ' · <span class="chip amber" style="margin-left:4px">' + esc(pr.deptName) + ' 진급</span>' : (pr.deptId === 'graduate' ? ' · <span class="chip gray" style="margin-left:4px">졸업</span>' : '');
+      h += '<button class="item" data-act="edit-student" data-id="' + esc(s.id) + '"><span class="av">' + esc((s.name || '?').slice(0, 1)) + '</span><span class="tx"><b>' + esc(s.name) + (gradeTxt ? ' <span class="chip sky">' + gradeTxt + '</span>' : '') + (s.guardianUid ? ' <span class="chip mint">학부모 연결</span>' : (s.guardianName ? ' <span class="chip amber">연결 필요</span>' : '')) + '</b><span>' + (s.birth ? esc(birthShort(s.birth)) + ' · ' : '') + esc(s.guardianName || '보호자 미등록') + (s.guardianPhone ? ' · ' + esc(s.guardianPhone) : '') + moveTxt + '</span></span><span class="rt"><span class="chip gray">' + esc(s.gender === 'm' ? '남' : s.gender === 'f' ? '여' : '') + '</span></span></button>';
     });
     h += '</div>';
     h += '<button class="btn block sm" style="margin-top:8px" data-act="new-student" data-cls="' + esc(c.id) + '">＋ 학생 추가</button>';
@@ -889,14 +892,22 @@ function adminUsers() {
 
 function adminDepts() {
   const all = (S.state.departments || []).filter(d => !d._del).sort((a, b) => (a.order || 0) - (b.order || 0));
-  let h = '<div class="row" style="margin-bottom:10px"><button class="btn primary sm" data-act="new-dept">＋ 부서 추가</button></div><div class="list">';
+  let h = '<div class="banner sky">교육부서는 <b>유치부 · 초등부 · 청소년부</b> 세 부서로 운영됩니다. (유치부 7세까지 · 초등부 초6까지 · 청소년부 고3까지) 예전 유아부·중등부 자료는 자동으로 유치부·청소년부로 이어 받았습니다.</div>';
+  h += '<div class="list">';
   all.forEach(d => {
     const n = studentsOfDept(d.id).length;
-    h += '<div class="item"><span class="av" style="background:' + esc(d.color) + '44">' + esc(d.emoji || '📖') + '</span><span class="tx"><b>' + esc(d.name) + '</b><span>학생 ' + n + '명 · 반 ' + classesOfDept(d.id).length + '개</span></span><span class="rt"><button class="btn sm" data-act="edit-dept" data-id="' + esc(d.id) + '">수정</button></span></div>';
+    h += '<div class="item"><span class="av" style="background:' + esc(d.color) + '44">' + esc(d.emoji || '📖') + '</span><span class="tx"><b>' + esc(d.name) + '</b><span>학생 ' + n + '명 · 반 ' + classesOfDept(d.id).length + '개</span></span><span class="rt"><span class="chip gray">' + esc(ageRangeOfDept(d.id)) + '</span></span></div>';
   });
   h += '</div>';
-  h += '<p class="muted" style="margin-top:10px">부서를 추가하면 출석·주일보고·알림장에 바로 나타납니다.</p>';
+  h += '<p class="muted" style="margin-top:10px">학생은 생년월일로 나이·학년이 계산되어 [연도·진급 → 2차 부서 진급]에서 부서가 정해집니다.</p>';
   return h;
+}
+function ageRangeOfDept(id) {
+  const c = canonDeptId(id);
+  if (c === 'dept-kids') return '7세까지';
+  if (c === 'dept-elem') return '초1~초6';
+  if (c === 'dept-teen') return '중1~고3';
+  return '';
 }
 
 function adminRoles() {
@@ -1120,9 +1131,13 @@ function studentModal(s, classId) {
   let h = '';
   h += '<div class="field"><label>이름</label><input id="sName" value="' + esc(st.name) + '" placeholder="학생 이름"></div>';
   h += '<div class="row wrap" style="gap:6px;margin-bottom:5px"><button type="button" class="chip big ' + (bt === 'solar' ? 'coral' : 'gray') + '" data-act="s-birth-type" data-v="solar">양력</button><button type="button" class="chip big ' + (bt === 'lunar' ? 'coral' : 'gray') + '" data-act="s-birth-type" data-v="lunar">음력</button></div>';
-  h += '<div class="grid2"><div class="field"><label id="sBirthLabel">생년월일 ' + (bt === 'lunar' ? '(음력)' : '(양력)') + '</label><input id="sBirth" type="date" value="' + esc(st.birth) + '"><div class="hint">부서 일정에 🎂 생일이 매년 자동 등록됩니다.</div></div>';
+  h += '<div class="grid2"><div class="field"><label id="sBirthLabel">생년월일 ' + (bt === 'lunar' ? '(음력)' : '(양력)') + '</label><input id="sBirth" type="date" value="' + esc(st.birth) + '" data-change="s-birth"><div class="hint">부서 일정에 🎂 생일이 매년 자동 등록됩니다.</div></div>';
   h += '<div class="field"><label>성별</label><select id="sGender">' + opts([['', '선택'], ['m', '남'], ['f', '여']], st.gender) + '</select></div></div>';
   h += '<div class="field"><label>반</label><select id="sClass">' + opts([['', '반 미지정']].concat(cls.map(c => [c.id, ((deptById(c.deptId) || {}).name || '') + ' ' + c.name])), st.classId) + '</select></div>';
+  const pr0 = promoOf(st, curYear());
+  h += '<div class="banner sky" id="sPromoHint" style="margin-top:-2px">' + (pr0.age
+    ? '<b>' + curYear() + '년 기준 ' + pr0.age + '세 · ' + esc(pr0.label) + '</b> · 진급 부서: <b>' + esc(pr0.deptName) + '</b>'
+    : '생년월일을 넣으면 나이·학년과 진급 부서를 바로 보여 줍니다.') + '</div>';
   h += '<div class="grid2"><div class="field"><label>보호자</label><input id="sGuardian" value="' + esc(st.guardianName || '') + '" placeholder="학부모 이름"></div>';
   h += '<div class="field"><label>연락처</label><input id="sPhone" type="tel" value="' + esc(st.guardianPhone || '') + '" placeholder="010-0000-0000"></div></div>';
   h += '<div class="field"><label>신입(새신자)</label><button type="button" class="chip big ' + (V.stuNewcomer ? 'amber' : 'gray') + '" data-act="s-newcomer">' + (V.stuNewcomer ? '★ 신입으로 표시됨' : '☆ 신입으로 표시') + '</button><div class="hint">출석 화면의 ☆신입 단추로도 그 주일만 신입으로 표시할 수 있습니다.</div></div>';

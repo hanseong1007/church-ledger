@@ -94,7 +94,7 @@ async function doLogin() {
     }
 
     S.dek = dek; S.wkRaw = raw;
-    S.me = { uid: uid, id: rec.id, name: rec.name, roles: rec.roles || [], depts: rec.depts || [], classes: rec.classes || [], students: rec.students || [], birth: rec.birth || '', grants: rec.grants || {}, birthType: birthTypeOf(rec), birthLunar: rec.birthLunar || '', status: accountStatusOf(rec), statusNote: rec.statusNote || '' };
+    S.me = { uid: uid, id: rec.id, name: rec.name, roles: rec.roles || [], depts: Array.from(new Set((rec.depts || []).map(canonDeptId))), classes: rec.classes || [], students: rec.students || [], birth: rec.birth || '', grants: rec.grants || {}, birthType: birthTypeOf(rec), birthLunar: rec.birthLunar || '', status: accountStatusOf(rec), statusNote: rec.statusNote || '' };
     S.chosen = [];
     S.roleKey = highestRoleKey(S.me.roles);
     S.screen = 'home';
@@ -119,10 +119,12 @@ async function afterLogin() {
   S.ready = false;
   await Sync.pull(true);
   S.ready = true;
+  /* 예전 부서(유아부·중등부) 자료를 세 부서로 이어 붙입니다 */
+  const deptFix = normalizeDeptRefs(true);
   const before = JSON.stringify(S.state.people || {});
   rememberMe();
   const isAdmin = roleDef(S.roleKey).base === 'admin';
-  if (S.rev === 0 || before !== JSON.stringify(S.state.people || {})) {
+  if (S.rev === 0 || deptFix || before !== JSON.stringify(S.state.people || {})) {
     // 첫 자료(관리자)이거나 내 이름 정보가 시트에 없을 때 한 번 올린다
     await Sync.save();
   }
@@ -141,6 +143,10 @@ async function afterLogin() {
   V.stuBirthType = '';
   V.stuNewcomer = false;
   V.gradeOpen = false;
+  V.rollOpen = false;
+  V.promoteOpen = false;
+  V.rollYear = 0;
+  V.promoSel = {};
   V.gradeAccts = undefined;
   V.gradeTeachers = {};
   const ds = visibleDepts();

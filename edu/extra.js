@@ -70,6 +70,7 @@ async function updateAccountRec(uid, mutate) {
   if (info.kind !== 'active') throw new Error('아직 첫 로그인 전인 계정입니다. 본인이 한 번 로그인한 뒤 지정할 수 있습니다.');
   const rec = await Crypto.openJson(S.dek, JSON.parse(row.rec));
   mutate(rec);
+  if (Array.isArray(rec.depts)) rec.depts = Array.from(new Set(rec.depts.map(canonDeptId)));
   rec.at = Date.now();
   const sealed = await Crypto.sealJson(S.dek, rec);
   await saveAccountRow({ uid: String(row.uid), salt: row.salt, wrap: row.wrap, rec: JSON.stringify(sealed), rev: Date.now(), updated: Date.now(), deleted: row.deleted || '' });
@@ -99,7 +100,7 @@ async function refreshMyAccount() {
     const pick = () => JSON.stringify({ c: S.me.classes || [], d: S.me.depts || [], g: S.me.grants || {}, s: S.me.students || [], n: S.me.name, r: S.me.roles || [] });
     const before = pick();
     S.me = Object.assign({}, S.me, {
-      name: rec.name || S.me.name, roles: rec.roles || [], depts: rec.depts || [], classes: rec.classes || [],
+      name: rec.name || S.me.name, roles: rec.roles || [], depts: Array.from(new Set((rec.depts || []).map(canonDeptId))), classes: rec.classes || [],
       students: rec.students || [], grants: rec.grants || {}, birth: rec.birth || '',
       birthType: birthTypeOf(rec), birthLunar: rec.birthLunar || '',
       status: accountStatusOf(rec), statusNote: rec.statusNote || ''
@@ -917,7 +918,13 @@ document.addEventListener('click', async function (ev) {
       /* --- 통계 / 연간 출석부 --- */
       case 'stat-view': V.statView = t.dataset.v; renderApp(); return;
       case 'pastor-tab': V.pastorTab = t.dataset.v; renderApp(); return;
-      case 'stat-year': V.statYear = Number(statYear()) + Number(t.dataset.v); renderApp(); return;
+      case 'stat-year': {
+        const ny = Number(statYear()) + Number(t.dataset.v);
+        V.statYear = ny;
+        V.statMonth = ny + '-01';
+        renderApp();
+        return;
+      }
       case 'annual-csv': annualCsv(); return;
       case 'annual-print': printAnnual(); return;
 
