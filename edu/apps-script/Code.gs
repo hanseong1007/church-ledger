@@ -68,6 +68,8 @@ function handle(action, b) {
       out = authLogin_(b);
     } else if (action === 'auth_adopt') {
       out = authAdopt_(b);
+    } else if (action === 'setup_state') {
+      out = { ok: true, exists: !acctTabEmpty_() };
     } else if (action === 'signup_check') {
       out = signupCheck_(b);
     } else if (action === 'acct_get') {

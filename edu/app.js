@@ -1009,8 +1009,9 @@ async function boot() {
   if (!Api.on()) { showLogin('동기화 서버 주소가 설정되지 않았습니다.'); return; }
   let accountsExist = true;
   try {
-    const r = await Api.call({ action: 'acct_list' }, 12000);
-    accountsExist = !!(r.ok && (r.rows || []).filter(x => String(x.deleted) !== '1').length);
+    /* 보안(2026-11-27): 로그인 전에는 계정 목록을 받지 않고, 서버에 '계정이 있는지'만 물어봅니다. */
+    const r = await Api.call({ action: 'setup_state' }, 12000);
+    if (r && r.ok) accountsExist = !!r.exists;
   } catch (e) {
     showLogin('동기화 서버에 연결하지 못했습니다: ' + ((e && e.message) || e));
     return;
