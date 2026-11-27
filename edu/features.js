@@ -956,7 +956,7 @@ function ledgerBookBody() {
 
   h += '<div class="stat-grid" style="margin-bottom:12px"><div class="stat present"><b>' + money(inc) + '</b><span>이번 달 수입</span></div><div class="stat absent"><b>' + money(exp) + '</b><span>이번 달 지출</span></div><div class="stat enroll"><b>' + money(inc - exp) + '</b><span>이번 달 수지</span></div><div class="stat new"><b>' + money(cumInc - cumExp) + '</b><span>누계 잔액</span></div></div>';
 
-  h += '<div class="row" style="margin-bottom:10px"><button class="btn primary" data-act="new-ledger" data-type="in">＋ 수입 기록</button><button class="btn" data-act="new-ledger" data-type="out">－ 지출 기록</button></div>';
+  h += '<div class="row" style="margin-bottom:10px"><button class="btn primary" data-act="new-ledger" data-type="in">＋ 수입 기록</button><button class="btn" data-act="new-ledger" data-type="out">－ 지출 기록</button><button class="btn ghost" data-act="lgimp-open">📥 엑셀 올리기</button></div>';
 
   if (!list.length) h += '<div class="card">' + emptyBox('💰', '이 달 회계 기록이 없습니다', '수입·지출을 기록하면 주일보고 수입란에 자동으로 연결됩니다') + '</div>';
   else {

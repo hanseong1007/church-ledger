@@ -288,6 +288,22 @@ textarea.inp{height:auto;min-height:64px;padding:10px 12px;line-height:1.5;resiz
 .tab .svg{width:21px;height:21px;stroke-width:1.85}
 .tab.on{color:var(--brand)}
 .tab.on:before{content:"";position:absolute;top:0;width:26px;height:3px;border-radius:0 0 3px 3px;background:var(--gold)}
+/* 2026-11-28: 회계 하위 화면(장부·통계·항목별 조회·연말 결산·예산) */
+.subnav{max-width:860px;margin:0 auto;padding:8px 12px 0}
+.subnav-in{display:flex;gap:6px;overflow-x:auto;-webkit-overflow-scrolling:touch;padding:2px 0 8px;scrollbar-width:none}
+.subnav-in::-webkit-scrollbar{display:none}
+.pill{flex:0 0 auto;height:38px;padding:0 13px;border-radius:999px;border:1px solid var(--line);background:var(--surface);font-size:13px;font-weight:800;color:var(--ink2);white-space:nowrap;box-shadow:var(--shadow)}
+.pill:active{transform:scale(.97)}
+.pill.on{background:var(--brand-soft);border-color:var(--brand-line);color:var(--brand-dark)}
+.seg2{display:grid;grid-template-columns:1fr 1fr;gap:3px;border:1px solid var(--line);border-radius:12px;background:var(--surface2);padding:3px}
+.seg2 button{height:36px;border:0;border-radius:9px;background:transparent;font-size:13px;font-weight:800;color:var(--muted)}
+.seg2 button.on{background:var(--surface);color:var(--brand-dark);box-shadow:0 1px 3px rgba(0,0,0,.08)}
+.brow{display:grid;grid-template-columns:1fr 124px 34px;gap:6px;margin-bottom:6px;align-items:center}
+.brow .inp{height:38px;font-size:13.5px}
+.brow .ibtn{width:34px;height:34px}
+.pv-row{display:flex;gap:8px;font-size:13px;padding:5px 0;border-bottom:1px dashed var(--line2)}
+.pv-row span{color:var(--muted);font-weight:600}
+.pv-row b{margin-left:auto;font-variant-numeric:tabular-nums}
 
 /* ============================================================
    입력 시트
@@ -552,6 +568,16 @@ textarea.inp{height:auto;min-height:64px;padding:10px 12px;line-height:1.5;resiz
 </div>
 
 <main>
+  <!-- 2026-11-28: 회계 하위 화면 — 부서업무 앱의 회계 화면과 같은 구성 -->
+  <div class="subnav no-print" id="subNav" hidden>
+    <div class="subnav-in" role="tablist" aria-label="회계 화면">
+      <button class="pill on" type="button" role="tab" data-mode="ledger">📒 장부</button>
+      <button class="pill" type="button" role="tab" data-mode="stat">📊 통계</button>
+      <button class="pill" type="button" role="tab" data-mode="item">📄 항목별 조회</button>
+      <button class="pill" type="button" role="tab" data-mode="budget">📅 연말 결산·예산</button>
+    </div>
+  </div>
+
   <!-- ===================== 1. 장부 ===================== -->
   <section class="view active" id="view-ledger" aria-label="수입·지출 장부">
     <div class="print-only print-head">
@@ -814,16 +840,37 @@ textarea.inp{height:auto;min-height:64px;padding:10px 12px;line-height:1.5;resiz
       <div id="userList" style="margin-top:9px"></div>
     </div>
 
+    <div class="card" id="importCard" hidden>
+      <div class="card-head"><h2>엑셀 장부 올리기</h2><span class="count">관리자</span></div>
+      <p class="hint">엑셀(.xlsx)·CSV 파일의 <b>Sheet1</b>을 읽어 장부에 넣습니다. 머리글에 <b>날짜·항목·내용·수입·지출</b>(누계가 있으면 함께) 칸이 있어야 합니다.</p>
+      <div class="btnrow" style="margin-top:10px">
+        <button class="btn sm line" type="button" id="btnPickXlsx">📥 엑셀 파일 고르기</button>
+      </div>
+      <input type="file" id="fileXlsx" accept=".xlsx,.csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/csv" hidden>
+      <div id="importBox" style="margin-top:10px"></div>
+    </div>
+
     <div class="card">
       <div class="card-head"><h2>사용 안내</h2></div>
       <p class="hint" style="line-height:1.65">
         ① <b>장부</b> 탭에서 수입·지출을 기록하고 영수증 사진을 붙입니다.<br>
         ② <b>월간</b> 탭에서 달마다 결산을 확인하고 A4로 인쇄하거나 PDF로 저장합니다.<br>
-        ③ <b>연간</b> 탭에서 1~12월 결산을 보고 엑셀(CSV)·백업(JSON)으로 내보냅니다.<br>
-        ④ 홈 화면에 추가하면 앱처럼 전체 화면으로 열립니다(삼성 인터넷·크롬 메뉴 → 홈 화면에 추가).
+        ③ <b>통계</b>·<b>항목별 조회</b>에서 월간·연간 항목 합계와 행사별 수입·지출을 보고 인쇄합니다.<br>
+        ④ <b>연말 결산·예산</b>에서 올해 결산과 다음 해 예산을 만들고 A4로 인쇄합니다.<br>
+        ⑤ <b>연간</b> 탭에서 1~12월 결산을 보고 엑셀(CSV)·백업(JSON)으로 내보냅니다.<br>
+        ⑥ 홈 화면에 추가하면 앱처럼 전체 화면으로 열립니다(삼성 인터넷·크롬 메뉴 → 홈 화면에 추가).
       </p>
     </div>
   </section>
+
+  <!-- ===================== 5. 통계 ===================== -->
+  <section class="view" id="view-stat" aria-label="통계"><div id="statBody"></div></section>
+
+  <!-- ===================== 6. 항목별 조회 ===================== -->
+  <section class="view" id="view-item" aria-label="항목별 조회"><div id="itemBody"></div></section>
+
+  <!-- ===================== 7. 연말 결산·예산 ===================== -->
+  <section class="view" id="view-budget" aria-label="연말 결산·예산"><div id="budgetBody"></div></section>
 </main>
 
 <nav class="tabbar" aria-label="주요 화면">
@@ -962,6 +1009,7 @@ textarea.inp{height:auto;min-height:64px;padding:10px 12px;line-height:1.5;resiz
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 </div><!-- /appRoot -->
 
+<script src="sheet-import.js"></script>
 <script>
 (function(){
   "use strict";
@@ -983,6 +1031,7 @@ textarea.inp{height:auto;min-height:64px;padding:10px 12px;line-height:1.5;resiz
       settings: { org: "", author: "", base: 0 },
       accounts: { income: DEFAULT_ACCOUNTS.income.slice(), expense: DEFAULT_ACCOUNTS.expense.slice() },
       entries: [],
+      budgets: [],
       tombstones: {}
     };
   }
@@ -1012,6 +1061,19 @@ textarea.inp{height:auto;min-height:64px;padding:10px 12px;line-height:1.5;resiz
         updatedAt: Number(e.updatedAt) || Number(e.created) || Date.parse(e.date) || 0
       };
     }).filter(function(e){ return e.amount > 0; });
+    /* 2026-11-28: 다음 해 예산(연말 결산·예산 화면) — 장부 기록과 따로 둡니다 */
+    var bs = Array.isArray(s.budgets) ? s.budgets : [];
+    f.budgets = bs.map(function(b){
+      return {
+        id: String((b && b.id) || uid()),
+        year: Math.round(Number(b && b.year) || 0),
+        type: (b && b.type === "expense") ? "expense" : "income",
+        account: isStr(b && b.account) ? b.account : "",
+        amount: Math.max(0, Math.round(Number(b && b.amount) || 0)),
+        created: Number(b && b.created) || 0,
+        updatedAt: Number(b && b.updatedAt) || 0
+      };
+    }).filter(function(b){ return b.year > 1900; });
     var tb = s.tombstones;
     if (tb && typeof tb === "object"){
       Object.keys(tb).forEach(function(id){
@@ -1184,17 +1246,31 @@ textarea.inp{height:auto;min-height:64px;padding:10px 12px;line-height:1.5;resiz
 
   function showTab(name){
     current.tab = name;
-    ["ledger","month","year","settings"].forEach(function(t){
+    var all = ["ledger","month","year","settings","stat","item","budget"];
+    all.forEach(function(t){
       var v = $("view-"+t);
       if (v) v.classList.toggle("active", t === name);
     });
+    /* 회계 하위 화면은 아래 탭바의 '장부'에 묶습니다 */
+    var bottom = (name === "stat" || name === "item" || name === "budget") ? "ledger" : name;
     document.querySelectorAll(".tab").forEach(function(b){
-      b.classList.toggle("on", b.dataset.tab === name);
+      b.classList.toggle("on", b.dataset.tab === bottom);
     });
+    var sub = $("subNav");
+    if (sub){
+      sub.hidden = !(name === "ledger" || name === "stat" || name === "item" || name === "budget");
+      sub.querySelectorAll("[data-mode]").forEach(function(b){
+        b.classList.toggle("on", b.getAttribute("data-mode") === name);
+        b.setAttribute("aria-selected", b.getAttribute("data-mode") === name ? "true" : "false");
+      });
+    }
     if (name === "ledger") renderLedger();
     if (name === "month") renderMonth();
     if (name === "year") renderYear();
     if (name === "settings") renderSettings();
+    if (name === "stat") renderStat();
+    if (name === "item") renderItem();
+    if (name === "budget") renderBudget();
     window.scrollTo(0,0);
   }
 
@@ -1506,6 +1582,8 @@ textarea.inp{height:auto;min-height:64px;padding:10px 12px;line-height:1.5;resiz
     var isAdmin = !!(CURRENT_USER && CURRENT_USER.role === "admin");
     $("dataAdminRow").hidden = !isAdmin;
     $("dataAdminHint").hidden = isAdmin;
+    var ic = $("importCard");
+    if (ic) ic.hidden = !isAdmin;
     if (CURRENT_USER && CURRENT_USER.role === "admin") loadUsers(false);
     else $("adminCard").hidden = true;
   }
@@ -2352,6 +2430,9 @@ textarea.inp{height:auto;min-height:64px;padding:10px 12px;line-height:1.5;resiz
     if ($("view-month").classList.contains("active")) renderMonth();
     if ($("view-year").classList.contains("active")) renderYear();
     if ($("view-settings").classList.contains("active")) renderSettings();
+    if ($("view-stat").classList.contains("active")) renderStat();
+    if ($("view-item").classList.contains("active")) renderItem();
+    if ($("view-budget").classList.contains("active")) renderBudget();
   });
 
   /* =========================================================
@@ -2463,9 +2544,11 @@ textarea.inp{height:auto;min-height:64px;padding:10px 12px;line-height:1.5;resiz
 
   function applyServerData(d, localSigBefore){
     var list = (d && Array.isArray(d.entries)) ? d.entries : [];
-    var serverById = {}, live = [];
+    var serverById = {}, live = [], budgetRows = [];
     list.forEach(function(r){
       if (!r || !r.id) return;
+      /* 2026-11-28: 예산은 type="budget" 으로 같은 시트를 타고 오갑니다. 장부 합계에는 들어가지 않습니다. */
+      if (r.type === "budget"){ budgetRows.push(r); return; }
       serverById[r.id] = r;
       if (r.deleted !== true) live.push(r);
     });
@@ -2503,6 +2586,7 @@ textarea.inp{height:auto;min-height:64px;padding:10px 12px;line-height:1.5;resiz
       }
       SYNC.settingsSig = settingsSnapshot();   // 서버와 같아짐
     }
+    if (mergeBudgets(budgetRows)){ save(); renderAll(); }
     return changed;
   }
 
@@ -2521,6 +2605,8 @@ textarea.inp{height:auto;min-height:64px;padding:10px 12px;line-height:1.5;resiz
 
       var serverById = {};
       (d.entries || []).forEach(function(r){ if (r && r.id) serverById[r.id] = r; });
+      var budgetById = {};
+      (d.entries || []).forEach(function(r){ if (r && r.id && r.type === "budget") budgetById[r.id] = r; });
 
       var push = state.entries.filter(function(e){
         var r = serverById[e.id];
@@ -2528,6 +2614,12 @@ textarea.inp{height:auto;min-height:64px;padding:10px 12px;line-height:1.5;resiz
         if (r.deleted === true) return true;
         return (Number(r.updatedAt) || 0) < (Number(e.updatedAt) || 0);
       });
+      var pushBudget = state.budgets.filter(function(b){
+        var r = budgetById[b.id];
+        if (!r) return true;
+        if (r.deleted === true) return true;
+        return (Number(r.updatedAt) || 0) < (Number(b.updatedAt) || 0);
+      }).map(budgetToRow);
       Object.keys(state.tombstones).forEach(function(id){
         var r = serverById[id];
         if (r && r.deleted === true) return;   // 이미 서버에 삭제 표시됨
@@ -2538,8 +2630,10 @@ textarea.inp{height:auto;min-height:64px;padding:10px 12px;line-height:1.5;resiz
       var chain = Promise.resolve();
       if (push.length){
         chain = chain.then(function(){ return shrinkReceipts(push); }).then(function(list){
-          return syncFetch(null, { action: "bulk_import", entries: list.map(entryToRow) });
+          return syncFetch(null, { action: "bulk_import", entries: list.map(entryToRow).concat(pushBudget) });
         });
+      } else if (pushBudget.length){
+        chain = chain.then(function(){ return syncFetch(null, { action: "bulk_import", entries: pushBudget }); });
       }
       if (needsSettings){
         chain = chain.then(function(){
@@ -2609,11 +2703,651 @@ textarea.inp{height:auto;min-height:64px;padding:10px 12px;line-height:1.5;resiz
     }).catch(function(){ setSyncState("error"); });
   }
 
+  /* =========================================================
+     2026-11-28 — 통계 · 항목별 조회 · 연말 결산·예산 · 엑셀 올리기
+     덕신교회 부서업무 앱(/church-ledger/edu/)의 회계 화면과 같은 구성입니다.
+     ========================================================= */
+  var REPORT = {
+    period: "month",
+    y: new Date().getFullYear(), m: new Date().getMonth() + 1,
+    year: new Date().getFullYear(),
+    openCat: {}, itemKey: "", preview: null
+  };
+
+  function pct(part, total){ return total > 0 ? Math.round(part / total * 1000) / 10 : 0; }
+  function pctText(part, total){ var v = pct(part, total); return (v % 1 ? v.toFixed(1) : String(v)) + "%"; }
+  function sumGroups(list){ return list.reduce(function(s, g){ return s + g.amount; }, 0); }
+  function signedWon(n){ return (n >= 0 ? "+" : "−") + won(Math.abs(n)); }
+
+  function reportEntries(){
+    return REPORT.period === "year" ? entriesOfYear(REPORT.y) : entriesOfMonth(REPORT.y, REPORT.m);
+  }
+  function reportLabel(){
+    return REPORT.period === "year" ? REPORT.y + "년" : REPORT.y + "년 " + REPORT.m + "월";
+  }
+  function reportEndBalance(){
+    return REPORT.period === "year" ? netBeforeYear(REPORT.y + 1) : netBefore(nextMonth(REPORT.y + "-" + pad2(REPORT.m)));
+  }
+  function groupAccounts(list, type){
+    var map = {}, out = [];
+    list.forEach(function(e){
+      if (e.type !== type) return;
+      var k = e.account || "미지정";
+      if (!map[k]){ map[k] = { account: k, amount: 0, count: 0, rows: [] }; out.push(map[k]); }
+      map[k].amount += e.amount; map[k].count++; map[k].rows.push(e);
+    });
+    out.sort(function(a, b){ return (b.amount - a.amount) || (a.account < b.account ? -1 : 1); });
+    return out;
+  }
+
+  function periodBarHtml(note){
+    var h = '<div class="seg2 no-print" role="group" aria-label="기간">' +
+      '<button type="button" class="' + (REPORT.period === "month" ? "on" : "") + '" data-act="rp-period" data-v="month">월간</button>' +
+      '<button type="button" class="' + (REPORT.period === "year" ? "on" : "") + '" data-act="rp-period" data-v="year">연간</button></div>';
+    h += '<div class="monthbar no-print" style="margin:9px 0 0">' +
+      '<button class="navbtn" type="button" data-act="rp-move" data-v="-1" aria-label="이전">‹</button>' +
+      '<div class="mlabel num">' + reportLabel() + '<small>' + esc(note || (REPORT.period === "year" ? "연간 통계" : "월간 통계")) + '</small></div>' +
+      '<button class="navbtn" type="button" data-act="rp-move" data-v="1" aria-label="다음">›</button></div>';
+    return h;
+  }
+
+  function moveReport(dir){
+    if (REPORT.period === "year"){ REPORT.y += dir; return; }
+    REPORT.m += dir;
+    if (REPORT.m > 12){ REPORT.m = 1; REPORT.y++; }
+    if (REPORT.m < 1){ REPORT.m = 12; REPORT.y--; }
+  }
+  function renderCurrentReport(){
+    if (current.tab === "item") renderItem(); else renderStat();
+  }
+
+  /* ---------- 통계 ---------- */
+  function catStatTable(type, groups, total){
+    var isIn = type === "income";
+    var count = groups.reduce(function(n, g){ return n + g.count; }, 0);
+    var h = '<div class="card"><div class="card-head"><h2>' + (isIn ? "＋ 수입 항목별" : "－ 지출 항목별") + '</h2>' +
+      '<span class="count">' + won(total) + '원 · ' + count + '건</span></div>';
+    if (!groups.length) return h + '<p class="hint" style="margin:0">이 기간에는 기록이 없습니다.</p></div>';
+    h += '<div class="tblwrap"><table class="tbl"><thead><tr><th>항목</th><th>건수</th><th>금액</th><th>비중</th></tr></thead><tbody>';
+    groups.forEach(function(g){
+      var key = (isIn ? "i:" : "o:") + g.account;
+      var open = !!REPORT.openCat[key];
+      h += '<tr data-act="rp-open" data-v="' + esc(key) + '" style="cursor:pointer"><td><b>' + (open ? "▾ " : "▸ ") + esc(g.account) + '</b></td>' +
+        '<td>' + g.count + '</td><td class="' + (isIn ? "in" : "out") + '">' + won(g.amount) + '</td><td>' + pctText(g.amount, total) + '</td></tr>';
+      if (open){
+        h += '<tr><td colspan="4" style="background:var(--surface2);padding:4px 8px">' +
+          '<table class="tbl" style="font-size:12px"><tbody>' + sortAsc(g.rows).map(function(e){
+            return '<tr><td style="border:0;padding:3px 0;width:64px;color:var(--muted);white-space:nowrap">' + e.date.slice(5).replace("-", "/") + '</td>' +
+              '<td style="border:0;padding:3px 0;white-space:normal">' + esc(e.memo || "—") + '</td>' +
+              '<td style="border:0;padding:3px 0;text-align:right">' + won(e.amount) + '</td></tr>';
+          }).join("") + '</tbody></table></td></tr>';
+      }
+    });
+    h += '<tr class="tot"><td>합계</td><td>' + count + '</td><td>' + won(total) + '</td><td>100%</td></tr></tbody></table></div></div>';
+    return h;
+  }
+
+  function monthTrendTable(y){
+    var body = "", inc = 0, out = 0;
+    for (var m = 1; m <= 12; m++){
+      var rows = entriesOfMonth(y, m);
+      var i = sumBy(rows, "income"), o = sumBy(rows, "expense");
+      inc += i; out += o;
+      body += '<tr' + ((i || o) ? '' : ' class="hidden-zero"') + '><td>' + m + '월</td><td class="in">' + (i ? won(i) : "–") +
+        '</td><td class="out">' + (o ? won(o) : "–") + '</td><td>' + ((i || o) ? signedWon(i - o) : "–") + '</td><td>' + (rows.length ? rows.length + "건" : "–") + '</td></tr>';
+    }
+    return '<div class="card"><div class="card-head"><h2>달별 추이</h2><span class="count">' + y + '년</span></div>' +
+      '<div class="tblwrap"><table class="tbl"><thead><tr><th>월</th><th>수입</th><th>지출</th><th>수지</th><th>건수</th></tr></thead><tbody>' + body +
+      '<tr class="tot"><td>합계</td><td>' + won(inc) + '</td><td>' + won(out) + '</td><td>' + signedWon(inc - out) + '</td><td>—</td></tr></tbody></table></div></div>';
+  }
+
+  function renderStat(){
+    var list = reportEntries();
+    var incT = sumBy(list, "income"), expT = sumBy(list, "expense");
+    var incN = list.filter(function(e){ return e.type === "income"; }).length;
+    var expN = list.filter(function(e){ return e.type === "expense"; }).length;
+    var h = '<div class="card no-print">' + periodBarHtml() + '</div>';
+    h += '<div class="sumgrid">' +
+      '<div class="sum"><div class="k">수입 계</div><div class="v in num">' + won(incT) + '</div><div class="s">' + incN + '건</div></div>' +
+      '<div class="sum"><div class="k">지출 계</div><div class="v out num">' + won(expT) + '</div><div class="s">' + expN + '건</div></div>' +
+      '<div class="sum hl"><div class="k">수지</div><div class="v num">' + signedWon(incT - expT) + '</div><div class="s">' + esc(reportLabel()) + '</div></div>' +
+      '<div class="sum dark"><div class="k">기간 말 잔액</div><div class="v num">' + won(reportEndBalance()) + '<span class="u">원</span></div><div class="s">누계 잔액</div></div></div>';
+    h += catStatTable("income", groupAccounts(list, "income"), incT);
+    h += catStatTable("expense", groupAccounts(list, "expense"), expT);
+    if (REPORT.period === "year") h += monthTrendTable(REPORT.y);
+    h += '<p class="hint no-print">항목을 누르면 그 항목의 거래 내역이 펼쳐집니다.</p>';
+    h += '<div class="btnrow no-print" style="margin-top:10px">' +
+      '<button class="btn line sm" type="button" data-act="rp-print-stat" data-detail="0">🖨 통계 인쇄</button>' +
+      '<button class="btn primary sm" type="button" data-act="rp-print-stat" data-detail="1">🖨 세부 내역까지 인쇄</button></div>';
+    $("statBody").innerHTML = h;
+  }
+
+  /* ---------- 항목별 조회 ---------- */
+  function itemCats(list){
+    var map = {}, out = [];
+    list.forEach(function(e){
+      var k = e.account || "미지정";
+      if (!map[k]){ map[k] = { account: k, inc: 0, out: 0, count: 0, rows: [] }; out.push(map[k]); }
+      if (e.type === "income") map[k].inc += e.amount; else map[k].out += e.amount;
+      map[k].count++; map[k].rows.push(e);
+    });
+    out.sort(function(a, b){ return (b.inc + b.out) - (a.inc + a.out); });
+    return out;
+  }
+  function itemFormHtml(cat, rows, minRows){
+    var inc = sortAsc(rows.filter(function(e){ return e.type === "income"; }));
+    var out = sortAsc(rows.filter(function(e){ return e.type === "expense"; }));
+    var n = Math.max(minRows || 10, inc.length, out.length);
+    var incT = sumBy(rows, "income"), outT = sumBy(rows, "expense");
+    var h = '<table class="tbl form" style="table-layout:fixed;min-width:420px"><colgroup><col style="width:30%"><col style="width:18%"><col style="width:30%"><col style="width:18%"></colgroup><thead>' +
+      '<tr><th colspan="4" style="text-align:center;font-size:13.5px">' + esc(cat || "항목") + '</th></tr>' +
+      '<tr><th colspan="2" style="text-align:center">수입</th><th colspan="2" style="text-align:center">지출</th></tr>' +
+      '<tr><th>내용</th><th>금액</th><th>내용</th><th>금액</th></tr></thead><tbody>';
+    for (var i = 0; i < n; i++){
+      var a = inc[i], b = out[i];
+      h += '<tr><td style="white-space:normal">' + (a ? esc(a.memo || a.date.slice(5)) : "") + '</td><td>' + (a ? won(a.amount) : "") + '</td>' +
+        '<td style="white-space:normal">' + (b ? esc(b.memo || b.date.slice(5)) : "") + '</td><td>' + (b ? won(b.amount) : "") + '</td></tr>';
+    }
+    h += '</tbody><tr class="tot"><td>계</td><td>' + won(incT) + '</td><td>계</td><td>' + won(outT) + '</td></tr></table>';
+    return h;
+  }
+
+  function renderItem(){
+    var list = reportEntries();
+    var cats = itemCats(list);
+    var h = '<div class="card no-print">' + periodBarHtml("항목별 조회") + '</div>';
+    if (!cats.length){
+      h += '<div class="card"><div class="empty"><b>이 기간에는 조회할 항목이 없습니다</b><p>장부에 수입·지출을 기록하면 항목별로 모아 볼 수 있습니다.</p></div></div>';
+      $("itemBody").innerHTML = h;
+      return;
+    }
+    var sel = REPORT.itemKey, found = null;
+    cats.forEach(function(c){ if (c.account === sel) found = c; });
+    if (!found) found = cats[0];
+    REPORT.itemKey = found.account;
+    var rows = list.filter(function(e){ return (e.account || "미지정") === found.account; });
+
+    h += '<div class="card no-print"><div class="frow" style="margin:0"><label for="rpItemSel">조회할 항목</label>' +
+      '<select class="fld" id="rpItemSel" data-act="rp-item-pick-sel" style="width:100%">' + cats.map(function(c){
+        return '<option value="' + esc(c.account) + '"' + (c.account === found.account ? " selected" : "") + '>' + esc(c.account) + ' · ' + c.count + '건</option>';
+      }).join("") + '</select></div></div>';
+
+    h += '<div class="card"><div class="card-head"><h2>' + esc(found.account) + '</h2><span class="count">수입 ' + won(found.inc) + ' · 지출 ' + won(found.out) + '</span></div>' +
+      '<div class="tblwrap">' + itemFormHtml(found.account, rows, 10) + '</div>' +
+      '<p class="hint">표의 <b>내용</b> 칸은 기록의 적요(세부 내역)입니다. 인쇄하면 이 2단 표 그대로 A4에 나옵니다.</p>' +
+      '<div class="btnrow no-print" style="margin-top:10px"><button class="btn sm primary" type="button" data-act="rp-print-item">🖨 이 항목 인쇄</button></div></div>';
+
+    h += '<div class="card"><div class="card-head"><h2>항목 목록</h2><span class="count">' + cats.length + '개</span></div>' +
+      '<div class="tblwrap"><table class="tbl"><thead><tr><th>항목</th><th>수입</th><th>지출</th><th>건수</th></tr></thead><tbody>' +
+      cats.map(function(c){
+        return '<tr data-act="rp-item-pick" data-v="' + esc(c.account) + '" style="cursor:pointer' + (c.account === found.account ? ';background:#fffdf3' : '') + '">' +
+          '<td><b>' + esc(c.account) + '</b></td><td class="in">' + (c.inc ? won(c.inc) : "–") + '</td><td class="out">' + (c.out ? won(c.out) : "–") + '</td><td>' + c.count + '</td></tr>';
+      }).join("") + '</tbody></table></div></div>';
+    $("itemBody").innerHTML = h;
+  }
+
+  /* ---------- 연말 결산 · 다음 해 예산 ---------- */
+  function budgetsOf(year, type){
+    return (state.budgets || []).filter(function(b){
+      return b && Number(b.year) === Number(year) && (type ? b.type === type : true);
+    }).sort(function(a, b){ return (Number(a.created) || 0) - (Number(b.created) || 0); });
+  }
+  function findBudget(id){
+    var hit = null;
+    (state.budgets || []).forEach(function(b){ if (b.id === id) hit = b; });
+    return hit;
+  }
+  function budgetToRow(b){
+    return {
+      id: b.id, date: String(b.year) + "-01-01", type: "budget",
+      cat: b.account || "", memo: "", pay: b.type === "expense" ? "out" : "in",
+      amount: Math.round(Number(b.amount) || 0), author: displayName(),
+      receiptData: "", updatedAt: Number(b.updatedAt) || 0, deleted: false
+    };
+  }
+  function rowToBudget(r){
+    var y = Number(String(r.date || "").slice(0, 4)) || new Date().getFullYear();
+    return {
+      id: String(r.id), year: y, type: r.pay === "out" ? "expense" : "income",
+      account: String(r.cat || ""), amount: Math.max(0, Math.round(Number(r.amount) || 0)),
+      created: 0, updatedAt: Number(r.updatedAt) || 0
+    };
+  }
+  /* 서버에서 받은 예산 줄을 이 기기 예산과 맞춥니다 */
+  function mergeBudgets(rows){
+    if (!rows || !rows.length) return false;
+    var local = {}, byId = {}, live = [], out = [], used = {}, changed = false;
+    (state.budgets || []).forEach(function(b){ local[b.id] = b; });
+    rows.forEach(function(r){ if (r && r.id){ byId[r.id] = r; if (r.deleted !== true) live.push(r); } });
+    live.forEach(function(r){
+      if (state.tombstones[r.id]){ used[r.id] = true; changed = true; return; }
+      used[r.id] = true;
+      var l = local[r.id], s = rowToBudget(r);
+      if (!l){ out.push(s); changed = true; return; }
+      if ((Number(s.updatedAt) || 0) > (Number(l.updatedAt) || 0)){ out.push(s); changed = true; return; }
+      out.push(l);
+    });
+    (state.budgets || []).forEach(function(b){
+      if (used[b.id]) return;
+      if (byId[b.id]){ changed = true; return; }
+      out.push(b);
+    });
+    if (changed) state.budgets = out;
+    return changed;
+  }
+
+  function budgetRowHtml(b){
+    return '<div class="brow">' +
+      '<input class="inp" data-budget="account" data-id="' + esc(b.id) + '" value="' + esc(b.account) + '" placeholder="항목 이름" list="rpAcctList" autocapitalize="none">' +
+      '<input class="inp num" data-budget="amount" data-id="' + esc(b.id) + '" inputmode="numeric" value="' + (b.amount ? won(b.amount) : "") + '" placeholder="0">' +
+      '<button class="ibtn del" type="button" data-act="rp-bg-del" data-id="' + esc(b.id) + '" aria-label="이 예산 항목 지우기">✕</button></div>';
+  }
+
+  function yearReportTable(y, ny, minRows){
+    var sIn = groupAccounts(entriesOfYear(y), "income");
+    var sOut = groupAccounts(entriesOfYear(y), "expense");
+    var bIn = budgetsOf(ny, "income"), bOut = budgetsOf(ny, "expense");
+    var incT = sumGroups(sIn), outT = sumGroups(sOut), bInT = sumGroups(bIn), bOutT = sumGroups(bOut);
+    var n = Math.max(minRows || 14, sIn.length, sOut.length, bIn.length, bOut.length);
+    function cell(g){
+      return '<td style="text-align:left">' + (g ? esc(g.account) : "") + '</td><td style="text-align:right">' + (g ? won(g.amount) : "") + '</td>';
+    }
+    var h = '<table class="tbl form" style="table-layout:fixed;min-width:580px"><colgroup><col style="width:19%"><col style="width:12%"><col style="width:19%"><col style="width:12%"><col style="width:19%"><col style="width:12%"><col style="width:19%"><col style="width:12%"></colgroup><thead>' +
+      '<tr><th colspan="4" style="text-align:center">' + y + '년 결산</th><th colspan="4" style="text-align:center">' + ny + '년 예산</th></tr>' +
+      '<tr><th colspan="2" style="text-align:center">수입</th><th colspan="2" style="text-align:center">지출</th><th colspan="2" style="text-align:center">수입</th><th colspan="2" style="text-align:center">지출</th></tr>' +
+      '<tr><th>항목</th><th>금액</th><th>항목</th><th>금액</th><th>항목</th><th>금액</th><th>항목</th><th>금액</th></tr></thead><tbody>';
+    for (var i = 0; i < n; i++){
+      h += '<tr>' + cell(sIn[i]) + cell(sOut[i]) + cell(bIn[i]) + cell(bOut[i]) + '</tr>';
+    }
+    h += '</tbody><tr class="tot"><td style="text-align:center">계</td><td>' + won(incT) + '</td><td style="text-align:center">계</td><td>' + won(outT) + '</td>' +
+      '<td style="text-align:center">계</td><td>' + won(bInT) + '</td><td style="text-align:center">계</td><td>' + won(bOutT) + '</td></tr></table>';
+    return h;
+  }
+
+  function renderBudget(){
+    var y = REPORT.year, ny = y + 1;
+    var list = entriesOfYear(y);
+    var incT = sumBy(list, "income"), outT = sumBy(list, "expense");
+    var bi = budgetsOf(ny, "income"), bo = budgetsOf(ny, "expense");
+    var biT = sumGroups(bi), boT = sumGroups(bo);
+    var h = '<div class="monthbar no-print">' +
+      '<button class="navbtn" type="button" data-act="rp-year-move" data-v="-1" aria-label="이전 해">‹</button>' +
+      '<div class="mlabel num">' + y + '년 결산 · ' + ny + '년 예산<small>연말 결산·예산</small></div>' +
+      '<button class="navbtn" type="button" data-act="rp-year-move" data-v="1" aria-label="다음 해">›</button></div>';
+
+    h += '<div class="card"><div class="card-head"><h2>(1) ' + y + '년 사업결산 및 ' + ny + '년 예산</h2>' +
+      '<span class="count"><button class="btn sm line no-print" type="button" data-act="rp-print-year">🖨 인쇄</button></span></div>' +
+      '<div class="tblwrap" id="budgetPreview">' + yearReportTable(y, ny, 14) + '</div>' +
+      '<p class="hint">표가 넓으면 옆으로 넘겨 보세요. 인쇄는 A4 가로로 나옵니다.</p>' +
+      '<p class="hint">결산 수입 ' + won(incT) + '원 · 지출 ' + won(outT) + '원 · 수지 ' + signedWon(incT - outT) + '원 · ' + list.length + '건</p></div>';
+
+    h += '<div class="card" style="background:linear-gradient(160deg,#f6fbf8,#eef6f1);border-color:var(--brand-line)"><p class="hint" style="margin:0">' +
+      '왼쪽 <b>' + y + '년 결산</b>은 장부에서 항목별로 자동 합산됩니다. 오른쪽 <b>' + ny + '년 예산</b>은 아래에서 직접 적고, 적은 내용은 구글 시트에 저장되어 다른 기기와 함께 씁니다.</p></div>';
+
+    h += '<div class="btnrow no-print" style="margin-bottom:12px">' +
+      '<button class="btn sm line" type="button" data-act="rp-bg-add" data-v="income">＋ 수입 항목</button>' +
+      '<button class="btn sm line" type="button" data-act="rp-bg-add" data-v="expense">＋ 지출 항목</button>' +
+      '<button class="btn sm" type="button" data-act="rp-bg-load">📥 결산 항목 불러오기</button>' +
+      '<button class="btn sm" type="button" data-act="rp-bg-carry">🔄 전년도이월금 자동</button></div>';
+
+    h += '<datalist id="rpAcctList">' + state.accounts.income.concat(state.accounts.expense).map(function(a){
+      return '<option value="' + esc(a) + '">';
+    }).join("") + '</datalist>';
+
+    h += '<div class="card"><div class="card-head"><h2>＋ ' + ny + '년 수입 예산</h2><span class="count" id="bgInTotal">' + won(biT) + '원</span></div>';
+    if (!bi.length) h += '<p class="hint">아직 없습니다. 위의 <b>＋ 수입 항목</b>으로 추가하세요.</p>';
+    h += bi.map(budgetRowHtml).join("") + '</div>';
+
+    h += '<div class="card"><div class="card-head"><h2>－ ' + ny + '년 지출 예산</h2><span class="count" id="bgOutTotal">' + won(boT) + '원</span></div>';
+    if (!bo.length) h += '<p class="hint">아직 없습니다. 위의 <b>＋ 지출 항목</b>으로 추가하세요.</p>';
+    h += bo.map(budgetRowHtml).join("") + '</div>';
+
+    h += '<p class="hint no-print">금액은 숫자만 적어도 됩니다(쉼표는 자동). 적은 뒤 잡시 기다리면 저장되고 다른 기기에도 반영됩니다.</p>';
+    $("budgetBody").innerHTML = h;
+  }
+
+  function addBudget(type){
+    var ny = REPORT.year + 1, now = Date.now();
+    state.budgets.push({ id: "bg" + uid(), year: ny, type: type === "expense" ? "expense" : "income",
+      account: "", amount: 0, created: now, updatedAt: now });
+    if (save()){ renderBudget(); toast(ny + "년 예산 항목을 추가했습니다"); }
+  }
+  function delBudget(id){
+    var idx = -1;
+    state.budgets.forEach(function(b, i){ if (b.id === id) idx = i; });
+    if (idx < 0) return;
+    if (!confirm("이 예산 항목을 지울까요?")) return;
+    state.budgets.splice(idx, 1);
+    state.tombstones[id] = Date.now();
+    if (save()){ renderBudget(); syncNow(); toast("예산 항목을 지웠습니다"); }
+  }
+  function loadBudgetFromSettlement(){
+    var y = REPORT.year, ny = y + 1;
+    var sIn = groupAccounts(entriesOfYear(y), "income");
+    var sOut = groupAccounts(entriesOfYear(y), "expense");
+    var haveIn = budgetsOf(ny, "income").map(function(b){ return b.account; });
+    var haveOut = budgetsOf(ny, "expense").map(function(b){ return b.account; });
+    var add = 0, now = Date.now();
+    sIn.forEach(function(g){ if (haveIn.indexOf(g.account) >= 0) return;
+      state.budgets.push({ id: "bg" + uid() + add, year: ny, type: "income", account: g.account, amount: g.amount, created: now + add, updatedAt: now + add }); add++; });
+    sOut.forEach(function(g){ if (haveOut.indexOf(g.account) >= 0) return;
+      state.budgets.push({ id: "bg" + uid() + add, year: ny, type: "expense", account: g.account, amount: g.amount, created: now + add, updatedAt: now + add }); add++; });
+    if (!add){ toast("이미 결산 항목이 모두 들어 있습니다"); return; }
+    if (save()){ renderBudget(); toast(add + "개 항목을 " + ny + "년 예산에 불러왔습니다"); }
+  }
+  function carryBudget(){
+    var y = REPORT.year, ny = y + 1;
+    var list = entriesOfYear(y);
+    var carry = sumBy(list, "income") - sumBy(list, "expense");
+    var hit = null;
+    budgetsOf(ny, "income").forEach(function(b){ if (b.account === "전년도이월금") hit = b; });
+    if (hit){ hit.amount = carry; hit.updatedAt = Date.now(); }
+    else state.budgets.push({ id: "bg" + uid(), year: ny, type: "income", account: "전년도이월금", amount: carry, created: Date.now(), updatedAt: Date.now() });
+    if (save()){ renderBudget(); toast("전년도이월금 " + won(carry) + "원을 예산 수입에 넣었습니다"); }
+  }
+
+  var budgetSaveTimer = null;
+  document.addEventListener("input", function(ev){
+    var f = ev.target && ev.target.closest ? ev.target.closest("[data-budget]") : null;
+    if (!f) return;
+    var row = findBudget(f.getAttribute("data-id"));
+    if (!row) return;
+    if (f.getAttribute("data-budget") === "account") row.account = f.value;
+    else {
+      var n = parseAmount(f.value);
+      f.value = n ? won(n) : "";
+      row.amount = n;
+    }
+    row.updatedAt = Date.now();
+    clearTimeout(budgetSaveTimer);
+    budgetSaveTimer = setTimeout(function(){
+      if (!save()) return;
+      refreshBudgetTotals();
+    }, 900);
+  });
+
+  function refreshBudgetTotals(){
+    var ny = REPORT.year + 1;
+    var e1 = $("bgInTotal"), e2 = $("bgOutTotal"), pv = $("budgetPreview");
+    if (e1) e1.textContent = won(sumGroups(budgetsOf(ny, "income"))) + "원";
+    if (e2) e2.textContent = won(sumGroups(budgetsOf(ny, "expense"))) + "원";
+    if (pv) pv.innerHTML = yearReportTable(REPORT.year, ny, 14);
+  }
+
+  /* ---------- 인쇄 ---------- */
+  function printCss(landscape){
+    return "@page{size:A4" + (landscape ? " landscape" : "") + ";margin:11mm 10mm}" +
+      "body{font-family:'Malgun Gothic','Apple SD Gothic Neo',sans-serif;color:#111;margin:0}" +
+      "h1{font-size:15pt;text-align:center;margin:0 0 2mm;letter-spacing:-.3px}" +
+      "h2{font-size:9.5pt;text-align:center;color:#555;font-weight:600;margin:0 0 4mm}" +
+      "table{border-collapse:collapse;width:100%;font-size:9pt;table-layout:fixed}" +
+      "th,td{border:1px solid #333;padding:1.6mm 2mm;height:6mm;vertical-align:middle;word-break:break-all}" +
+      "th{background:#f2f2f2;font-weight:700;text-align:center}" +
+      "td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}" +
+      "td.ctr,th.ctr{text-align:center}" +
+      "td.left{text-align:left;font-weight:600}" +
+      "tr.total td{font-weight:800;background:#fafafa}" +
+      "table.form tr.grp th{background:#e9e9e9;font-size:9.5pt}" +
+      "table.form tr.sub th{background:#f5f5f5}" +
+      "table.form th.title{background:#fff;font-size:11pt;height:8mm}" +
+      "p.foot{font-size:7.5pt;color:#999;text-align:center;margin-top:4mm}" +
+      "p.hint{font-size:8pt;color:#666;margin:2mm 0 0}";
+  }
+  function openPrintDoc(title, body, landscape){
+    var w = window.open("", "_blank");
+    if (!w){ toast("팝업이 차단되었습니다. 브라우저의 팝업 허용을 켜 주세요"); return; }
+    var js = "<" + "script>window.onload=function(){setTimeout(function(){try{window.print()}catch(e){}},250)}" + "<" + "/script>";
+    var html = '<!doctype html><html lang="ko"><head><meta charset="utf-8"><title>' + esc(title) + '</title><style>' + printCss(landscape) + '</style></head><body>' +
+      body + '<p class="foot">' + esc(state.settings.org || "교회·모임") + ' · 인쇄 ' + new Date().toLocaleString("ko-KR") + '</p>' + js + '</body></html>';
+    w.document.open(); w.document.write(html); w.document.close();
+  }
+  function printHead(title){
+    return '<h1>' + esc(title) + '</h1><h2>' + esc(state.settings.org || "교회·모임") +
+      "  ·  작성자: " + esc(state.settings.author || "－") + "  ·  출력일: " + todayStr() + '</h2>';
+  }
+  function printCatTable(label, groups, total, withDetail){
+    var count = groups.reduce(function(n, g){ return n + g.count; }, 0);
+    var cols = withDetail ? 6 : 4;
+    var h = '<table style="margin-top:4mm"><thead><tr><th colspan="' + cols + '">' + esc(label) + '</th></tr>' +
+      '<tr><th>항목</th><th class="num">건수</th><th class="num">금액</th><th class="num">비중</th>' + (withDetail ? '<th>날짜</th><th>세부 내역</th>' : '') + '</tr></thead><tbody>';
+    if (!groups.length) h += '<tr><td colspan="' + cols + '" class="ctr">기록 없음</td></tr>';
+    groups.forEach(function(g){
+      if (withDetail){
+        sortAsc(g.rows).forEach(function(e, i){
+          h += '<tr>' + (i === 0 ? '<td rowspan="' + g.rows.length + '" class="left">' + esc(g.account) + '</td>' +
+            '<td rowspan="' + g.rows.length + '" class="num">' + g.count + '</td>' +
+            '<td rowspan="' + g.rows.length + '" class="num">' + won(g.amount) + '</td>' +
+            '<td rowspan="' + g.rows.length + '" class="num">' + pctText(g.amount, total) + '</td>' : '') +
+            '<td class="ctr">' + e.date + '</td><td>' + esc(e.memo || "-") + '</td></tr>';
+        });
+      } else {
+        h += '<tr><td class="left">' + esc(g.account) + '</td><td class="num">' + g.count + '</td><td class="num">' + won(g.amount) + '</td><td class="num">' + pctText(g.amount, total) + '</td></tr>';
+      }
+    });
+    h += '</tbody><tfoot><tr class="total"><td class="ctr">계</td><td class="num">' + count + '</td><td class="num">' + won(total) + '</td><td class="num">100%</td>' +
+      (withDetail ? '<td colspan="2"></td>' : '') + '</tr></tfoot></table>';
+    return h;
+  }
+  function printStat(withDetail){
+    var list = reportEntries();
+    var incT = sumBy(list, "income"), expT = sumBy(list, "expense");
+    var body = printHead((state.settings.org || "교회·모임") + " 회계 통계");
+    body += '<p class="hint">' + esc(reportLabel()) + ' · 수입 ' + won(incT) + '원 · 지출 ' + won(expT) + '원 · 수지 ' + signedWon(incT - expT) + '원 · ' + list.length + '건</p>';
+    body += printCatTable("수입", groupAccounts(list, "income"), incT, withDetail);
+    body += printCatTable("지출", groupAccounts(list, "expense"), expT, withDetail);
+    if (REPORT.period === "year"){
+      var rows = "", ti = 0, to = 0;
+      for (var m = 1; m <= 12; m++){
+        var mr = entriesOfMonth(REPORT.y, m), i = sumBy(mr, "income"), o = sumBy(mr, "expense");
+        ti += i; to += o;
+        rows += '<tr><td class="ctr">' + m + '월</td><td class="num">' + (i ? won(i) : "-") + '</td><td class="num">' + (o ? won(o) : "-") +
+          '</td><td class="num">' + ((i || o) ? signedWon(i - o) : "-") + '</td></tr>';
+      }
+      body += '<h2 style="margin:5mm 0 2mm">달별 추이</h2><table><thead><tr><th>월</th><th class="num">수입</th><th class="num">지출</th><th class="num">수지</th></tr></thead><tbody>' + rows +
+        '</tbody><tfoot><tr class="total"><td class="ctr">계</td><td class="num">' + won(ti) + '</td><td class="num">' + won(to) + '</td><td class="num">' + signedWon(ti - to) + '</td></tr></tfoot></table>';
+    }
+    openPrintDoc("회계 통계", body, false);
+  }
+  function printItem(){
+    var list = reportEntries();
+    var cats = itemCats(list);
+    var found = null;
+    cats.forEach(function(c){ if (c.account === REPORT.itemKey) found = c; });
+    if (!found) found = cats[0];
+    if (!found){ toast("인쇄할 항목이 없습니다"); return; }
+    var rows = list.filter(function(e){ return (e.account || "미지정") === found.account; });
+    var inc = sortAsc(rows.filter(function(e){ return e.type === "income"; }));
+    var out = sortAsc(rows.filter(function(e){ return e.type === "expense"; }));
+    var n = Math.max(12, inc.length, out.length);
+    var body = '<h1 style="margin-bottom:3mm">' + esc(found.account) + '</h1><h2>' + esc(reportLabel()) + "  ·  " + esc(state.settings.org || "교회·모임") + '</h2>';
+    body += '<table class="form"><thead><tr class="grp"><th colspan="2">수입</th><th colspan="2">지출</th></tr>' +
+      '<tr class="sub"><th>항목</th><th class="num">금액</th><th>항목</th><th class="num">금액</th></tr></thead><tbody>';
+    for (var i = 0; i < n; i++){
+      var a = inc[i], b = out[i];
+      body += '<tr><td class="left">' + (a ? esc(a.memo || a.date.slice(5)) : "") + '</td><td class="num">' + (a ? won(a.amount) : "") + '</td>' +
+        '<td class="left">' + (b ? esc(b.memo || b.date.slice(5)) : "") + '</td><td class="num">' + (b ? won(b.amount) : "") + '</td></tr>';
+    }
+    body += '</tbody><tfoot><tr class="total"><td class="ctr">계</td><td class="num">' + won(sumBy(rows, "income")) + '</td><td class="ctr">계</td><td class="num">' + won(sumBy(rows, "expense")) + '</td></tr></tfoot></table>';
+    openPrintDoc(found.account, body, false);
+  }
+  function printYear(){
+    var y = REPORT.year, ny = y + 1;
+    var sIn = groupAccounts(entriesOfYear(y), "income"), sOut = groupAccounts(entriesOfYear(y), "expense");
+    var bIn = budgetsOf(ny, "income"), bOut = budgetsOf(ny, "expense");
+    var n = Math.max(16, sIn.length, sOut.length, bIn.length, bOut.length);
+    function cell(g){ return '<td class="left">' + (g ? esc(g.account) : "") + '</td><td class="num">' + (g ? won(g.amount) : "") + '</td>'; }
+    var body = '<h1>(1) ' + y + '년 사업결산 및 ' + ny + '년 예산</h1><h2>' + esc(state.settings.org || "교회·모임") + '</h2>';
+    body += '<table class="form"><thead><tr class="grp"><th colspan="4">' + y + '년 결산</th><th colspan="4">' + ny + '년 예산</th></tr>' +
+      '<tr class="sub"><th colspan="2">수입</th><th colspan="2">지출</th><th colspan="2">수입</th><th colspan="2">지출</th></tr>' +
+      '<tr><th>항목</th><th>금액</th><th>항목</th><th>금액</th><th>항목</th><th>금액</th><th>항목</th><th>금액</th></tr></thead><tbody>';
+    for (var i = 0; i < n; i++) body += '<tr>' + cell(sIn[i]) + cell(sOut[i]) + cell(bIn[i]) + cell(bOut[i]) + '</tr>';
+    body += '</tbody><tfoot><tr class="total"><td class="ctr">계</td><td class="num">' + won(sumGroups(sIn)) + '</td><td class="ctr">계</td><td class="num">' + won(sumGroups(sOut)) + '</td>' +
+      '<td class="ctr">계</td><td class="num">' + won(sumGroups(bIn)) + '</td><td class="ctr">계</td><td class="num">' + won(sumGroups(bOut)) + '</td></tr></tfoot></table>';
+    body += '<p class="hint">' + y + '년 결산 수지 ' + signedWon(sumGroups(sIn) - sumGroups(sOut)) + '원 · ' + ny + '년 예산 수지 ' + signedWon(sumGroups(bIn) - sumGroups(bOut)) + '원</p>';
+    openPrintDoc("연말 결산·예산", body, true);
+  }
+
+  /* ---------- 엑셀 장부 올리기 ---------- */
+  function ensureJSZip(){
+    if (window.JSZip) return Promise.resolve(window.JSZip);
+    return new Promise(function(resolve, reject){
+      var s = document.createElement("script");
+      s.src = "edu/jszip.min.js";
+      s.onload = function(){ if (window.JSZip) resolve(window.JSZip); else reject(new Error("엑셀 읽기 도구를 불러오지 못했습니다")); };
+      s.onerror = function(){ reject(new Error("엑셀 읽기 도구를 불러오지 못했습니다. 인터넷 연결을 확인해 주세요")); };
+      document.head.appendChild(s);
+    });
+  }
+
+  function loadSheetFile(file){
+    var box = $("importBox");
+    box.innerHTML = '<p class="hint">' + esc(file.name) + ' 를 읽고 있습니다…</p>';
+    ensureJSZip().then(function(JSZip){
+      if (!window.SheetImport) throw new Error("엑셀 읽기 기능을 불러오지 못했습니다. 새로고침한 뒤 다시 시도해 주세요");
+      return window.SheetImport.parseFile(file, JSZip);
+    }).then(function(res){
+      REPORT.preview = res;
+      renderImportPreview(res, file.name);
+    }).catch(function(err){
+      REPORT.preview = null;
+      box.innerHTML = '<div class="login-err show" style="margin-top:0">' + esc((err && err.message) || "파일을 읽지 못했습니다") + '</div>';
+    });
+  }
+
+  function renderImportPreview(res, fileName){
+    var stem = String(fileName || "").replace(/\.[a-z]+$/i, "").replace(/[-_][0-9a-f]{20,}$/i, "").trim();
+    var h = '<div class="kv"><span>파일</span><b>' + esc(fileName) + '</b></div>';
+    h += '<div class="kv"><span>읽은 시트</span><b>' + esc(res.sheetName) + ' · 머리글 ' + res.headerRow + '행</b></div>';
+    h += '<div class="kv"><span>기간 · 건수</span><b>' + res.from + ' ~ ' + res.to + ' · ' + res.rows.length + '건</b></div>';
+    h += '<div class="kv"><span>수입 합계</span><b>' + won(res.income) + '원</b></div>';
+    h += '<div class="kv"><span>지출 합계</span><b>' + won(res.expense) + '원</b></div>';
+    h += '<div class="kv"><span>최종 잔액</span><b>' + won(res.balance) + '원</b></div>';
+    if (res.hasCum) h += '<div class="kv"><span>누계 검사</span><b>' + (res.cumMismatch ? res.cumMismatch + '건이 엑셀 누계와 다름' : '엑셀 누계와 모두 일치') + '</b></div>';
+    if (res.skipped) h += '<div class="kv"><span>건너뛴 줄</span><b>' + res.skipped + '건 (날짜 없음)</b></div>';
+    h += '<div class="frow" style="margin-top:10px"><label for="importTitle">장부 이름 (비우면 지금 이름 그대로)</label>' +
+      '<input class="inp" id="importTitle" type="text" maxlength="60" value="' + esc(stem) + '"></div>';
+    h += '<p class="hint" style="margin-top:8px">기존 기록을 지우고 넣으면 지금 장부는 자동으로 백업 파일(JSON)로 먼저 저장됩니다.</p>';
+    h += '<div class="btnrow" style="margin-top:10px">' +
+      '<button class="btn sm danger" type="button" data-act="rp-import" data-v="replace">기존 기록 지우고 새로 넣기</button>' +
+      '<button class="btn sm primary" type="button" data-act="rp-import" data-v="append">기존 기록에 더하기</button>' +
+      '<button class="btn sm" type="button" data-act="rp-import-cancel">취소</button></div>';
+    $("importBox").innerHTML = h;
+  }
+
+  function exportBackupFile(prefix){
+    try{
+      var payload = { app: "church-ledger", version: 1, exportedAt: new Date().toISOString(), state: state };
+      download((prefix || "금전출납부_백업_") + todayStr() + ".json", JSON.stringify(payload), "application/json");
+    }catch(e){ console.warn("백업을 만들지 못했습니다", e); }
+  }
+
+  function itemsInOrder(entries, type){
+    var out = [];
+    entries.forEach(function(e){
+      if (e.type !== type) return;
+      var k = e.account || (type === "income" ? "수입" : "지출");
+      if (out.indexOf(k) < 0) out.push(k);
+    });
+    return out.length ? out : (type === "income" ? ["수입"] : ["지출"]);
+  }
+
+  function applySheetImport(mode){
+    var p = REPORT.preview;
+    if (!p) return;
+    var titleEl = $("importTitle");
+    var title = titleEl ? titleEl.value.trim() : "";
+    if (mode === "replace"){
+      if (!confirm("지금 장부 " + state.entries.length + "건을 지우고 엑셀 " + p.rows.length + "줄로 바꿉니다.\n(지금 장부는 백업 파일로 먼저 저장합니다) 계속할까요?")) return;
+      exportBackupFile("금전출납부_백업_");
+    }
+    var now = Date.now(), idx = 0, made = [];
+    p.rows.forEach(function(r){
+      if (r.income) made.push(mkEntry(r, "income", r.income));
+      if (r.expense) made.push(mkEntry(r, "expense", r.expense));
+    });
+    function mkEntry(r, type, amount){
+      idx++;
+      return {
+        id: uid() + idx, date: r.date, type: type,
+        account: r.item || (type === "income" ? "수입" : "지출"),
+        memo: r.memo || "", method: "", amount: amount, receipt: null,
+        created: now + idx, updatedAt: now + idx
+      };
+    }
+    if (mode === "replace"){
+      state.entries.forEach(function(e){ state.tombstones[e.id] = now; });
+      state.entries = made;
+      state.settings.base = 0;
+      if (title) state.settings.org = title;
+      state.accounts = { income: itemsInOrder(made, "income"), expense: itemsInOrder(made, "expense") };
+      if (!state.accounts.income.length) state.accounts.income = DEFAULT_ACCOUNTS.income.slice();
+      if (!state.accounts.expense.length) state.accounts.expense = DEFAULT_ACCOUNTS.expense.slice();
+    } else {
+      state.entries = state.entries.concat(made);
+      itemsInOrder(made, "income").forEach(function(a){ if (state.accounts.income.indexOf(a) < 0) state.accounts.income.push(a); });
+      itemsInOrder(made, "expense").forEach(function(a){ if (state.accounts.expense.indexOf(a) < 0) state.accounts.expense.push(a); });
+    }
+    if (!save()){ toast("저장하지 못했습니다"); return; }
+    REPORT.preview = null;
+    var bal = state.settings.base + sumBy(state.entries, "income") - sumBy(state.entries, "expense");
+    renderAll();
+    syncNow();
+    current.yy = Number(p.to.slice(0, 4));
+    current.my = current.yy; current.mm = Number(p.to.slice(5, 7));
+    REPORT.y = current.yy; REPORT.m = current.mm; REPORT.year = current.yy;
+    showTab("ledger");
+    $("importBox").innerHTML = '<div class="kv"><span>넣은 기록</span><b>' + state.entries.length + '건</b></div>' +
+      '<div class="kv"><span>수입 · 지출</span><b>' + won(sumBy(state.entries, "income")) + ' · ' + won(sumBy(state.entries, "expense")) + '원</b></div>' +
+      '<div class="kv"><span>현재 잔액</span><b>' + won(bal) + '원</b></div>' +
+      '<p class="hint" style="margin-top:8px">엑셀 내용을 장부에 반영했습니다. 다른 기기는 잠시 뒤 자동으로 맞춰집니다.</p>';
+    toast("엑셀 " + p.rows.length + "줄을 장부에 넣었습니다");
+  }
+
+  $("btnPickXlsx").addEventListener("click", function(){ $("fileXlsx").click(); });
+  $("fileXlsx").addEventListener("change", function(){
+    var f = this.files && this.files[0];
+    this.value = "";
+    if (f) loadSheetFile(f);
+  });
+
+  /* 하위 화면 버튼 · 탭 */
+  document.querySelectorAll("#subNav [data-mode]").forEach(function(b){
+    b.addEventListener("click", function(){ showTab(b.getAttribute("data-mode")); });
+  });
+  document.addEventListener("click", function(ev){
+    var t = ev.target && ev.target.closest ? ev.target.closest("[data-act]") : null;
+    if (!t) return;
+    var act = t.getAttribute("data-act"), v = t.getAttribute("data-v");
+    try{
+      if (act === "rp-period"){ REPORT.period = v === "year" ? "year" : "month"; renderCurrentReport(); return; }
+      if (act === "rp-move"){ moveReport(Number(v) || 0); renderCurrentReport(); return; }
+      if (act === "rp-open"){ if (REPORT.openCat[v]) delete REPORT.openCat[v]; else REPORT.openCat[v] = true; renderCurrentReport(); return; }
+      if (act === "rp-item-pick"){ REPORT.itemKey = v; renderItem(); return; }
+      if (act === "rp-print-stat"){ printStat(t.getAttribute("data-detail") === "1"); return; }
+      if (act === "rp-print-item"){ printItem(); return; }
+      if (act === "rp-year-move"){ REPORT.year += Number(v) || 0; renderBudget(); return; }
+      if (act === "rp-print-year"){ printYear(); return; }
+      if (act === "rp-bg-add"){ addBudget(v); return; }
+      if (act === "rp-bg-del"){ delBudget(t.getAttribute("data-id")); return; }
+      if (act === "rp-bg-load"){ loadBudgetFromSettlement(); return; }
+      if (act === "rp-bg-carry"){ carryBudget(); return; }
+      if (act === "rp-import"){ applySheetImport(v === "append" ? "append" : "replace"); return; }
+      if (act === "rp-import-cancel"){ REPORT.preview = null; $("importBox").innerHTML = ""; return; }
+    }catch(e){ console.error(e); toast((e && e.message) || "처리하지 못했습니다"); }
+  });
+  document.addEventListener("change", function(ev){
+    var s = ev.target;
+    if (s && s.id === "rpItemSel"){ REPORT.itemKey = s.value; renderItem(); }
+  });
+
   function renderAll(){
     renderHeader(); renderLedger();
     if ($("view-month").classList.contains("active")) renderMonth();
     if ($("view-year").classList.contains("active")) renderYear();
     if ($("view-settings").classList.contains("active")) renderSettings();
+    if ($("view-stat").classList.contains("active")) renderStat();
+    if ($("view-item").classList.contains("active")) renderItem();
+    if ($("view-budget").classList.contains("active")) renderBudget();
   }
 
   /* =========================================================
@@ -2651,7 +3385,12 @@ textarea.inp{height:auto;min-height:64px;padding:10px 12px;line-height:1.5;resiz
     if ($("view-month").classList.contains("active")) renderMonth();
     if ($("view-year").classList.contains("active")) renderYear();
     if ($("view-settings").classList.contains("active")) renderSettings();
+    if ($("view-stat").classList.contains("active")) renderStat();
+    if ($("view-item").classList.contains("active")) renderItem();
+    if ($("view-budget").classList.contains("active")) renderBudget();
     syncNow();
+    /* 하위 화면 탭(장부·통계·항목별 조회·연말 결산·예산)을 지금 화면에 맞춥니다 */
+    showTab(current.tab || "ledger");
     if (!state.entries.length && !state.settings.org){
       setTimeout(function(){
         if (state.entries.length) return;
