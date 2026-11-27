@@ -762,6 +762,7 @@ textarea.inp{height:auto;min-height:64px;padding:10px 12px;line-height:1.5;resiz
         <button class="btn sm line" type="button" id="btnSyncNow">지금 새로고침</button>
         <a class="btn sm line" id="linkSheet" href="#" target="_blank" rel="noopener">구글 시트 열기</a>
       </div>
+      <p class="hint" id="syncLast" style="margin-top:8px"></p>
     </div>
 
     <div class="card">
@@ -2445,7 +2446,8 @@ textarea.inp{height:auto;min-height:64px;padding:10px 12px;line-height:1.5;resiz
   var SHEET_URL = "https://docs.google.com/spreadsheets/d/1PLtsH2E1CkALiP8xHLs73hfpouqL01iCrrqO-uqz8lg/edit";
   var RECEIPT_MAX = 42000;      // 시트 한 셀 50,000자 한도 안전선
   var SYNC_EVERY = 20000;       // 20초마다 자동 새로고침
-  var SYNC = { busy:false, applying:false, knownIds:{}, lastAt:0, pushTimer:null, settingsSig:"", state:"init", again:false, relogin:false };
+  var SYNC = { busy:false, applying:false, knownIds:{}, lastAt:0, pushTimer:null, settingsSig:"", state:"init", again:false, relogin:false,
+    lastError:"", lastErrorAt:0, retryAt:0 };
 
   function jsonOf(o){ try { return JSON.stringify(o); } catch(e){ return ""; } }
   function settingsSnapshot(){
@@ -2470,6 +2472,20 @@ textarea.inp{height:auto;min-height:64px;padding:10px 12px;line-height:1.5;resiz
       else if (s === "ok") txt.textContent = "☁️ 동기화 완료 (" + agoText(SYNC.lastAt) + ")";
       else if (s === "error") txt.textContent = "⚠️ " + (msg ? msg + " · " : "공유 서버에 연결하지 못했습니다 · ") + "이 기기에 저장됨";
       else txt.textContent = "공유 데이터 연결을 확인하고 있습니다…";
+    }
+    if (s === "error"){
+      SYNC.lastError = msg || "공유 서버에 연결하지 못했습니다";
+      SYNC.lastErrorAt = Date.now();
+      SYNC.retryAt = Date.now() + 60000;      // 같은 실패를 1분에 한 번만 다시 시도합니다
+    } else if (s === "ok"){
+      SYNC.lastError = "";
+    }
+    var sl = $("syncLast");
+    if (sl){
+      sl.textContent = SYNC.lastError
+        ? "마지막 동기화 실패(" + agoText(SYNC.lastErrorAt || Date.now()) + "): " + SYNC.lastError
+        : (SYNC.lastAt ? "마지막 동기화: " + agoText(SYNC.lastAt) + " · 문제 없음" : "");
+      sl.style.color = SYNC.lastError ? "#b23a32" : "";
     }
     var sh = $("shareState"), hint = $("shareHint");
     if (sh) sh.textContent = s === "ok" ? "연결됨" : (s === "error" ? "연결 끊김" : "확인 중");
@@ -2610,8 +2626,9 @@ textarea.inp{height:auto;min-height:64px;padding:10px 12px;line-height:1.5;resiz
     throw new Error(what + " 실패: " + m);
   }
 
-  function syncNow(){
+  function syncNow(force){
     if (!SYNC_URL || !CURRENT_USER) return;
+    if (!force && SYNC.retryAt && Date.now() < SYNC.retryAt) return;
     if (SYNC.busy){ SYNC.again = true; return; }
     SYNC.busy = true;
     var epoch0 = AUTH_EPOCH;
@@ -3633,7 +3650,7 @@ textarea.inp{height:auto;min-height:64px;padding:10px 12px;line-height:1.5;resiz
 
   // 공유 데이터 연결
   $("btnSync").addEventListener("click", function(){ toast("공유 데이터를 새로 받아옵니다"); syncNow(); });
-  $("btnSyncNow").addEventListener("click", function(){ toast("공유 데이터를 새로 받아옵니다"); syncNow(); });
+  $("btnSyncNow").addEventListener("click", function(){ toast("공유 데이터를 새로 받아옵니다"); SYNC.retryAt = 0; syncNow(true); });
   $("linkSheet").href = SHEET_URL;
   document.addEventListener("visibilitychange", function(){
     if (!document.hidden && CURRENT_USER && Date.now() - SYNC.lastAt > 10000) syncNow();
@@ -3641,6 +3658,7 @@ textarea.inp{height:auto;min-height:64px;padding:10px 12px;line-height:1.5;resiz
   window.addEventListener("online", function(){ if (CURRENT_USER && !pwScreenOpen()) syncNow(); });
   setInterval(function(){
     if (document.hidden || !CURRENT_USER || pwScreenOpen()) return;
+    if (SYNC.retryAt && Date.now() < SYNC.retryAt) return;
     if (Date.now() - SYNC.lastAt >= SYNC_EVERY) syncNow();
   }, 5000);
   setInterval(function(){ if (SYNC.state === "ok") setSyncState("ok"); }, 15000);
