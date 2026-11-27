@@ -624,7 +624,8 @@
   }
 
   function docPull() {
-    return postJSON(SYNC_URL, { action:'pull', slot:SLOT, token: (state.ledgerTok || '') }, 15000).then(function (j) {
+    /* 계정 문서는 금전출납부 서버를 거쳐 읽습니다(중보기도문 시트의 portal-acct 슬롯). */
+    return postJSON(LEDGER_URL, { action:'portal_get', token: (state.ledgerTok || '') }, 15000).then(function (j) {
       if (!j || j.ok !== true) throw new Error((j && (j.message || j.error)) || '시트를 읽지 못했습니다');
       var rows = j.rows || [];
       if (!rows.length) return null;
@@ -632,8 +633,8 @@
     });
   }
   function docPush(doc) {
-    return postJSON(SYNC_URL, {
-      action:'push', slot:SLOT, token: (state.ledgerTok || ''),
+    return postJSON(LEDGER_URL, {
+      action:'portal_put', token: (state.ledgerTok || ''),
       rows:[ { key:'main', data:JSON.stringify(doc), updatedAt:doc.updatedAt || Date.now() } ]
     }, 20000).then(function (j) {
       if (!j || j.ok !== true) throw new Error((j && (j.message || j.error)) || '시트에 올리지 못했습니다');

@@ -71,6 +71,14 @@ function handle(action, body, p) {
 
     if (action === "info") {
       out = { ok: true, app: "church-ledger", v: 7, time: Date.now() };
+    } else if (action === "portal_get" || action === "portal_put") {
+      /* 포털 계정 문서는 중보기도문 시트의 portal-acct 슬롯에 있습니다.
+         그 시트를 여는 권한은 이 스크립트(같은 구글 계정)에 있으므로, 포털은 이 서버를 거쳐 읽고 씁니다. */
+      const pa = authOf_(t, body, p);
+      out = pa ? portalDoc_(action, body) : { ok: false, error: "unauthorized", needLogin: true, message: "로그인이 필요합니다" };
+      if (out && out.ok && pa && action === "portal_put") {
+        audit_(t.ss, pa.id, "portal_put", "저장", clientOf_(body, p), "포털 계정 문서");
+      }
     } else if (action === "verify") {
       /* 다른 교회 앱(포털 등)이 이 토큰이 살아 있는지 물어볼 때 씁니다. */
       const vc = readToken_(String((body && body.token) || (p && p.token) || ""));
@@ -1185,4 +1193,73 @@ function encryptAll_(t, auth, body) {
     return { ok: false, error: "verify_failed", message: "암호화 뒤 내용 검증이 맞지 않습니다. `백업` 탭 사본을 확인해 주세요." };
   }
   return { ok: true, rows: after.length, encrypted: after.length, message: "거래 " + after.length + "건을 암호화했습니다" };
+}
+
+
+/* ============================================================
+   포털 계정 문서(중보기도문 동기화 시트의 portal-acct 슬롯) 읽기·쓰기
+   · 포털 로그인 뒤(토큰 있음)에만 동작합니다.
+   ============================================================ */
+const PORTAL_SHEET_ID = "1P6wks9j0c7sBrHM2_qsAhgLMQyZNoSR6_yKMxqt0gnQ";
+const PORTAL_TAB = "동기화";
+const PORTAL_SLOT = "portal-acct";
+
+function portalSheet_() {
+  const ss = SpreadsheetApp.openById(PORTAL_SHEET_ID);
+  let sh = ss.getSheetByName(PORTAL_TAB);
+  if (!sh) { throw new Error("중보기도문 시트에 동기화 탭이 없습니다"); }
+  return sh;
+}
+
+function portalDoc_(action, body) {
+  const lock = LockService.getScriptLock();
+  try { lock.waitLock(LOCK_MS); } catch (e) { }
+  try {
+    const sh = portalSheet_();
+    const lr = sh.getLastRow();
+    const all = lr < 2 ? [] : sh.getRange(2, 1, lr - 1, 8).getValues();
+    const others = [];
+    const mine = [];
+    for (let i = 0; i < all.length; i++) {
+      const slot = String(all[i][0] || "");
+      if (slot === PORTAL_SLOT) { mine.push(all[i]); } else if (slot) { others.push(all[i]); }
+    }
+    if (action === "portal_get") {
+      const map = {};
+      for (let i = 0; i < mine.length; i++) {
+        const key = String(mine[i][1] || "");
+        if (!map[key]) { map[key] = { key: key, idx: [], updatedAt: 0 }; }
+        map[key].idx.push({ i: Number(mine[i][2]) || 0, d: String(mine[i][3] || "") });
+        map[key].updatedAt = Math.max(map[key].updatedAt, Number(mine[i][4]) || 0);
+      }
+      const rows = Object.keys(map).map(function (k) {
+        const g = map[k];
+        g.idx.sort(function (a, b) { return a.i - b.i; });
+        return { key: k, data: g.idx.map(function (x) { return x.d; }).join(""), updatedAt: g.updatedAt };
+      });
+      return { ok: true, rows: rows };
+    }
+    const rows = (body && body.rows) || [];
+    if (!rows.length) { return { ok: false, error: "empty", message: "보낼 자료가 없습니다" }; }
+    const now = Date.now();
+    const keep = others.slice();
+    for (let r = 0; r < rows.length; r++) {
+      const data = String(rows[r].data || "");
+      const key = String(rows[r].key || "main");
+      const chunks = Math.max(1, Math.ceil(data.length / 45000));
+      if (chunks > 80) { return { ok: false, error: "too_big", message: "자료가 너무 큽니다" }; }
+      for (let c = 0; c < chunks; c++) {
+        keep.push([PORTAL_SLOT, key, c, data.substr(c * 45000, 45000),
+          Number(rows[r].updatedAt) || now, now, String((body && body.device) || "").slice(0, 60), data.length]);
+      }
+    }
+    sh.clearContents();
+    sh.getRange(1, 1, 1, 8).setValues([["slot", "key", "idx", "data", "updatedAt", "savedAt", "device", "bytes"]]);
+    if (keep.length) { sh.getRange(2, 1, keep.length, 8).setValues(keep); }
+    return { ok: true, saved: keep.length };
+  } catch (e) {
+    return { ok: false, error: String((e && e.message) || e) };
+  } finally {
+    try { lock.releaseLock(); } catch (e2) { }
+  }
 }
