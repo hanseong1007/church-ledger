@@ -82,26 +82,28 @@ function refreshSignupClasses() {
    그래서 같은 이름의 기존 회원은 [가입 승인] 화면에서 승인자가 한 번 더 확인합니다. */
 async function duplicateSignupInfo(id, name) {
   const uid = await uidOf(id);
+  /* 보안(2026-11-27): 로그인 전에는 계정 목록을 받지 않고, 서버가 확인한 최소 정보만 받습니다. */
+  let sc = null;
+  try { sc = await Api.call({ action: 'signup_check', uid: uid }, 15000); } catch (e) { sc = null; }
+  const nm = String(name || '').trim();
+  const same = [];
+  if (sc && sc.ok) {
+    if (sc.mine === 'pending' || sc.mine === 'approved') return { kind: 'same_id_pending' };
+    if (sc.mine === 'active') return { kind: 'same_id_active' };
+    if (nm) {
+      (sc.pending || []).forEach(p => {
+        if (String(p.name || '').trim() === nm) same.push({ id: p.id || '', roles: p.roles || [], approved: !!p.approved });
+      });
+    }
+    return { kind: same.length ? 'same_name_app' : '', same: same };
+  }
   const mine = await fetchAccount(uid);
   if (mine) {
     const info = appRowInfo(mine);
     if (info.kind === 'pending' || info.kind === 'approved') return { kind: 'same_id_pending' };
     if (info.kind === 'active') return { kind: 'same_id_active' };
   }
-  let rows = [];
-  try { const r = await Api.call({ action: 'acct_list' }, 15000); rows = r.rows || []; } catch (e) { rows = []; }
-  const nm = String(name || '').trim();
-  const same = [];
-  if (nm) {
-    rows.forEach(row => {
-      if (String(row.uid) === String(uid) || String(row.deleted) === '1') return;
-      const info = appRowInfo(row);
-      if (info.kind !== 'pending' && info.kind !== 'approved') return;
-      const a = info.app || {};
-      if (String(a.name || '').trim() === nm) same.push({ id: a.id || '', roles: a.roles || [], approved: info.kind === 'approved' });
-    });
-  }
-  return { kind: same.length ? 'same_name_app' : '', same: same };
+  return { kind: '', same: [] };
 }
 
 async function doSignup() {

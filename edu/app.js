@@ -49,13 +49,38 @@ function showLoginError(m) {
 
 async function doLogin() {
   const id = val('loginId'), pw = (document.getElementById('loginPw') || {}).value || '';
-  const btn = document.getElementById('loginBtn');
   if (!id) return showLoginError('아이디를 입력해 주세요.');
   if (!pw) return showLoginError('비밀번호를 입력해 주세요.');
+  await loginWith(id, pw);
+}
+
+/* 보안(2026-11-27): 서버가 비밀번호를 확인하고 12시간 서명 토큰을 줍니다.
+   비밀번호 원문은 서버로 보내지 않고 SHA-256('deoksin-edu-login:'+아이디+':'+비밀번호) 만 보냅니다. */
+async function loginWith(id, pw) {
+  const btn = document.getElementById('loginBtn');
   if (!Api.on()) return showLoginError('동기화 서버에 연결할 수 없습니다. 관리자에게 문의해 주세요.');
   if (btn) { btn.disabled = true; btn.textContent = '확인 중…'; }
   try {
     const uid = await uidOf(id);
+    const h = await loginHash(id, pw);
+    let auth = null;
+    try {
+      const st = await Api.call({ action: 'auth_state', uid: uid }, 12000);
+      if (!st || st.ok !== true) throw new Error((st && st.message) || '서버에서 계정을 확인하지 못했습니다');
+      if (!st.exists) { showLoginError('아이디 또는 비밀번호가 맞지 않습니다.'); return; }
+      if (st.locked) {
+        showLoginError('비밀번호를 여러 번 틀어 잠겼습니다.\n' + Math.max(1, Math.ceil((st.lockLeftMs || 0) / 60000)) + '분 뒤에 다시 시도해 주세요.');
+        return;
+      }
+      if (st.has) {
+        const a = await Api.call({ action: 'auth_login', uid: uid, h: h, ua: (navigator.userAgent || '').slice(0, 90) }, 15000);
+        if (!a || a.ok !== true) { showLoginError((a && a.message) || '아이디 또는 비밀번호가 맞지 않습니다.'); return; }
+        auth = a; Api.setToken(a.token);
+      }
+    } catch (e) {
+      showLoginError('서버에 연결하지 못했습니다. 인터넷 연결을 확인해 주세요.');
+      return;
+    }
     const row = await fetchAccount(uid);
     if (!row) { showLoginError('아이디 또는 비밀번호가 맞지 않습니다.'); return; }
     const info = appRowInfo(row);
@@ -93,7 +118,22 @@ async function doLogin() {
       return;
     }
 
+    /* 서버에 비밀번호가 아직 없던 계정(이번 업데이트 전 가입자)은 이 기기에서 열쇠가 풀린 것을
+       확인했으니 지금 등록합니다. 다음부터는 서버가 직접 확인합니다. */
+    if (!auth) {
+      try {
+        const a = await Api.call({ action: 'auth_adopt', uid: uid, h: h, ua: (navigator.userAgent || '').slice(0, 90) }, 15000);
+        if (!a || a.ok !== true) { showLoginError((a && a.message) || '로그인 정보를 등록하지 못했습니다.'); return; }
+        auth = a; Api.setToken(a.token);
+      } catch (e) {
+        showLoginError('서버에 연결하지 못했습니다. 인터넷 연결을 확인해 주세요.');
+        return;
+      }
+    }
+    if (auth && auth.mustChange) { openPwChangeScreen(rec.id || normId(id), pw); return; }
+
     S.dek = dek; S.wkRaw = raw;
+    touchActivity();
     S.me = { uid: uid, id: rec.id, name: rec.name, roles: rec.roles || [], depts: Array.from(new Set((rec.depts || []).map(canonDeptId))), classes: rec.classes || [], students: rec.students || [], birth: rec.birth || '', grants: rec.grants || {}, birthType: birthTypeOf(rec), birthLunar: rec.birthLunar || '', status: accountStatusOf(rec), statusNote: rec.statusNote || '' };
     S.chosen = [];
     S.roleKey = highestRoleKey(S.me.roles);
@@ -234,11 +274,84 @@ function shiftDate(cur, days) {
   return ymd(d);
 }
 
-async function doLogout() {
+async function doLogout(msg) {
   if (Sync.timer) clearInterval(Sync.timer);
   clearSession();
+  try { Api.setToken(''); } catch (e) { }
   S.dek = null; S.me = null; S.state = emptyState(); S.rev = 0;
-  showLogin();
+  showLogin(msg || '');
+}
+
+/* 보안: 30분 동안 아무것도 하지 않으면 자동 로그아웃 */
+const IDLE_MS = 30 * 60 * 1000;
+let lastAct = Date.now();
+function touchActivity() { lastAct = Date.now(); }
+['click', 'keydown', 'touchstart', 'scroll', 'mousemove'].forEach(ev => {
+  document.addEventListener(ev, () => { if (S.me) touchActivity(); }, true);
+});
+setInterval(() => {
+  if (!S.me) return;
+  if (Date.now() - lastAct > IDLE_MS) doLogout('30분 동안 사용하지 않아 자동으로 로그아웃했습니다. 다시 로그인해 주세요.');
+}, 20000);
+window.__eduSessionLost = function () {
+  if (!S.me && !(document.getElementById('loginId'))) return;
+  doLogout('로그인이 만료되었습니다. 다시 로그인해 주세요.');
+};
+window.__eduNeedPwChange = function () {
+  const id = (S.me && S.me.id) || '';
+  if (id) openPwChangeScreen(id);
+};
+
+/* ---------------- 보안: 처음 받은 비밀번호 강제 변경 ---------------- */
+let pwCtx = { id: '', oldPw: '' };
+function openPwChangeScreen(id, oldPw) {
+  pwCtx = { id: id || '', oldPw: oldPw || '' };
+  if (Sync.timer) clearInterval(Sync.timer);
+  document.body.innerHTML = '<div id="root"></div><div id="modalRoot" style="display:none"></div><div id="toastWrap"></div>';
+  let h = '<div class="login-wrap"><div class="login-card">';
+  h += '<div class="login-brand"><div class="login-logo">🔒</div><h1>비밀번호를 바꿔 주세요</h1><p>처음 받은 비밀번호로 로그인했습니다</p></div>';
+  h += '<p style="font-size:13px;line-height:1.6;color:#555;margin:0 0 14px">새 비밀번호를 정하기 전에는 부서업무를 쓸 수 없습니다. (6자 이상, 기본 비밀번호 사용 불가)</p>';
+  if (!pwCtx.oldPw) h += '<div class="login-field"><label>지금 쓰는 비밀번호</label><input id="pcOld" type="password" autocomplete="current-password"></div>';
+  h += '<div class="login-field"><label>새 비밀번호</label><input id="pcNew" type="password" autocomplete="new-password" placeholder="새 비밀번호"></div>';
+  h += '<div class="login-field"><label>새 비밀번호 확인</label><input id="pcNew2" type="password" autocomplete="new-password" placeholder="새 비밀번호 확인"></div>';
+  h += '<div class="login-err" id="loginErr"></div>';
+  h += '<button class="login-btn" id="pcBtn" type="button">비밀번호 바꾸고 시작하기</button>';
+  h += '<div class="login-note">바꾸면 다른 기기에서는 다시 로그인해야 합니다.</div>';
+  h += '</div><div class="login-foot">덕신교회 교육부서 · 문의는 부서 담당자에게</div></div>';
+  document.getElementById('root').innerHTML = h;
+  document.getElementById('pcBtn').addEventListener('click', submitPwChange);
+  const nw = document.getElementById('pcNew'); if (nw) nw.focus();
+}
+
+async function submitPwChange() {
+  const theId = pwCtx.id;
+  const btn = document.getElementById('pcBtn');
+  const err = (m) => { const e = document.getElementById('loginErr'); if (e) { e.innerHTML = esc(m).replace(/\n/g, '<br>'); e.classList.add('show'); } };
+  const oldPw = pwCtx.oldPw || (document.getElementById('pcOld') || {}).value || '';
+  const n1 = (document.getElementById('pcNew') || {}).value || '';
+  const n2 = (document.getElementById('pcNew2') || {}).value || '';
+  if (!oldPw) return err('지금 쓰는 비밀번호를 입력해 주세요.');
+  if (n1.length < 6) return err('새 비밀번호는 6자 이상으로 정해 주세요.');
+  if (n1 !== n2) return err('새 비밀번호가 서로 다릅니다.');
+  if (btn) { btn.disabled = true; btn.textContent = '바꾸는 중…'; }
+  try {
+    const oldH = await loginHash(theId, oldPw);
+    const newH = await loginHash(theId, n1);
+    const r = await Api.call({ action: 'auth_pw', oldH: oldH, newH: newH }, 15000);
+    if (!r || r.ok !== true) { err((r && r.message) || '비밀번호를 바꾸지 못했습니다'); return; }
+    Api.setToken(r.token);
+    pwCtx = { id: '', oldPw: '' };
+    showLogin('비밀번호를 바꿨습니다. 새 비밀번호로 들어갑니다.');
+    const lid = document.getElementById('loginId');
+    const lpw = document.getElementById('loginPw');
+    if (lid) lid.value = theId;
+    if (lpw) lpw.value = n1;
+    await loginWith(theId, n1);
+  } catch (e) {
+    err('비밀번호를 바꾸지 못했습니다: ' + ((e && e.message) || e));
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = '비밀번호 바꾸고 시작하기'; }
+  }
 }
 
 function readReportForm(rep) {

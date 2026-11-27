@@ -56,16 +56,22 @@ const Crypto = {
 /* ---------------- 구글 시트 동기화 API ---------------- */
 const Api = {
   url: (window.__EDU_SYNC_URL__ || '').trim(),
+  token: '',
   on() { return /^https:\/\/script\.google\.com\//.test(this.url) || /^http:\/\/(127\.0\.0\.1|localhost)(:\d+)?\//.test(this.url); },
+  setToken(t) { this.token = String(t || ''); try { if (t) sessionStorage.setItem('dse.token.v1', String(t)); else sessionStorage.removeItem('dse.token.v1'); } catch (e) { } },
+  loadToken() { try { this.token = sessionStorage.getItem('dse.token.v1') || ''; } catch (e) { this.token = ''; } return this.token; },
   async call(payload, ms) {
     if (!this.on()) throw new Error('sync_off');
+    if (!this.token) this.loadToken();
+    const body = Object.assign({}, payload || {});
+    if (this.token && !body.token) body.token = this.token;
     const ctl = new AbortController();
     const timer = setTimeout(() => ctl.abort(), ms || 15000);
     try {
       const res = await fetch(this.url, {
         method: 'POST',
         headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-        body: JSON.stringify(payload),
+        body: JSON.stringify(body),
         redirect: 'follow',
         cache: 'no-store',
         signal: ctl.signal
@@ -74,6 +80,10 @@ const Api = {
       const txt = await res.text();
       let json;
       try { json = JSON.parse(txt); } catch (e) { throw new Error('응답을 읽을 수 없습니다'); }
+      if (json && json.ok !== true) {
+        if (json.error === 'unauthorized') { try { window.__eduSessionLost && window.__eduSessionLost(); } catch (e) { } }
+        else if (json.error === 'must_change_password') { try { window.__eduNeedPwChange && window.__eduNeedPwChange(); } catch (e) { } }
+      }
       return json;
     } finally { clearTimeout(timer); }
   }
@@ -480,6 +490,11 @@ function saveSession() {
       me: S.me, chosen: S.chosen, roleKey: S.roleKey, year: S.year, wk: b64(S.wkRaw), rev: S.rev, at: Date.now()
     }));
   } catch (e) { }
+}
+
+/* 보안: 로그인 때 받은 서명 토큰(12시간)과 마지막 사용 시각 */
+function loginHash(id, pw) {
+  return Crypto.sha256('deoksin-edu-login:' + normId(id) + ':' + pw);
 }
 function clearSession() { try { sessionStorage.removeItem(SESS_KEY); } catch (e) { } }
 async function restoreSession() {
