@@ -237,7 +237,7 @@
     </div>
     <div class="card authcard">
       <h2 id="gate-title">로그인</h2>
-      <p class="lead" id="gate-lead">한 번 로그인하면 허용된 교회 도구가 비밀번호 없이 열립니다.</p>
+      <p class="lead" id="gate-lead">통합 아이디·비밀번호 하나로 허용된 교회 도구가 모두 열립니다.</p>
       <form id="login-form" autocomplete="on">
         <div class="field">
           <label class="lbl" for="login-id">아이디</label>
@@ -370,16 +370,7 @@
             <div><label class="lbl">사용할 앱</label>
               <div class="menusel" id="nu-apps" style="margin-top:2px"></div></div>
           </div>
-          <details class="adv">
-            <summary>앱 비밀번호가 포털 비밀번호와 다를 때만 (선택)</summary>
-            <div class="credrow"><span class="cn">금전출납부</span>
-              <input class="inp sm" data-nucred="ledger" placeholder="아이디"><input class="inp sm" data-nucred="ledger-pw" placeholder="비밀번호"></div>
-            <div class="credrow"><span class="cn">재정보고 변환</span>
-              <input class="inp sm" data-nucred="ppt" placeholder="아이디"><input class="inp sm" data-nucred="ppt-pw" placeholder="비밀번호"></div>
-            <div class="credrow"><span class="cn">중보기도문 변환</span>
-              <input class="inp sm" data-nucred="prayer" placeholder="아이디"><input class="inp sm" data-nucred="prayer-pw" placeholder="비밀번호"></div>
-            <p class="hint" style="margin-top:8px">비워 두면 위 비밀번호를 그대로 씁니다. 금전출납부 계정은 포털이 같은 비밀번호로 함께 만들어 줍니다.</p>
-          </details>
+          <p class="hint" style="margin-top:10px">이 아이디·비밀번호 하나로 금전출납부·재정보고·중보기도문이 모두 열립니다. 앱마다 따로 정할 비밀번호는 없습니다.</p>
           <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap">
             <button class="btn soft" type="button" id="btn-add-user" style="height:42px">사용자 추가</button>
             <button class="btn line" type="button" id="btn-sync-pull" style="height:42px">☁️ 시트에서 새로 받기</button>
@@ -402,10 +393,9 @@
           <span class="sub" id="acc-apps"></span>
         </div>
         <p class="hint">아이디 <b id="acc-id">—</b> · 이름 <b id="acc-name">—</b></p>
-        <p class="hint" style="margin-top:6px;color:#8a6a24">재정보고·중보기도문에 <b>이미 다른 비밀번호</b>를 쓰고 있다면, 아래 <b>앱 비밀번호 설정</b>을 먼저 해 두세요. 그렇지 않으면 그 앱은 새 금고(빈 화면)로 열립니다.</p>
+        <p class="hint" style="margin-top:6px">통합 아이디·비밀번호 <b>하나</b>로 금전출납부·재정보고·중보기도문이 모두 열립니다.</p>
         <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap">
-          <button class="btn line xs" type="button" id="btn-pw-open" style="height:36px">비밀번호 변경</button>
-          <button class="btn line xs" type="button" id="btn-cred-open" style="height:36px">앱 비밀번호 설정</button>
+          <button class="btn line xs" type="button" id="btn-pw-open" style="height:36px">통합 비밀번호 변경</button>
         </div>
 
         <div id="pw-panel" hidden style="margin-top:12px">
@@ -421,31 +411,13 @@
           </div>
         </div>
 
-        <div id="cred-panel" hidden style="margin-top:12px">
-          <p class="hint" style="margin-bottom:8px">앱마다 지금 쓰는 비밀번호를 넣어 두면, 다음부터는 포털 로그인만으로 그 앱이 열립니다. (이 기기·다른 기기 모두)</p>
-          <p class="hint" style="margin-bottom:8px">금전출납부 비밀번호를 앱에서 바꿨다면 여기서도 같이 바꿔 주세요.</p>
-          <div class="credrow"><span class="cn">금전출납부</span>
-            <input class="inp sm" id="cr-ledger-id" placeholder="아이디"><input class="inp sm" id="cr-ledger-pw" type="password" placeholder="비밀번호"></div>
-          <div class="credrow"><span class="cn">재정보고</span>
-            <input class="inp sm" id="cr-ppt-id" placeholder="아이디(없으면 공란)"><input class="inp sm" id="cr-ppt-pw" type="password" placeholder="비밀번호"></div>
-          <div class="credrow"><span class="cn">중보기도문</span>
-            <input class="inp sm" id="cr-prayer-id" placeholder="아이디"><input class="inp sm" id="cr-prayer-pw" type="password" placeholder="비밀번호"></div>
-          <div style="margin-top:8px">
-            <input class="inp sm" id="cred-pw-check" type="password" autocomplete="current-password"
-                   autocapitalize="none" placeholder="지금 쓰는 포털 비밀번호">
-          </div>
-          <div style="margin-top:8px;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-            <button class="btn soft xs" type="button" id="btn-cred-save" style="height:36px">저장</button>
-            <button class="btn line xs" type="button" id="btn-cred-close" style="height:36px">닫기</button>
-            <span class="hint" id="cred-msg" style="color:var(--danger)"></span>
-          </div>
-        </div>
+
       </div>
     </section>
 
     <footer class="site">
       <span>덕신교회 · 교회 행정 도구 모음</span>
-      <span id="foot-ver">통합 포털 v2.0 · 계정과 권한은 암호화 시트로 기기 간 동기화</span>
+      <span id="foot-ver">통합 포털 v3.0 · 통합 아이디 하나로 모든 도구 · 계정과 권한은 암호화 시트로 기기 간 동기화</span>
     </footer>
   </main>
 </div>
@@ -487,7 +459,8 @@
   var LEDGER_AUTH_KEY = 'church-ledger-auth-v1';
 
   var K_SSO = 'dkp.sso.v1';        /* 앱들이 읽는 통합 로그인 표 */
-  var K_SEAL = 'dkp.seal.v1';      /* 이 기기에서만 풀리는 앱 입장 열쇠 봉인 */
+  var K_PASS = 'dkp.pass.v1';      /* 통합 비밀번호 하나를 이 기기에서만 풀리는 봉인에 담아 둔다(앱 자동 입장용) */
+  var K_SEAL = 'dkp.seal.v1';      /* 예전 '앱별 비밀번호' 봉인 — 더 이상 쓰지 않고 지운다 */
   var K_SESS = 'dkp.sess.v1';      /* 포털 자체 세션(계속 쓰기) */
   var K_DOC = 'dkp.doc.v1';        /* 마지막으로 받은 계정 문서(오프라인 대비) */
   var K_RECENT = 'dkp.recent.v1';
@@ -506,6 +479,8 @@
     });
   }
   function normId(v) { return String(v == null ? '' : v).trim().toLowerCase(); }
+  /* 관리자 계정 아이디 — 2026-11-27 phs7604 로 통일 (옛 admin 도 관리자로 본다) */
+  function isAdminId(v) { var n = normId(v); return n === 'admin' || n === 'phs7604'; }
   function toast(msg, isErr) {
     var t = $('#toast');
     if (!t) return;
@@ -652,7 +627,7 @@
   /* ═══════════════════════════════════════════════════════
      3. 계정 문서
      ═══════════════════════════════════════════════════════ */
-  var state = { doc:null, user:null, creds:null, adminTok:'', ledgerTok:'', syncAt:0, syncErr:'', busy:false };
+  var state = { doc:null, user:null, pw:'', adminTok:'', ledgerTok:'', syncAt:0, syncErr:'', busy:false };
 
   function cleanDoc(d) {
     if (!d || typeof d !== 'object' || !Array.isArray(d.users)) return { v:2, users:[], deletedIds:[], updatedAt:0 };
@@ -764,50 +739,30 @@
     return null;
   }
 
-  /* ── 앱 입장 비밀번호 봉인 ────────────────────────────── */
-  function defaultCreds(u, pw) {
-    return {
-      ledger: { id:u.id, pw:pw },
-      ppt:    { id:u.id, pw:pw },
-      prayer: { id:u.id, pw:pw }
-    };
-  }
-  async function sealCreds(u, pw, creds) {
-    var k = await keyFromBits(await pbkdf2Bits(pw, 'dkp-seal|' + u.id));
-    return aesEnc(k, creds);
-  }
-  async function unsealCreds(u, pw) {
-    if (!u.seal || !u.seal.iv || !u.seal.ct) return null;
-    try {
-      var k = await keyFromBits(await pbkdf2Bits(pw, 'dkp-seal|' + u.id));
-      var c = await aesDec(k, u.seal);
-      if (!c) return null;
-      // 빠진 앱은 기본값으로 채운다
-      var out = defaultCreds(u, pw);
-      APP_IDS.forEach(function (a) {
-        if (c[a] && c[a].pw) out[a] = { id: String(c[a].id || u.id), pw: String(c[a].pw) };
-      });
-      return out;
-    } catch (e) { return null; }
-  }
-
   /* ── 통합 로그인 표(SSO) · 이 기기 봉인 ───────────────── */
   function ssoExp(keep) { return Date.now() + (keep ? 30 : 1) * 86400000; }
 
-  async function writeSeal(userId, exp, creds, extra) {
+  /* 통합 비밀번호 하나를 이 기기의 꺼낼 수 없는 열쇠로 감싸 둡니다.
+     앱(금전출납부·재정보고·중보기도문)은 이것만 풀어 비밀번호 화면 없이 들어갑니다. */
+  async function writeSeal(u, exp, pw, extra) {
     try {
       var key = await devKey(true);
       if (!key) return false;
-      var payload = { userId: userId, exp: exp, creds: creds, adminTok: (extra && extra.adminTok) || '' };
+      var payload = {
+        v: 2, userId: u.id, name: u.name || u.id, role: (u.role === 'admin' ? 'admin' : 'user'),
+        apps: (u.apps || []).slice(), pw: String(pw || ''),
+        pwPrev: String((extra && extra.pwPrev) || ''), exp: exp
+      };
       var box = await aesEnc(key, payload);
-      jset(K_SEAL, { v:1, iv:box.iv, ct:box.ct, at:Date.now(), exp:exp });
+      jset(K_PASS, { v:2, iv:box.iv, ct:box.ct, at:Date.now(), exp:exp });
+      jrm(K_SEAL);
       return true;
     } catch (e) { return false; }
   }
 
   /* 이 기기의 봉인을 풀어 지금 세션의 앱 비밀번호·관리자 토큰을 되살린다 */
   async function readSeal() {
-    var s = jget(K_SEAL, null);
+    var s = jget(K_PASS, null);
     if (!s || !s.iv || !s.ct || (s.exp && s.exp < Date.now())) return null;
     try {
       var key = await devKey(false);
@@ -829,7 +784,7 @@
   }
 
   function clearSession() {
-    jrm(K_SSO); jrm(K_SEAL); jrm(K_SESS); jrm(BLOCK_SSO);
+    jrm(K_SSO); jrm(K_PASS); jrm(K_SEAL); jrm(K_SESS); jrm(BLOCK_SSO);
     try { sessionStorage.removeItem(K_SESS); } catch (e) {}
     try { localStorage.removeItem(LEDGER_AUTH_KEY); } catch (e) {}
   }
@@ -860,7 +815,9 @@
          그래서 포털 로그인은 금전출납부 계정 확인을 먼저 합니다. */
       var pre = await ledgerLogin(id, pw);
       if (pre.ok && pre.token) { state.ledgerTok = pre.token; storeLedgerAuth(pre); }
-      if (!state.doc || !state.doc.users.length) await loadDoc({});
+      /* 계정 문서는 이 기기에 저장된 옛 사본(admin 시절)이 아니라 시트에서 새로 받는다.
+         옛 사본을 그대로 쓰면 phs7604 계정을 못 찾아 '아이디 또는 비밀번호가 맞지 않습니다'가 났다. */
+      await loadDoc({});
       var doc = state.doc;
       if (!doc || !doc.users.length) { state.busy = false; btn.disabled = false; setMsg(msg, ''); showSetup(); return; }
       var u = findUser(id);
@@ -869,14 +826,13 @@
       var hash = await pbkdf2Hex(pw, u.salt);
       if (hash !== u.hash) throw new Error('아이디 또는 비밀번호가 맞지 않습니다');
 
-      var creds = await unsealCreds(u, pw) || defaultCreds(u, pw);
       var exp = ssoExp(keep);
 
       /* 금전출납부 — 이 앱은 서버 로그인이 필요하므로 지금 토큰을 받아 둔다 */
       var adminTok = '';
       var ledgerNote = '';
       if (hasApp(u, 'ledger')) {
-        var r = (pre && pre.ok && normId(creds.ledger.id) === id) ? pre : await ledgerLogin(creds.ledger.id, creds.ledger.pw);
+        var r = (pre && pre.ok) ? pre : await ledgerLogin(id, pw);
         if (r.ok) {
           storeLedgerAuth(r);
           if (r.user && r.user.role === 'admin') adminTok = r.token;
@@ -887,16 +843,17 @@
       }
 
       writeSSO(u, keep);
-      await writeSeal(u.id, exp, creds, { adminTok:adminTok });
+      await writeSeal(u, exp, pw, {});
       var sess = { v:1, userId:u.id, name:u.name, role:u.role, at:Date.now(), exp:exp, keep:!!keep };
       jset(K_SESS, sess);
       try { sessionStorage.removeItem(K_SESS); } catch (e) {}
-      state.user = u; state.creds = creds; state.adminTok = adminTok;
+      state.user = u; state.pw = pw; state.adminTok = adminTok;
       $('#login-pw').value = '';
       setMsg(msg, '');
       openDash();
       if (ledgerNote) toast('금전출납부 자동 로그인 실패 · ' + ledgerNote, true);
       else toast((u.name || u.id) + '님, 반갑습니다');
+      openFromParam();
     } catch (e) {
       setMsg(msg, (e && e.message) || '로그인하지 못했습니다');
       $('#login-pw').value = '';
@@ -914,7 +871,7 @@
   setInterval(function () {
     if (!state.user) return;
     if (Date.now() - lastAct > IDLE_MS) {
-      clearSession(); state.user = null; state.creds = null; state.adminTok = ''; state.ledgerTok = '';
+      clearSession(); state.user = null; state.pw = ''; state.adminTok = ''; state.ledgerTok = '';
       document.body.setAttribute('data-view', 'gate');
       var d = document.getElementById('dash'); if (d) d.hidden = true;
       showGate('30분 동안 사용하지 않아 자동으로 로그아웃했습니다. 다시 로그인해 주세요.');
@@ -961,24 +918,17 @@
       var salt = newSalt();
       var u = {
         id: id, name: r.user.name || id, role: 'admin', apps: APP_IDS.slice(), active: true,
-        salt: salt, hash: await pbkdf2Hex(pw, salt), createdAt: Date.now(), updatedAt: Date.now(),
-        credsNone: false
+        salt: salt, hash: await pbkdf2Hex(pw, salt), createdAt: Date.now(), updatedAt: Date.now()
       };
-      var creds = {
-        ledger: { id: r.user.id, pw: pw },
-        ppt:    { id: id, pw: pw },
-        prayer: { id: id, pw: pw }
-      };
-      u.seal = await sealCreds(u, pw, creds);
       state.doc.users.push(u);
       await saveDoc('');
       storeLedgerAuth(r);
       $('#su-pw').value = '';
       setMsg(msg, '');
-      state.user = u; state.creds = creds;
+      state.user = u; state.pw = pw;
       state.adminTok = (r.user.role === 'admin') ? r.token : '';
       writeSSO(u, true);
-      await writeSeal(u.id, ssoExp(true), creds, { adminTok:state.adminTok });
+      await writeSeal(u, ssoExp(true), pw, {});
       jset(K_SESS, { v:1, userId:u.id, name:u.name, role:u.role, at:Date.now(), exp:ssoExp(true), keep:true });
       openDash();
       toast('통합 포털 관리자를 만들었습니다');
@@ -1094,6 +1044,28 @@
     var s = jget(K_SESS, null);
     return !!(s && s.keep);
   }
+  function ledgerAuthToken() {
+    try {
+      var a = JSON.parse(localStorage.getItem(LEDGER_AUTH_KEY) || 'null');
+      return (a && a.token) || '';
+    } catch (e) { return ''; }
+  }
+  /* 앱 주소로 바로 들어왔던 사람(portal/?from=ledger)을 로그인 뒤 그 앱으로 돌려보낸다.
+     같은 일이 두 번 넘게 되풀이되면(무한 되돌이 방지) 대시보드에 그대로 둔다. */
+  function openFromParam() {
+    var from = '';
+    try { from = new URLSearchParams(location.search).get('from') || ''; } catch (e) {}
+    if (!from || APP_IDS.indexOf(from) < 0) return;
+    if (!state.user || !hasApp(state.user, from)) return;
+    var n = 0;
+    try { n = Number(sessionStorage.getItem('dkp.from.n') || 0); } catch (e) {}
+    if (n >= 2) { toast('도구를 열지 못했습니다 · 아래에서 다시 눌러 주세요', true); return; }
+    try { sessionStorage.setItem('dkp.from.n', String(n + 1)); } catch (e) {}
+    var a = null;
+    for (var i = 0; i < APPS.length; i++) if (APPS[i].id === from) a = APPS[i];
+    if (!a) return;
+    location.replace(new URL(a.path, location.href).href);
+  }
 
   function openDash() {
     var u = state.user || (function () {
@@ -1149,15 +1121,12 @@
         }).join('') + '</div>' +
         (mine ? '' :
           '<div class="acts">' +
-            '<button class="btn xs line" type="button" data-reset="' + esc(u.id) + '">비밀번호·앱 비밀번호 재설정</button>' +
+            '<button class="btn xs line" type="button" data-reset="' + esc(u.id) + '">비밀번호 재설정</button>' +
             '<button class="btn xs line" type="button" data-toggle="' + esc(u.id) + '">' + (off ? '사용 다시 켜기' : '사용 중지') + '</button>' +
             '<button class="btn xs danger" type="button" data-del="' + esc(u.id) + '">삭제</button>' +
           '</div>' +
           '<div class="ureset" data-resetbox="' + esc(u.id) + '" hidden>' +
-            '<input class="inp sm" type="password" data-rpw="' + esc(u.id) + '" autocomplete="new-password" placeholder="새 포털 비밀번호 (6자 이상)">' +
-            '<input class="inp sm" type="password" data-rledger="' + esc(u.id) + '" placeholder="금전출납부 비밀번호 (비우면 위와 같음)">' +
-            '<input class="inp sm" type="password" data-rprayer="' + esc(u.id) + '" placeholder="중보기도문 비밀번호 (비우면 위와 같음)">' +
-            '<input class="inp sm" type="password" data-rppt="' + esc(u.id) + '" placeholder="재정보고 비밀번호 (비우면 위와 같음)">' +
+            '<input class="inp sm" type="password" data-rpw="' + esc(u.id) + '" autocomplete="new-password" placeholder="새 통합 비밀번호 (6자 이상)">' +
             '<button class="btn xs soft" type="button" data-rok="' + esc(u.id) + '">저장</button>' +
           '</div>') +
       '</div>';
@@ -1179,26 +1148,19 @@
     var role = $('#nu-role').value === 'admin' ? 'admin' : 'user';
     var apps = $$('#nu-apps input:checked').map(function (x) { return x.value; });
     if (!/^[a-z0-9._-]{2,20}$/.test(id)) { toast('아이디는 영문 소문자·숫자 2~20자로 넣어 주세요', true); return; }
-    if (id === 'admin') { toast('admin 아이디는 새로 만들 수 없습니다', true); return; }
+    if (isAdminId(id)) { toast('관리자 아이디는 새로 만들 수 없습니다', true); return; }
     if (String(pw).length < 6) { toast('비밀번호는 6자 이상으로 넣어 주세요', true); return; }
     if (findUser(id)) { toast('이미 있는 아이디입니다', true); return; }
     if (!apps.length) { toast('사용할 앱을 하나 이상 체크해 주세요', true); return; }
     state.busy = true;
     try {
-      var cred = {};
-      APP_IDS.forEach(function (a) {
-        var cid = String(($('[data-nucred="' + a + '"]') || {}).value || '').trim();
-        var cpw = String(($('[data-nucred="' + a + '-pw"]') || {}).value || '');
-        cred[a] = { id: cid || id, pw: cpw || pw };
-      });
+      var cred = { id:id, pw:pw };
       var salt = newSalt();
       var u = {
         id:id, name:name, role:role, apps:apps, active:true, salt:salt,
         hash: await pbkdf2Hex(pw, salt), createdAt:Date.now(), updatedAt:Date.now(),
-        credIds:{ ledger:cred.ledger.id, ppt:cred.ppt.id, prayer:cred.prayer.id },
         prov:{}
       };
-      u.seal = await sealCreds(u, pw, cred);
       state.doc.users.push(u);
       /* 예전에 지운 같은 아이디를 다시 만들면 삭제 목록에서 뺀다 (다시 지워지지 않게) */
       state.doc.deletedIds = (state.doc.deletedIds || []).filter(function (x) { return normId(x) !== id; });
@@ -1206,7 +1168,7 @@
       /* 금전출납부 계정도 같은 비밀번호로 맞춰 둔다 (관리자 토큰이 있을 때만) */
       var note = '';
       if (apps.indexOf('ledger') >= 0) {
-        var p = await provisionLedger(u, cred.ledger);
+        var p = await provisionLedger(u, cred);
         if (p.ok) u.prov.ledger = true;
         else if (p.needAdmin) note = ' · 금전출납부 계정은 관리자 로그인 후 자동으로 만들어집니다';
         else note = ' · 금전출납부 계정: ' + (p.message || '확인 필요');
@@ -1218,7 +1180,6 @@
         return;
       }
       $('#nu-id').value = ''; $('#nu-name').value = ''; $('#nu-pw').value = '';
-      $$('[data-nucred]').forEach(function (x) { x.value = ''; });
       renderUsers();
       toast((ok ? '계정을 추가했습니다' : '이 기기에 계정을 추가했습니다') + ' · ' + apps.map(function (a) { return APP_LABEL[a]; }).join('·') + note, !ok);
     } catch (e) {
@@ -1248,22 +1209,14 @@
     if (!u) return;
     var pw = String(($('[data-rpw="' + id + '"]') || {}).value || '');
     if (String(pw).length < 6) { toast('새 비밀번호는 6자 이상으로 넣어 주세요', true); return; }
-    var rl = String(($('[data-rledger="' + id + '"]') || {}).value || '');
-    var rp = String(($('[data-rprayer="' + id + '"]') || {}).value || '');
-    var rt = String(($('[data-rppt="' + id + '"]') || {}).value || '');
-    var ids = u.credIds || {};
-    var cred = {
-      ledger: { id:(ids.ledger || u.id), pw: rl || pw },
-      ppt:    { id:(ids.ppt || u.id),    pw: rt || pw },
-      prayer: { id:(ids.prayer || u.id), pw: rp || pw }
-    };
+    var cred = { id:u.id, pw:pw };
     u.salt = newSalt();
     u.hash = await pbkdf2Hex(pw, u.salt);
-    u.seal = await sealCreds(u, pw, cred);
+    delete u.seal; delete u.credIds;
     u.updatedAt = Date.now();
     var note = '';
     if (hasApp(u, 'ledger')) {
-      var p = await provisionLedger(u, cred.ledger);
+      var p = await provisionLedger(u, cred);
       if (p.ok) u.prov.ledger = true;
       else note = ' · 금전출납부: ' + (p.message || '관리자 로그인 후 다시 시도');
     }
@@ -1278,7 +1231,7 @@
     u.active = (u.active === false);
     u.updatedAt = Date.now();
     if (hasApp(u, 'ledger') && state.adminTok) {
-      var cred = (state.creds && u.id === (state.user && state.user.id)) ? state.creds.ledger : null;
+      var cred = null;
       var cid = u.id;
       try {
         await ledgerCall({ action:'user_save', token:state.adminTok,
@@ -1293,10 +1246,12 @@
   async function deleteUser(id) {
     var u = findUser(id);
     if (!u) return;
+    if (isAdminId(id)) { toast('관리자 계정은 삭제할 수 없습니다', true); return; }
     state.doc.users = state.doc.users.filter(function (x) { return x.id !== id; });
     var del = {};
     (state.doc.deletedIds || []).forEach(function (x) { del[normId(x)] = 1; });
     del[id] = 1;
+    if (del['phs7604']) delete del['phs7604'];
     delete del['admin'];
     state.doc.deletedIds = Object.keys(del);
     if (u.prov && u.prov.ledger && state.adminTok) {
@@ -1331,60 +1286,80 @@
     if (np !== np2) { msg.textContent = '새 비밀번호가 서로 다릅니다'; return; }
     var hash = await pbkdf2Hex(cur, me.salt);
     if (hash !== me.hash) { msg.textContent = '지금 비밀번호가 맞지 않습니다'; return; }
-    var cred = await unsealCreds(me, cur) || defaultCreds(me, cur);
-    me.credIds = { ledger:cred.ledger.id, ppt:cred.ppt.id, prayer:cred.prayer.id };
+
+    /* 통합 비밀번호는 금전출납부 서버 계정의 비밀번호이기도 합니다.
+       여기서 바꾸면 금전출납부·중보기도문 서버 계정도 같은 비밀번호로 함께 바뀝니다. */
+    var ledgerNew = null;
+    if (hasApp(me, 'ledger')) {
+      var r = await ledgerCall({ action:'change_password', token:(state.ledgerTok || ''), oldPw:cur, newPw:np });
+      if (!r || r.ok !== true) {
+        msg.textContent = '금전출납부 계정 비밀번호를 바꾸지 못했습니다 · ' + ((r && (r.message || r.error)) || '서버 응답 없음');
+        return;
+      }
+      ledgerNew = r;
+    }
+    var pr = await prayerChangePw(me.id, cur, np);
+
     me.salt = newSalt();
     me.hash = await pbkdf2Hex(np, me.salt);
-    me.seal = await sealCreds(me, np, cred);
+    delete me.seal; delete me.credIds;
     me.updatedAt = Date.now();
     await saveDoc('');
     $('#pw-cur').value = ''; $('#pw-new').value = ''; $('#pw-new2').value = '';
     $('#pw-panel').hidden = true;
+    if (ledgerNew) {
+      storeLedgerAuth(ledgerNew);
+      state.ledgerTok = ledgerNew.token;
+      if (ledgerNew.user && ledgerNew.user.role === 'admin') state.adminTok = ledgerNew.token;
+    }
+    state.pw = np;
     writeSSO(me, keepOf());
-    await writeSeal(me.id, ssoExp(keepOf()), cred, { adminTok:state.adminTok });
-    toast('비밀번호를 바꿨습니다');
+    await writeSeal(me, ssoExp(keepOf()), np, { pwPrev: cur });
+    toast('통합 비밀번호를 바꿨습니다' + (pr && pr.ok === false ? ' · 중보기도문: ' + pr.message : ''), !!(pr && pr.ok === false));
     openDash();
   }
 
-  async function saveOwnCreds() {
-    var me = state.user;
-    if (!me) return;
-    var s = jget(K_SESS, null);
-    var msg = $('#cred-msg');
-    msg.textContent = '';
-    // 봉인 열쇠는 '지금 비밀번호'에서 나오므로 비밀번호를 한 번 확인한다
-    var pw = $('#cred-pw-check') ? $('#cred-pw-check').value : '';
-    if (!pw) { msg.textContent = '지금 쓰는 포털 비밀번호를 넣어 주세요'; return; }
-    var hash = await pbkdf2Hex(pw, me.salt);
-    if (hash !== me.hash) { msg.textContent = '포털 비밀번호가 맞지 않습니다'; return; }
-    var lid = String($('#cr-ledger-id').value || '').trim() || me.id;
-    var lpw = String($('#cr-ledger-pw').value || '') || pw;
-    var tid = String($('#cr-ppt-id').value || '').trim() || me.id;
-    var tpw = String($('#cr-ppt-pw').value || '') || pw;
-    var pid = String($('#cr-prayer-id').value || '').trim() || me.id;
-    var ppw = String($('#cr-prayer-pw').value || '') || pw;
-    var cred = { ledger:{ id:lid, pw:lpw }, ppt:{ id:tid, pw:tpw }, prayer:{ id:pid, pw:ppw } };
-    me.seal = await sealCreds(me, pw, cred);
-    me.credIds = { ledger:cred.ledger.id, ppt:cred.ppt.id, prayer:cred.prayer.id };
-    me.updatedAt = Date.now();
-    await saveDoc('');
-    state.creds = cred;
-    // 바로 확인: 금전출납부
-    var note = '';
-    if (hasApp(me, 'ledger')) {
-      var r = await ledgerLogin(lid, lpw);
-      if (r.ok) { storeLedgerAuth(r); if (r.user.role === 'admin') state.adminTok = r.token; }
-      else note = ' · 금전출납부 로그인 실패: ' + (r.message || '');
-    }
-    await writeSeal(me.id, ssoExp(keepOf()), cred, { adminTok:state.adminTok });
-    writeSSO(me, keepOf());
-    $('#cred-panel').hidden = true;
-    toast('앱 비밀번호를 저장했습니다' + note, !!note);
+  /* ── 중보기도문 서버 계정도 같은 통합 비밀번호로 맞춘다 ─────────
+     계정이 없으면 아무 것도 하지 않고(앱이 처음 열 때 만들어집니다), 실패해도 포털 비밀번호 변경은 그대로 진행합니다. */
+  async function sha256Hex(s) { return hex(await crypto.subtle.digest('SHA-256', enc(String(s)))); }
+  async function prayerCall(payload) { return postJSON(SYNC_URL, payload, 15000); }
+  async function aesEncRaw(key, bytes) {
+    var iv = crypto.getRandomValues(new Uint8Array(12));
+    var ct = await crypto.subtle.encrypt({ name:'AES-GCM', iv:iv }, key, bytes);
+    return { iv: b64.enc(iv), ct: b64.enc(ct) };
+  }
+  async function prayerChangePw(id, oldPw, newPw) {
+    try {
+      var slot = 'acct-' + (await sha256Hex('deoksin-prayer-acct:' + id)).slice(0, 32);
+      var st = await prayerCall({ action:'auth_state', uid:slot });
+      if (!st || st.ok !== true || !st.exists) return { ok:true };
+      var oldH = await sha256Hex('deoksin-prayer-login:' + slot + ':' + oldPw);
+      var newH = await sha256Hex('deoksin-prayer-login:' + slot + ':' + newPw);
+      var lg = await prayerCall({ action:'auth_login', uid:slot, h:oldH, device:'portal' });
+      if (!lg || lg.ok !== true) return { ok:false, message:(lg && (lg.message || lg.error)) || '로그인 실패' };
+      var ch = await prayerCall({ action:'auth_pw', slot:slot, oldH:oldH, newH:newH, token:lg.token });
+      if (!ch || ch.ok !== true) return { ok:false, message:(ch && (ch.message || ch.error)) || '변경 실패' };
+      /* 계정 봉투(작업 열쇠)도 새 비밀번호로 다시 감싸 둔다 */
+      var env = await prayerCall({ action:'pull', slot:slot, token:(ch.token || lg.token) });
+      var row = env && env.rows && env.rows[0];
+      if (row) {
+        var e = JSON.parse(row.data);
+        var kekOld = await keyFromBits(await pbkdf2Bits(oldPw, e.salt, 150000));
+        var raw = new Uint8Array(await crypto.subtle.decrypt(
+          { name:'AES-GCM', iv:b64.dec(e.w.iv) }, kekOld, b64.dec(e.w.ct)));
+        var salt2 = e.id + '|' + hex(crypto.getRandomValues(new Uint8Array(12)));
+        var kekNew = await keyFromBits(await pbkdf2Bits(newPw, salt2, 150000));
+        var env2 = { v:1, id:e.id, salt:salt2, w: await aesEncRaw(kekNew, raw) };
+        await prayerCall({ action:'push', slot:slot, token:(ch.token || lg.token),
+          rows:[{ key:'acct', data: JSON.stringify(env2), updatedAt: Date.now() }] });
+      }
+      return { ok:true };
+    } catch (e) { return { ok:false, message:(e && e.message) || '중보기도문 서버에 연결하지 못했습니다' }; }
   }
 
   async function logout() {
     clearSession();
-    state.user = null; state.creds = null; state.adminTok = '';
+    state.user = null; state.pw = ''; state.adminTok = '';
     showGate('');
     toast('로그아웃했습니다');
   }
@@ -1420,16 +1395,6 @@
     $('#btn-pw-open').addEventListener('click', function () { $('#pw-panel').hidden = false; $('#pw-cur').focus(); });
     $('#btn-pw-close').addEventListener('click', function () { $('#pw-panel').hidden = true; $('#pw-msg').textContent = ''; });
     $('#btn-pw-save').addEventListener('click', changeOwnPassword);
-    $('#btn-cred-open').addEventListener('click', async function () {
-      var me = state.user;
-      var c = state.creds || defaultCreds(me, '');
-      $('#cr-ledger-id').value = c.ledger ? c.ledger.id : '';
-      $('#cr-ppt-id').value = c.ppt ? c.ppt.id : '';
-      $('#cr-prayer-id').value = c.prayer ? c.prayer.id : '';
-      $('#cred-panel').hidden = false;
-    });
-    $('#btn-cred-close').addEventListener('click', function () { $('#cred-panel').hidden = true; $('#cred-msg').textContent = ''; });
-    $('#btn-cred-save').addEventListener('click', saveOwnCreds);
 
     $('#users-list').addEventListener('change', function (e) {
       var box = e.target.closest('input[data-menu]');
@@ -1487,9 +1452,10 @@
     paintNuApps();
     bind();
 
-    // 이 기기에서만 풀리는 봉인이 만료됐으면 지운다
-    var seal = jget(K_SEAL, null);
-    if (seal && seal.exp && seal.exp < Date.now()) jrm(K_SEAL);
+    // 이 기기 봉인이 만료됐으면 지운다. 옛 '앱별 비밀번호' 봉인은 이제 쓰지 않는다.
+    var pass = jget(K_PASS, null);
+    if (pass && pass.exp && pass.exp < Date.now()) jrm(K_PASS);
+    jrm(K_SEAL);
 
     var sess = currentSession();
     if (sess) {
@@ -1499,12 +1465,21 @@
         state.user = u;
         var sealNow = await readSeal();
         // 봉인이 없으면 다시 로그인해야 앱이 열리므로 로그인 화면으로
-        if (sealNow && sealNow.userId === u.id) {
-          state.creds = sealNow.creds || null;
-          state.adminTok = sealNow.adminTok || '';
+        if (sealNow && sealNow.userId === u.id && sealNow.pw) {
+          state.pw = sealNow.pw;
+          state.ledgerTok = ledgerAuthToken();
+          /* 토큰이 오래됐을 수 있으니 통합 비밀번호로 조용히 다시 받아 둔다(화면은 바로 연다) */
+          ledgerLogin(u.id, sealNow.pw).then(function (r) {
+            if (r && r.ok) {
+              storeLedgerAuth(r);
+              state.ledgerTok = r.token;
+              if (r.user && r.user.role === 'admin') state.adminTok = r.token;
+            }
+          }).catch(function () {});
           if (!u.apps) u.apps = [];
           writeSSO(u, !!(sess.keep));
           openDash();
+          openFromParam();
           document.documentElement.setAttribute('data-ready', '1');
           return;
         }
@@ -1535,7 +1510,7 @@
     setUserApps: setUserApps,
     deleteUser: deleteUser,
     reload: function () { return loadDoc({}); },
-    creds: function () { return state.creds; }
+    pass: function () { return jget(K_PASS, null); }
   };
 })();
 </script>

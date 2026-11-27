@@ -922,25 +922,60 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     if (SYNC_ON) setTimeout(() => syncPull({ manual: false }), 500);
   }
 
-/* DKP-HOOK-START ── 교회 통합 포털 연동 (자동 생성) ── */
+/* DKP-HOOK-START ── 교회 통합 포털 연동 v3 (자동 생성) ── */
   window.__dkpOpen = function(){ return !state.locked; };
+  /* 포털이 넘겨준 통합 비밀번호로 금고를 연다.
+     예전에 이 기기에서 쓰던 비밀번호(admin1234 등)면 한 번만 조용히 열고,
+     바로 통합 비밀번호로 다시 잠가 둔다 — 앱마다 따로 비밀번호를 두지 않는다. */
   window.__dkpEnter = async function (cred) {
-    if (!cred || !cred.pw) return false;
-    const pw = String(cred.pw);
-    try {
-      if (localStorage.getItem(VAULT_KEY)) {
+    if (!cred) return false;
+    const tries = [];
+    const add = (p) => { p = String(p || '').trim(); if (p && tries.indexOf(p) < 0) tries.push(p); };
+    add(cred.pw); add(cred.pwPrev); add('admin1234'); add('deoksin2026');
+    if (!tries.length) return false;
+    for (let i = 0; i < tries.length; i++) {
+      const pw = tries[i];
+      try {
+        if (!localStorage.getItem(VAULT_KEY)) {
+          const made = await createVault(String(cred.pw || pw));
+          state.key = made.key; state.vault = made.vault; state.data = made.data;
+          await enterApp(String(cred.pw || pw));
+          return true;
+        }
         const r = await tryUnlock(pw);
-        if (!r.ok) return false;
+        if (!r.ok || !r.key) continue;
         state.key = r.key; state.vault = r.vault; state.data = r.data || { history: [] };
         if (!state.data.history) state.data.history = [];
         await enterApp(pw);
+        if (String(cred.pw || '') && pw !== String(cred.pw)) {
+          try { await dkpRekey(String(cred.pw)); } catch (e) { }
+        }
         return true;
-      }
-      const made = await createVault(pw);
-      state.key = made.key; state.vault = made.vault; state.data = made.data;
-      await enterApp(pw);
-      return true;
-    } catch (e) { return false; }
+      } catch (e) { }
+    }
+    return false;
+  };
+  async function dkpRekey(newPw) {
+    const salt = crypto.getRandomValues(new Uint8Array(16));
+    const key = await deriveKey(newPw, salt, ITERS);
+    const nv = { v: 1, salt: b64.fromBytes(salt), iters: ITERS };
+    nv.check = await aesEnc(key, { ok: CHECK });
+    nv.data = await aesEnc(key, state.data);
+    localStorage.setItem(VAULT_KEY, JSON.stringify(nv));
+    state.key = key; state.vault = nv; state.pw = newPw;
+    if (SYNC_ON) {
+      try { syncSlotId = await syncSlotFor(newPw); } catch (e) { syncSlotId = null; }
+      state.syncSalt = null;
+      try { syncKeys.clear(); } catch (e) { }
+      try { scheduleSyncPush(400); } catch (e) { }
+    }
+    toast('통합 비밀번호로 금고를 다시 잠갔습니다');
+  }
+  /* 잠금(자동·수동) 뒤에는 앱 자체 비밀번호 화면 대신 통합포털로 보낸다. */
+  var __dkpLock0 = lockApp;
+  lockApp = function () {
+    try { __dkpLock0(); } catch (e) { }
+    try { setTimeout(function () { location.replace('../portal/'); }, 30); } catch (e) { }
   };
   /* DKP-HOOK-END */  function lockApp() {
     state.locked = true;
@@ -3208,7 +3243,14 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       if (!$('#impPw').value) { toast('백업 파일의 비밀번호를 먼저 입력해 주세요.', true); $('#impPw').focus(); return; }
       importBackup(f);
     });
-    $('#btnKey').addEventListener('click', () => { $('#keyErr').textContent = ''; openModal('keyModal'); });
+    /* 2026-11-28: 비밀번호는 통합포털에서 한 번만 바꾼다(금고·동기화도 그 비밀번호로 다시 잠김). */
+    $('#btnKey').addEventListener('click', () => {
+      if (window.__dkpGate && confirm('비밀번호는 이제 통합포털에서 한 번만 바꿉니다.\n금전출납부·재정보고·중보기도문이 같은 비밀번호를 씁니다.\n\n통합포털 [내 계정 → 통합 비밀번호 변경]으로 갈까요?')) {
+        location.href = '../portal/';
+        return;
+      }
+      $('#keyErr').textContent = ''; openModal('keyModal');
+    });
     $('#btnKeySave').addEventListener('click', changePassword);
     $('#btnLock').addEventListener('click', lockApp);
     $('#btnZoomHint').addEventListener('click', () => {
@@ -3253,7 +3295,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
 })();
 </script>
 
-<!-- DKP-BRIDGE-START ══════════ 교회 통합 포털 연동 (자동 생성: _portal/inject_portal.py) ══════════ -->
+<!-- DKP-BRIDGE-START ══════════ 교회 통합 포털 연동 v3 (자동 생성: _portal/inject_portal.py) ══════════ -->
 <style>
   #dkpHome{display:inline-flex;align-items:center;gap:5px;height:34px;padding:0 10px;border-radius:9px;
     border:1px solid rgba(128,128,128,.45);background:rgba(128,128,128,.14);color:inherit;font-size:12px;
@@ -3264,6 +3306,12 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     #dkpHome{padding:0;width:34px;justify-content:center;gap:0}
     #dkpHome .lbl{display:none}
   }
+  /* 앱 자체 로그인 화면은 통합 로그인으로 대신하므로 보이지 않게 둔다 */
+  html[data-dkp="gate"] #loginScreen,
+  html[data-dkp="gate"] #pwChangeScreen,
+  html[data-dkp="gate"] #lockScreen,
+  html[data-dkp="gate"] #lock,
+  html[data-dkp="gate"] .lock-card{visibility:hidden !important}
   .dkp-link-foot{display:inline-flex;align-items:center;gap:6px;margin-top:12px;font-size:12.5px;font-weight:700;
     color:#7a6a45;text-decoration:none}
   .dkp-ov{position:fixed;inset:0;z-index:99990;display:flex;align-items:center;justify-content:center;padding:24px;
@@ -3284,11 +3332,14 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   'use strict';
   var APP = 'ppt';                 /* ledger | ppt | prayer */
   var PORTAL = '../portal/';           /* 포털 주소(상대) */
-  var K_SSO = 'dkp.sso.v1', K_SEAL = 'dkp.seal.v1';
+  var K_SSO = 'dkp.sso.v1', K_PASS = 'dkp.pass.v1';
+  var K_NAV = 'dkp.nav.n';
 
   function jget(k, d) {
     try { var r = localStorage.getItem(k); return r === null ? d : JSON.parse(r); } catch (e) { return d; }
   }
+  function sget(k, d) { try { var r = sessionStorage.getItem(k); return r === null ? d : r; } catch (e) { return d; } }
+  function sset(k, v) { try { sessionStorage.setItem(k, v); } catch (e) {} }
   function sso() {
     var s = jget(K_SSO, null);
     if (!s || !s.userId) return null;
@@ -3303,6 +3354,12 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     return String(t == null ? '' : t).replace(/[&<>"']/g, function (c) {
       return { '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c];
     });
+  }
+  function gateMode(on) {
+    try {
+      if (on) document.documentElement.setAttribute('data-dkp', 'gate');
+      else document.documentElement.removeAttribute('data-dkp');
+    } catch (e) {}
   }
   function overlay(inner) {
     var old = document.getElementById('dkpOverlay');
@@ -3319,13 +3376,35 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     if (d) d.parentNode.removeChild(d);
   }
   function blockDkp(s) {
+    gateMode(true);
     overlay('<div class="dkp-ico">⛪</div><h3>이 도구를 쓸 권한이 없습니다</h3>' +
       '<p>' + (s && s.name ? esc(s.name) + '님은' : '지금 로그인한 계정은') +
       ' 이 도구를 쓰도록 지정되어 있지 않습니다.<br>필요하면 교회 관리자에게 요청하세요.</p>' +
       '<a class="dkp-btn" href="' + PORTAL + '">⛪ 교회포털로 돌아가기</a>');
   }
 
-  /* ── 이 기기 전용 열쇠로 봉인을 푼다 (포털이 로그인 때 만들어 둔 것) ── */
+  /* 통합포털로 보낸다. 포털에서 로그인하면 ?from= 덕분에 이 앱으로 바로 돌아온다. */
+  function goPortal(why) {
+    gateMode(true);
+    var from = '';
+    try { from = new URLSearchParams(location.search).get('from') || ''; } catch (e) {}
+    var n = Number(sget(K_NAV, '0')) || 0;
+    overlay('<div class="dkp-ico">⛪</div><h3>통합 포털에서 로그인합니다</h3>' +
+      '<p>교회 도구는 <b>통합 아이디·비밀번호 하나</b>로 열립니다.<br>' +
+      (from === 'portal' || n >= 2 ? '아래 단추를 눌러 포털에서 로그인해 주세요.' : '포털로 이동합니다…') + '</p>' +
+      '<a class="dkp-btn" href="' + PORTAL + '?from=' + APP + '">⛪ 통합 포털 열기</a>');
+    if (from === 'portal' || n >= 2) return;      /* 무한 되돌이 방지 */
+    sset(K_NAV, String(n + 1));
+    setTimeout(function () { location.replace(PORTAL + '?from=' + APP); }, 600);
+  }
+  function needPw() {
+    gateMode(true);
+    overlay('<div class="dkp-ico">🔑</div><h3>포털에서 비밀번호를 바꿔 주세요</h3>' +
+      '<p>처음 받은 기본 비밀번호입니다.<br>통합포털의 <b>내 계정 → 통합 비밀번호 변경</b>에서 바꾸면 모든 도구가 함께 바뀝니다.</p>' +
+      '<a class="dkp-btn" href="' + PORTAL + '">⛪ 통합 포털 열기</a>');
+  }
+
+  /* 이 기기 전용 열쇠로 '통합 비밀번호 봉인'을 푼다 (포털이 로그인 때 만들어 둔 것) */
   function b64dec(str) {
     var s = atob(String(str || '')), a = new Uint8Array(s.length);
     for (var i = 0; i < s.length; i++) a[i] = s.charCodeAt(i);
@@ -3351,8 +3430,8 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       });
     }).catch(function () { return null; });
   }
-  function sealPayload() {
-    var s = jget(K_SEAL, null);
+  function passPayload() {
+    var s = jget(K_PASS, null);
     if (!s || !s.iv || !s.ct) return Promise.resolve(null);
     if (s.exp && s.exp < Date.now()) return Promise.resolve(null);
     return devKey().then(function (key) {
@@ -3363,7 +3442,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     });
   }
 
-  /* ── 위쪽 '⛪ 교회포털' 버튼 ── */
+  /* 위쪽 '⛪ 교회포털' 버튼 */
   function addHeaderLink() {
     if (document.getElementById('dkpHome')) return;
     var hosts = ['.topbar-in .top-actions', '.topbar-actions', '.top-right', '.topbar-in'];
@@ -3403,40 +3482,34 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       })();
     });
   }
+  function isOpen() {
+    try { return !!(window.__dkpOpen && window.__dkpOpen()); } catch (e) { return false; }
+  }
 
   function boot() {
     addHeaderLink();
     addLockLink();
+    if (isOpen()) { gateMode(false); return; }          /* 이미 열려 있음 */
+    gateMode(true);                                     /* 앱 자체 로그인 화면은 숨긴다 */
     var s = sso();
-    if (!s) return;                                  /* 포털 세션 없음 → 앱 자체 로그인 */
-    if (!allowed(s)) { blockDkp(s); return; }        /* 권한 없는 앱 → 막는다 */
-    var openNow = false;
-    try { openNow = !!(window.__dkpOpen && window.__dkpOpen()); } catch (e) { openNow = false; }
-    if (openNow) return;                             /* 이미 열려 있음 */
-
-    sealPayload().then(function (p) {
-      var c = p && p.creds ? p.creds[APP] : null;
-      if (!c || !c.pw) return;
-      var box = overlay('<div class="dkp-spin"></div><h3>교회포털에서 여는 중…</h3>' +
-        '<p>' + esc(s.name || '') + '님 · 비밀번호 없이 바로 들어갑니다.</p>');
-      waitFor(function () { return window.__dkpEnter; }, 6000).then(function (enter) {
-        if (!enter) { closeOverlay(); return; }
-        Promise.resolve(enter(c)).then(function (ok) {
-          if (ok) {
-            closeOverlay();
-            var again = false;
-            try { again = !!(window.__dkpOpen && window.__dkpOpen()); } catch (e) { again = false; }
-            if (!again) closeOverlayForce();
-          } else {
-            closeOverlay();
-          }
-        }, function () { closeOverlay(); });
+    if (s && !allowed(s)) { blockDkp(s); return; }      /* 권한 없는 앱 */
+    if (!s) { goPortal('no-sso'); return; }             /* 포털에 로그인한 적이 없다 */
+    passPayload().then(function (p) {
+      if (!p || !p.pw) { goPortal('no-pass'); return; }
+      overlay('<div class="dkp-spin"></div><h3>교회포털에서 여는 중…</h3>' +
+        '<p>' + esc(p.name || s.name || '') + '님 · 비밀번호 화면 없이 바로 들어갑니다.</p>');
+      waitFor(function () { return window.__dkpEnter; }, 8000).then(function (enter) {
+        if (!enter) { goPortal('no-enter'); return; }
+        Promise.resolve(enter({ id: p.userId, pw: p.pw, pwPrev: p.pwPrev || '' })).then(function (ok) {
+          if (isOpen()) { closeOverlay(); gateMode(false); return; }
+          goPortal(ok ? 'not-open' : 'enter-failed');
+        }, function () { goPortal('enter-error'); });
       });
     });
   }
-  function closeOverlayForce() {
-    setTimeout(closeOverlay, 60);
-  }
+
+  window.__dkpGate = goPortal;
+  window.__dkpNeedPw = needPw;
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', function () { setTimeout(boot, 30); });
   else setTimeout(boot, 30);

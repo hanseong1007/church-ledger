@@ -810,15 +810,8 @@ textarea.inp{height:auto;min-height:64px;padding:10px 12px;line-height:1.5;resiz
 
     <div class="card" id="adminCard" hidden>
       <div class="card-head"><h2>사용자 관리</h2><span class="count" id="userCnt"></span></div>
-      <p class="hint">관리자는 계정을 추가하고 비밀번호를 초기화할 수 있습니다. 로그인한 계정만 장부를 열 수 있습니다.</p>
+      <p class="hint">계정은 <b>통합포털 사용자 관리</b>와 같은 목록입니다. 포털에서 추가하면 이 앱에도 같은 아이디·비밀번호로 함께 만들어집니다.</p>
       <div id="userList" style="margin-top:9px"></div>
-      <div class="adduser">
-        <input class="inp" id="nuId" type="text" placeholder="아이디 (공백 없이)" autocapitalize="none" maxlength="24">
-        <input class="inp" id="nuName" type="text" placeholder="이름 (예: 홍길동)" maxlength="30">
-        <select class="inp" id="nuRole"><option value="member">일반 사용자</option><option value="admin">관리자</option></select>
-        <input class="inp" id="nuPw" type="password" placeholder="비밀번호 (6자 이상)" autocomplete="new-password">
-        <button class="btn line" type="button" id="btnAddUser">계정 추가</button>
-      </div>
     </div>
 
     <div class="card">
@@ -1570,11 +1563,7 @@ textarea.inp{height:auto;min-height:64px;padding:10px 12px;line-height:1.5;resiz
         '<span class="u-nm">' + esc(u.name) + (me ? " (나)" : "") + '</span>' +
         '<span class="u-id">' + esc(u.id) + '</span>' +
         '<span class="u-tag' + (u.active ? "" : " off") + '">' + (u.role === "admin" ? "관리자" : "사용자") + (u.active ? "" : " · 중지") + '</span>' +
-        '<span class="u-btns">' +
-          '<button class="btn sm line" type="button" data-uact="pw">비번 초기화</button>' +
-          (me ? "" : '<button class="btn sm" type="button" data-uact="toggle">' + (u.active ? "사용중지" : "다시 사용") + '</button>') +
-          (me ? "" : '<button class="btn sm danger" type="button" data-uact="del">삭제</button>') +
-        "</span></div>";
+        "</div>";
     }).join("");
   }
 
@@ -1584,78 +1573,11 @@ textarea.inp{height:auto;min-height:64px;padding:10px 12px;line-height:1.5;resiz
     return null;
   }
 
-  function userAction(btn){
-    var row = btn.closest(".user-row");
-    if (!row) return;
-    var id = row.getAttribute("data-uid");
-    var u = userById(id);
-    if (!u) return;
-    var act = btn.getAttribute("data-uact");
-
-    if (act === "pw"){
-      var np = prompt(u.name + "(" + u.id + ") 계정의 새 비밀번호를 입력하세요.\n(6자 이상)", "");
-      if (np == null) return;
-      np = String(np).trim();
-      if (np.length < 6){ toast("비밀번호는 6자 이상으로 정해 주세요"); return; }
-      apiCall({ action: "user_save", user: { id: u.id, name: u.name, role: u.role, active: u.active, pw: np } }).then(function(d){
-        if (!d || d.ok !== true) throw new Error((d && (d.message || d.error)) || "바꾸지 못했습니다");
-        toast(u.name + " 계정의 비밀번호를 바꿨습니다");
-        loadUsers(true);
-      }).catch(function(err){ toast(err.message || "바꾸지 못했습니다"); });
-      return;
-    }
-
-    if (act === "toggle"){
-      var nextActive = !u.active;
-      if (!confirm(u.name + "(" + u.id + ") 계정을 " + (nextActive ? "다시 사용하도록" : "사용 중지") + " 할까요?" + (nextActive ? "" : "\n중지하면 그 계정으로는 로그인할 수 없습니다."))) return;
-      apiCall({ action: "user_save", user: { id: u.id, name: u.name, role: u.role, active: nextActive } }).then(function(d){
-        if (!d || d.ok !== true) throw new Error((d && (d.message || d.error)) || "바꾸지 못했습니다");
-        toast(nextActive ? "다시 사용할 수 있게 했습니다" : "사용을 중지했습니다");
-        loadUsers(true);
-      }).catch(function(err){ toast(err.message || "바꾸지 못했습니다"); });
-      return;
-    }
-
-    if (act === "del"){
-      if (!confirm(u.name + "(" + u.id + ") 계정을 지울까요?\n지운 계정은 되돌릴 수 없습니다.")) return;
-      apiCall({ action: "user_delete", id: u.id }).then(function(d){
-        if (!d || d.ok !== true) throw new Error((d && (d.message || d.error)) || "지우지 못했습니다");
-        toast("계정을 지웠습니다");
-        loadUsers(true);
-      }).catch(function(err){ toast(err.message || "지우지 못했습니다"); });
-    }
-  }
-
-  $("userList").addEventListener("click", function(ev){
-    var btn = ev.target.closest("[data-uact]");
-    if (btn) userAction(btn);
-  });
-
-  $("btnAddUser").addEventListener("click", function(){
-    var id = $("nuId").value.trim();
-    var name = $("nuName").value.trim();
-    var role = $("nuRole").value;
-    var pw = $("nuPw").value;
-    if (!id){ toast("아이디를 적어 주세요"); $("nuId").focus(); return; }
-    if (/\s/.test(id)){ toast("아이디에는 공백을 쓸 수 없습니다"); $("nuId").focus(); return; }
-    if (pw.length < 6){ toast("비밀번호는 6자 이상으로 정해 주세요"); $("nuPw").focus(); return; }
-    if (userById(id) && !confirm("이미 있는 아이디입니다. 이 계정의 이름·권한·비밀번호를 바꿀까요?")) return;
-    $("btnAddUser").disabled = true;
-    apiCall({ action: "user_save", user: { id: id, name: name || id, role: role, pw: pw } }).then(function(d){
-      if (!d || d.ok !== true) throw new Error((d && (d.message || d.error)) || "추가하지 못했습니다");
-      $("nuId").value = ""; $("nuName").value = ""; $("nuPw").value = ""; $("nuRole").value = "member";
-      toast(d.created ? (name || id) + " 계정을 만들었습니다" : (name || id) + " 계정을 바꿨습니다");
-      loadUsers(true);
-    }).catch(function(err){
-      toast(err.message || "추가하지 못했습니다");
-    }).then(function(){ $("btnAddUser").disabled = false; });
-  });
-
-  // 내 비밀번호 변경
+  // 내 비밀번호 변경 — 통합포털에서 한 번에 바꾼다
   $("btnChangePw").addEventListener("click", function(){
-    var box = $("pwBox");
-    box.hidden = !box.hidden;
-    if (!box.hidden){ $("pwOld").value = ""; $("pwNew").value = ""; $("pwNew2").value = ""; $("pwOld").focus(); }
+    if (confirm("비밀번호는 이제 통합포털에서 한 번만 바꿉니다.\n금전출납부·재정보고·중보기도문이 같은 비밀번호를 씁니다.\n\n통합포털 [내 계정 → 통합 비밀번호 변경]으로 갈까요?")){
+      location.href = "portal/";
+    }
   });
   $("btnPwCancel").addEventListener("click", function(){ $("pwBox").hidden = true; });
   $("btnPwSave").addEventListener("click", function(){
@@ -2706,6 +2628,13 @@ textarea.inp{height:auto;min-height:64px;padding:10px 12px;line-height:1.5;resiz
 
   function showLogin(msg){
     $("appRoot").hidden = true;
+    /* 2026-11-28: 금전출납부는 통합포털 로그인 하나로만 엽니다.
+       자체 아이디·비밀번호 화면을 띄우지 않고, 포털 로그인으로 보낸다. */
+    if (window.__dkpGate){
+      $("loginScreen").hidden = true;
+      window.__dkpGate("need-login");
+      return;
+    }
     $("loginScreen").hidden = false;
     loginError(msg || "");
     $("loginPw").value = "";
@@ -2834,6 +2763,8 @@ textarea.inp{height:auto;min-height:64px;padding:10px 12px;line-height:1.5;resiz
   function showPwChange(name){
     $("appRoot").hidden = true;
     $("loginScreen").hidden = true;
+    /* 비밀번호는 통합포털에서 한 번만 바꿉니다(금전출납부 서버 계정도 함께 바뀜). */
+    if (window.__dkpNeedPw){ $("pwChangeScreen").hidden = true; window.__dkpNeedPw(); return; }
     $("pwChangeScreen").hidden = false;
     var sub = $("pwChangeSub");
     if (sub) sub.innerHTML = (name ? esc(name) + "님, " : "") + "처음 받은 비밀번호로 로그인했습니다.<br>새 비밀번호를 정하기 전에는 장부를 쓸 수 없습니다.";
@@ -2898,14 +2829,16 @@ textarea.inp{height:auto;min-height:64px;padding:10px 12px;line-height:1.5;resiz
   }, 20000);
 
   function doLogout(){
-    if (!confirm("로그아웃할까요?\n이 기기에서는 다시 비밀번호를 입력해야 장부가 보입니다.")) return;
+    if (!confirm("로그아웃할까요?\n통합포털 로그인 화면으로 돌아갑니다.")) return;
     var tok = AUTH && AUTH.token;
     storeAuth(null);
     USERS = null;
-    showLogin("");
     if (tok){
       try { syncFetch(null, { action: "logout", token: tok }); } catch(e){}
     }
+    /* 앱 자체 로그인 화면 대신 통합포털로 보낸다 */
+    if (window.__dkpGate) { location.replace("portal/"); return; }
+    showLogin("");
     toast("로그아웃했습니다");
   }
 
@@ -2955,17 +2888,16 @@ textarea.inp{height:auto;min-height:64px;padding:10px 12px;line-height:1.5;resiz
   bootSession();
 
   // 테스트·외부 연동용 (읽기 전용 요약)
-/* DKP-HOOK-START ── 교회 통합 포털 연동 (자동 생성) ── */
+/* DKP-HOOK-START ── 교회 통합 포털 연동 v3 (자동 생성) ── */
   window.__dkpOpen = function(){ return !!CURRENT_USER; };
   window.__dkpEnter = function(cred){
     if (!cred || !cred.id || !cred.pw) return Promise.resolve(false);
     return syncFetch(null, { action:"login", id:cred.id, pw:cred.pw }).then(function(d){
       if (d && d.ok === true && d.user && d.token){
         storeAuth({ id:d.user.id, name:d.user.name, role:d.user.role,
-          token:d.token, expiresAt:d.expiresAt });
-        if (d.mustChange){ showPwChange(d.user.name); return true; }
+          token:d.token, authKey:d.authKey, expiresAt:d.expiresAt });
+        if (d.mustChange){ if (window.__dkpNeedPw) window.__dkpNeedPw(); return false; }
         enterApp();
-        touchActivity();
         return true;
       }
       return false;
@@ -3005,7 +2937,7 @@ textarea.inp{height:auto;min-height:64px;padding:10px 12px;line-height:1.5;resiz
 })();
 </script>
 
-<!-- DKP-BRIDGE-START ══════════ 교회 통합 포털 연동 (자동 생성: _portal/inject_portal.py) ══════════ -->
+<!-- DKP-BRIDGE-START ══════════ 교회 통합 포털 연동 v3 (자동 생성: _portal/inject_portal.py) ══════════ -->
 <style>
   #dkpHome{display:inline-flex;align-items:center;gap:5px;height:34px;padding:0 10px;border-radius:9px;
     border:1px solid rgba(128,128,128,.45);background:rgba(128,128,128,.14);color:inherit;font-size:12px;
@@ -3016,6 +2948,12 @@ textarea.inp{height:auto;min-height:64px;padding:10px 12px;line-height:1.5;resiz
     #dkpHome{padding:0;width:34px;justify-content:center;gap:0}
     #dkpHome .lbl{display:none}
   }
+  /* 앱 자체 로그인 화면은 통합 로그인으로 대신하므로 보이지 않게 둔다 */
+  html[data-dkp="gate"] #loginScreen,
+  html[data-dkp="gate"] #pwChangeScreen,
+  html[data-dkp="gate"] #lockScreen,
+  html[data-dkp="gate"] #lock,
+  html[data-dkp="gate"] .lock-card{visibility:hidden !important}
   .dkp-link-foot{display:inline-flex;align-items:center;gap:6px;margin-top:12px;font-size:12.5px;font-weight:700;
     color:#7a6a45;text-decoration:none}
   .dkp-ov{position:fixed;inset:0;z-index:99990;display:flex;align-items:center;justify-content:center;padding:24px;
@@ -3036,11 +2974,14 @@ textarea.inp{height:auto;min-height:64px;padding:10px 12px;line-height:1.5;resiz
   'use strict';
   var APP = 'ledger';                 /* ledger | ppt | prayer */
   var PORTAL = 'portal/';           /* 포털 주소(상대) */
-  var K_SSO = 'dkp.sso.v1', K_SEAL = 'dkp.seal.v1';
+  var K_SSO = 'dkp.sso.v1', K_PASS = 'dkp.pass.v1';
+  var K_NAV = 'dkp.nav.n';
 
   function jget(k, d) {
     try { var r = localStorage.getItem(k); return r === null ? d : JSON.parse(r); } catch (e) { return d; }
   }
+  function sget(k, d) { try { var r = sessionStorage.getItem(k); return r === null ? d : r; } catch (e) { return d; } }
+  function sset(k, v) { try { sessionStorage.setItem(k, v); } catch (e) {} }
   function sso() {
     var s = jget(K_SSO, null);
     if (!s || !s.userId) return null;
@@ -3055,6 +2996,12 @@ textarea.inp{height:auto;min-height:64px;padding:10px 12px;line-height:1.5;resiz
     return String(t == null ? '' : t).replace(/[&<>"']/g, function (c) {
       return { '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c];
     });
+  }
+  function gateMode(on) {
+    try {
+      if (on) document.documentElement.setAttribute('data-dkp', 'gate');
+      else document.documentElement.removeAttribute('data-dkp');
+    } catch (e) {}
   }
   function overlay(inner) {
     var old = document.getElementById('dkpOverlay');
@@ -3071,13 +3018,35 @@ textarea.inp{height:auto;min-height:64px;padding:10px 12px;line-height:1.5;resiz
     if (d) d.parentNode.removeChild(d);
   }
   function blockDkp(s) {
+    gateMode(true);
     overlay('<div class="dkp-ico">⛪</div><h3>이 도구를 쓸 권한이 없습니다</h3>' +
       '<p>' + (s && s.name ? esc(s.name) + '님은' : '지금 로그인한 계정은') +
       ' 이 도구를 쓰도록 지정되어 있지 않습니다.<br>필요하면 교회 관리자에게 요청하세요.</p>' +
       '<a class="dkp-btn" href="' + PORTAL + '">⛪ 교회포털로 돌아가기</a>');
   }
 
-  /* ── 이 기기 전용 열쇠로 봉인을 푼다 (포털이 로그인 때 만들어 둔 것) ── */
+  /* 통합포털로 보낸다. 포털에서 로그인하면 ?from= 덕분에 이 앱으로 바로 돌아온다. */
+  function goPortal(why) {
+    gateMode(true);
+    var from = '';
+    try { from = new URLSearchParams(location.search).get('from') || ''; } catch (e) {}
+    var n = Number(sget(K_NAV, '0')) || 0;
+    overlay('<div class="dkp-ico">⛪</div><h3>통합 포털에서 로그인합니다</h3>' +
+      '<p>교회 도구는 <b>통합 아이디·비밀번호 하나</b>로 열립니다.<br>' +
+      (from === 'portal' || n >= 2 ? '아래 단추를 눌러 포털에서 로그인해 주세요.' : '포털로 이동합니다…') + '</p>' +
+      '<a class="dkp-btn" href="' + PORTAL + '?from=' + APP + '">⛪ 통합 포털 열기</a>');
+    if (from === 'portal' || n >= 2) return;      /* 무한 되돌이 방지 */
+    sset(K_NAV, String(n + 1));
+    setTimeout(function () { location.replace(PORTAL + '?from=' + APP); }, 600);
+  }
+  function needPw() {
+    gateMode(true);
+    overlay('<div class="dkp-ico">🔑</div><h3>포털에서 비밀번호를 바꿔 주세요</h3>' +
+      '<p>처음 받은 기본 비밀번호입니다.<br>통합포털의 <b>내 계정 → 통합 비밀번호 변경</b>에서 바꾸면 모든 도구가 함께 바뀝니다.</p>' +
+      '<a class="dkp-btn" href="' + PORTAL + '">⛪ 통합 포털 열기</a>');
+  }
+
+  /* 이 기기 전용 열쇠로 '통합 비밀번호 봉인'을 푼다 (포털이 로그인 때 만들어 둔 것) */
   function b64dec(str) {
     var s = atob(String(str || '')), a = new Uint8Array(s.length);
     for (var i = 0; i < s.length; i++) a[i] = s.charCodeAt(i);
@@ -3103,8 +3072,8 @@ textarea.inp{height:auto;min-height:64px;padding:10px 12px;line-height:1.5;resiz
       });
     }).catch(function () { return null; });
   }
-  function sealPayload() {
-    var s = jget(K_SEAL, null);
+  function passPayload() {
+    var s = jget(K_PASS, null);
     if (!s || !s.iv || !s.ct) return Promise.resolve(null);
     if (s.exp && s.exp < Date.now()) return Promise.resolve(null);
     return devKey().then(function (key) {
@@ -3115,7 +3084,7 @@ textarea.inp{height:auto;min-height:64px;padding:10px 12px;line-height:1.5;resiz
     });
   }
 
-  /* ── 위쪽 '⛪ 교회포털' 버튼 ── */
+  /* 위쪽 '⛪ 교회포털' 버튼 */
   function addHeaderLink() {
     if (document.getElementById('dkpHome')) return;
     var hosts = ['.topbar-in .top-actions', '.topbar-actions', '.top-right', '.topbar-in'];
@@ -3155,40 +3124,34 @@ textarea.inp{height:auto;min-height:64px;padding:10px 12px;line-height:1.5;resiz
       })();
     });
   }
+  function isOpen() {
+    try { return !!(window.__dkpOpen && window.__dkpOpen()); } catch (e) { return false; }
+  }
 
   function boot() {
     addHeaderLink();
     addLockLink();
+    if (isOpen()) { gateMode(false); return; }          /* 이미 열려 있음 */
+    gateMode(true);                                     /* 앱 자체 로그인 화면은 숨긴다 */
     var s = sso();
-    if (!s) return;                                  /* 포털 세션 없음 → 앱 자체 로그인 */
-    if (!allowed(s)) { blockDkp(s); return; }        /* 권한 없는 앱 → 막는다 */
-    var openNow = false;
-    try { openNow = !!(window.__dkpOpen && window.__dkpOpen()); } catch (e) { openNow = false; }
-    if (openNow) return;                             /* 이미 열려 있음 */
-
-    sealPayload().then(function (p) {
-      var c = p && p.creds ? p.creds[APP] : null;
-      if (!c || !c.pw) return;
-      var box = overlay('<div class="dkp-spin"></div><h3>교회포털에서 여는 중…</h3>' +
-        '<p>' + esc(s.name || '') + '님 · 비밀번호 없이 바로 들어갑니다.</p>');
-      waitFor(function () { return window.__dkpEnter; }, 6000).then(function (enter) {
-        if (!enter) { closeOverlay(); return; }
-        Promise.resolve(enter(c)).then(function (ok) {
-          if (ok) {
-            closeOverlay();
-            var again = false;
-            try { again = !!(window.__dkpOpen && window.__dkpOpen()); } catch (e) { again = false; }
-            if (!again) closeOverlayForce();
-          } else {
-            closeOverlay();
-          }
-        }, function () { closeOverlay(); });
+    if (s && !allowed(s)) { blockDkp(s); return; }      /* 권한 없는 앱 */
+    if (!s) { goPortal('no-sso'); return; }             /* 포털에 로그인한 적이 없다 */
+    passPayload().then(function (p) {
+      if (!p || !p.pw) { goPortal('no-pass'); return; }
+      overlay('<div class="dkp-spin"></div><h3>교회포털에서 여는 중…</h3>' +
+        '<p>' + esc(p.name || s.name || '') + '님 · 비밀번호 화면 없이 바로 들어갑니다.</p>');
+      waitFor(function () { return window.__dkpEnter; }, 8000).then(function (enter) {
+        if (!enter) { goPortal('no-enter'); return; }
+        Promise.resolve(enter({ id: p.userId, pw: p.pw, pwPrev: p.pwPrev || '' })).then(function (ok) {
+          if (isOpen()) { closeOverlay(); gateMode(false); return; }
+          goPortal(ok ? 'not-open' : 'enter-failed');
+        }, function () { goPortal('enter-error'); });
       });
     });
   }
-  function closeOverlayForce() {
-    setTimeout(closeOverlay, 60);
-  }
+
+  window.__dkpGate = goPortal;
+  window.__dkpNeedPw = needPw;
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', function () { setTimeout(boot, 30); });
   else setTimeout(boot, 30);
