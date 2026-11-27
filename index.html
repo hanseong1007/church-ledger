@@ -1055,12 +1055,12 @@ textarea.inp{height:auto;min-height:64px;padding:10px 12px;line-height:1.5;resiz
         account: isStr(e.account) ? e.account : "",
         memo: isStr(e.memo) ? e.memo : "",
         method: isStr(e.method) ? e.method : "",
-        amount: Math.max(0, Math.round(Number(e.amount) || 0)),
+        amount: Math.round(Number(e.amount) || 0),
         receipt: (e.receipt && isStr(e.receipt.d)) ? { d: e.receipt.d, n: isStr(e.receipt.n)?e.receipt.n:"receipt.jpg", w: Number(e.receipt.w)||0, h: Number(e.receipt.h)||0 } : null,
         created: Number(e.created) || Date.parse(e.date) || Date.now(),
         updatedAt: Number(e.updatedAt) || Number(e.created) || Date.parse(e.date) || 0
       };
-    }).filter(function(e){ return e.amount > 0; });
+    }).filter(function(e){ return e.amount !== 0; });
     /* 2026-11-28: 다음 해 예산(연말 결산·예산 화면) — 장부 기록과 따로 둡니다 */
     var bs = Array.isArray(s.budgets) ? s.budgets : [];
     f.budgets = bs.map(function(b){
@@ -1365,7 +1365,8 @@ textarea.inp{height:auto;min-height:64px;padding:10px 12px;line-height:1.5;resiz
             '<div class="rbal">잔액 ' + won(balMap[e.id]) + "원" + (e.method ? ' · <span class="rmeth">' + esc(e.method) + "</span>" : "") + "</div>" +
           "</div>" +
           '<div class="rside">' +
-            '<div class="ramt ' + inCls + '">' + (e.type==="income" ? "+" : "−") + won(e.amount) + "</div>" +
+            '<div class="ramt ' + (((e.type === "income") === (e.amount >= 0)) ? "in" : "out") + '">' +
+              (((e.type === "income") === (e.amount >= 0)) ? "+" : "−") + won(Math.abs(e.amount)) + "</div>" +
             (e.receipt ? '<img class="rthumb" src="' + e.receipt.d + '" alt="영수증" data-receipt="' + e.id + '">' : "") +
           "</div>" +
         "</div>";
@@ -1840,7 +1841,7 @@ textarea.inp{height:auto;min-height:64px;padding:10px 12px;line-height:1.5;resiz
     var type = entry ? entry.type : (presetType || "income");
     setType(type, true);
     $("fDate").value = entry ? entry.date : todayStr();
-    $("fAmount").value = entry ? won(entry.amount) : "";
+    $("fAmount").value = entry ? (entry.amount < 0 ? "− " : "") + won(Math.abs(entry.amount)) : "";
     $("fMemo").value = entry ? entry.memo : "";
     $("fMethod").value = entry ? (entry.method || "") : "";
     $("fCustom").value = "";
@@ -1909,9 +1910,10 @@ textarea.inp{height:auto;min-height:64px;padding:10px 12px;line-height:1.5;resiz
   });
 
   $("fAmount").addEventListener("input", function(){
+    var neg = /^[-−]/.test(String(this.value).trim());
     var v = this.value.replace(/[^\d]/g,"");
     if (v.length > 12) v = v.slice(0,12);
-    this.value = v ? won(Number(v)) : "";
+    this.value = (neg ? "− " : "") + (v ? won(Number(v)) : "");
     $("formErr").hidden = true;
   });
 
@@ -2112,6 +2114,7 @@ textarea.inp{height:auto;min-height:64px;padding:10px 12px;line-height:1.5;resiz
     var type = $("fAccount").getAttribute("data-type") || "income";
     var date = $("fDate").value;
     var amount = parseAmount($("fAmount").value);
+    if (/^[-−]/.test(String($("fAmount").value).trim())) amount = -amount;
     var account = $("fAccount").value;
     if (!date){ showErr("날짜를 골라 주세요."); return; }
     if (!amount){ showErr("금액을 적어 주세요."); $("fAmount").focus(); return; }
@@ -2535,7 +2538,7 @@ textarea.inp{height:auto;min-height:64px;padding:10px 12px;line-height:1.5;resiz
       account: String(r.cat || ""),
       memo: String(r.memo || ""),
       method: String(r.pay || ""),
-      amount: Math.max(0, Math.round(Number(r.amount) || 0)),
+      amount: Math.round(Number(r.amount) || 0),
       receipt: r.receiptData ? { d: String(r.receiptData), n: "영수증.jpg", w: 0, h: 0 } : null,
       created: Number(r.updatedAt) || Date.parse(r.date) || Date.now(),
       updatedAt: Number(r.updatedAt) || 0
