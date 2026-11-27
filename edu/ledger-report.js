@@ -221,7 +221,7 @@ function ledgerItemBody() {
   const cats = ledCategoriesInPeriod(list);
   let cat = String(V.ledItemCat || '').trim();
   const has = cats.some(c => c.cat === cat);
-  if (!has) cat = cats[0].cat;
+  if (!has) cat = cats.length ? cats[0].cat : '';   // 2026-11-28: 이 기간에 기록이 없을 때 오류가 나지 않게
 
   let h = '<div class="card flat" style="padding:12px">' + ledPeriodBar() + ledDeptChips() + '</div>';
 
