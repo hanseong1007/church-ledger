@@ -192,7 +192,7 @@ table.tb2 td b{font-size:12px}
 .empty{padding:26px 14px;text-align:center;color:var(--muted);font-size:12px;line-height:1.7}
 
 /* ---------------- modal ---------------- */
-.mask{position:fixed;inset:0;z-index:70;background:rgba(14,24,38,.5);backdrop-filter:blur(3px);display:flex;align-items:center;justify-content:center;padding:18px}
+.mask{position:fixed;inset:0;z-index:90;background:rgba(14,24,38,.5);backdrop-filter:blur(3px);display:flex;align-items:center;justify-content:center;padding:18px}
 .modal{background:#fff;border-radius:18px;width:100%;max-width:440px;box-shadow:var(--shadow-lg);max-height:90vh;display:flex;flex-direction:column}
 .modal-h{display:flex;align-items:center;padding:16px 18px 10px}
 .modal-h b{font-size:16px;letter-spacing:-.3px}
@@ -2201,8 +2201,9 @@ function onSessionLost() {
   lockMsg('로그인이 만료되었습니다. 다시 로그인해 주세요.');
   showLock();
 }
-function openPwChange(slot, env, oldPw) {
+function openPwChange(slot, idRaw, oldPw) {
   const body = ''
+    + '<p style="margin:0 0 10px;font-size:13px;line-height:1.6;color:#535b6c">처음 쓰던 기본 비밀번호입니다. 새 비밀번호를 정하면 열립니다. 기도문 내용은 그대로 남습니다.</p>'
     + '<div class="field"><label>새 비밀번호 (6자 이상)</label><input id="pcNew" type="password" autocomplete="new-password"></div>'
     + '<div class="field"><label>새 비밀번호 확인</label><input id="pcNew2" type="password" autocomplete="new-password"></div>'
     + '<div class="err" id="pcErr" style="color:#c0392b"></div>';
@@ -2213,15 +2214,23 @@ function openPwChange(slot, env, oldPw) {
     const err = (t) => { const e = document.getElementById('pcErr'); if (e) e.textContent = t; };
     if (n1.length < 6) return err('새 비밀번호는 6자 이상으로 정해 주세요.');
     if (n1 !== n2) return err('두 비밀번호가 다릅니다.');
+    err('바꾸는 중…');
     try {
       const oldH = await loginHashFor(slot, oldPw);
       const newH = await loginHashFor(slot, n1);
-      const r = await gasPost({ action: 'auth_pw', oldH: oldH, newH: newH });
+      const r = await gasPost({ action: 'auth_pw', slot: slot, oldH: oldH, newH: newH });
       setToken(r.token);
+      /* 서버 비밀번호를 바꿨으니 계정 봉투를 읽어 새 비밀번호로 다시 감싸 둡니다.
+         (예전에는 이 단계가 없어 바꾼 비밀번호로 열쇠가 풀리지 않아 기도문이 열리지 않았습니다.) */
+      const env = await acctFetch(idRaw);
+      if (!env) throw new Error('계정 정보를 읽지 못했습니다. 다시 로그인해 주세요.');
+      const opened = await openAccount(env, oldPw);
+      const newEnv = await makeAccount(env.id || idRaw, env.name || idRaw, env.role || 'editor', n1, opened.raw);
+      await acctPush(env.id || idRaw, newEnv);
+      sealUpdatePw('prayer', env.id || idRaw, n1);
       api.close();
-      const opened = await openAccount(env, n1);
       state.wk = opened.wk; state.wkRaw = opened.raw;
-      state.user = { id: env.id, name: env.name || env.id, role: env.role || 'editor' };
+      state.user = { id: env.id || idRaw, name: env.name || idRaw, role: env.role || 'editor' };
       try {
         const remote = await wsPull();
         const local = await loadLocal(state.wk);
@@ -2231,6 +2240,47 @@ function openPwChange(slot, env, oldPw) {
       toast('비밀번호를 바꿨습니다', 2200);
     } catch (e) { err(e.message || '바꾸지 못했습니다.'); }
   });
+}
+
+/* 포털이 이 기기에 만들어 둔 '앱 비밀번호 봉인'(dkp.seal.v1)도 새 비밀번호로 바꿔 둡니다 —
+   포털에서 '중보기도문'을 열 때 옛 비밀번호로 들어가려다 막히지 않게. */
+function sealB64Enc(buf) {
+  const a = new Uint8Array(buf); let s = '';
+  for (let i = 0; i < a.length; i++) s += String.fromCharCode(a[i]);
+  return btoa(s);
+}
+function sealUpdatePw(appId, userId, pw) {
+  try {
+    const raw = localStorage.getItem('dkp.seal.v1');
+    if (!raw) return;
+    const s = JSON.parse(raw);
+    if (!s || !s.iv || !s.ct) return;
+    if (s.exp && s.exp < Date.now()) return;
+    const b64d = (t) => { const b = atob(String(t)); const u = new Uint8Array(b.length); for (let i = 0; i < b.length; i++) u[i] = b.charCodeAt(i); return u; };
+    new Promise((res) => {
+      const rq = indexedDB.open('dkp-dev', 1);
+      rq.onupgradeneeded = () => { if (!rq.result.objectStoreNames.contains('k')) rq.result.createObjectStore('k'); };
+      rq.onsuccess = () => res(rq.result);
+      rq.onerror = () => res(null);
+    }).then((db) => {
+      if (!db) return null;
+      return new Promise((res) => {
+        const rq = db.transaction('k', 'readonly').objectStore('k').get('dev');
+        rq.onsuccess = () => res((rq.result && rq.result.key) || null);
+        rq.onerror = () => res(null);
+      });
+    }).then((key) => {
+      if (!key) return null;
+      return crypto.subtle.decrypt({ name: 'AES-GCM', iv: b64d(s.iv) }, key, b64d(s.ct))
+        .then((pt) => ({ key: key, obj: JSON.parse(new TextDecoder().decode(pt)) }));
+    }).then((got) => {
+      if (!got || !got.obj || !got.obj.creds) return null;
+      got.obj.creds[appId] = { id: userId, pw: pw };
+      const iv2 = crypto.getRandomValues(new Uint8Array(12));
+      return crypto.subtle.encrypt({ name: 'AES-GCM', iv: iv2 }, got.key, new TextEncoder().encode(JSON.stringify(got.obj)))
+        .then((out) => { localStorage.setItem('dkp.seal.v1', JSON.stringify({ v: 1, iv: sealB64Enc(iv2), ct: sealB64Enc(out), at: Date.now(), exp: s.exp || 0 })); });
+    }).catch(() => { });
+  } catch (e) { }
 }
 
 function onSessionLost() {
@@ -3036,13 +3086,21 @@ function changePasswordModal(id) {
               const env0 = await acctFetch(id);
               if (!env0) throw new Error('계정 정보를 찾지 못했습니다');
               await openAccount(env0, old); // 확인
+              /* 서버에 등록된 비밀번호도 같이 바꿉니다. (예전에는 이 기기의 봉투만 바뀌어
+                 서버 확인에서 막혔습니다.) */
+              if (SYNC_ON && authToken) {
+                const slot = await acctSlot(id);
+                const r = await gasPost({ action: 'auth_pw', slot: slot, oldH: await loginHashFor(slot, old), newH: await loginHashFor(slot, nw) });
+                if (r && r.token) setToken(r.token);
+              }
             }
             const env = await makeAccount(id, userDir()[id] && userDir()[id].name, userDir()[id] && userDir()[id].role, nw, state.wkRaw);
             await acctPush(id, env);
+            if (self) sealUpdatePw('prayer', id, nw);
             m.close();
             toast('비밀번호를 바꿨습니다');
           } catch (e) {
-            msg.textContent = '지금 비밀번호가 맞지 않습니다';
+            msg.textContent = (e && e.message) ? e.message : '지금 비밀번호가 맞지 않습니다';
           }
         }
       }
@@ -3094,8 +3152,32 @@ async function doLogin() {
   btn.disabled = true; btn.innerHTML = '<span class="spin"></span> 확인 중';
   lockMsg('');
   try {
+    /* 2026-11-27 복구: 서버 비밀번호 확인을 먼저 하고(토큰 발급) 그 다음에 계정 봉투를 읽습니다.
+       서버가 토큰 없는 acct- 슬롯 읽기를 막아서, 예전 순서(봉투 먼저)대로는 '없는 아이디입니다'로 막혔습니다. */
+    const slot = await acctSlot(idRaw);
+    let st = null;
+    try {
+      st = await gasPost({ action: 'auth_state', uid: slot });
+    } catch (e) {
+      throw new Error('서버에 연결하지 못했습니다. 인터넷 연결을 확인해 주세요.');
+    }
+    if (st.locked) {
+      throw new Error('비밀번호를 여러 번 틀어 잠겼습니다.\n' + Math.max(1, Math.ceil((st.lockLeftMs || 0) / 60000)) + '분 뒤에 다시 시도해 주세요.');
+    }
+    let auth = null;
+    if (st.has) {
+      auth = await gasPost({ action: 'auth_login', uid: slot, h: await loginHashFor(slot, pw), device: deviceName() });
+      setToken(auth.token);
+    }
+    /* 처음 받은 비밀번호를 바꿔야 하는 계정은, 바꾸기 전에는 계정 봉투를 읽을 수 없습니다.
+       변경 화면에서 바꾸고 나서 봉투를 읽고 새 비밀번호로 다시 감싸 저장합니다. */
+    if (auth && auth.mustChange) { openPwChange(slot, idRaw, pw); return; }
+
     let env = await acctFetch(idRaw);
     if (!env) {
+      if (auth) {
+        throw new Error('계정 정보를 읽지 못했습니다. 잠시 뒤 다시 시도하거나 관리자에게 알려 주세요.');
+      }
       const any = await hasAnyAccount();
       if (!any && idRaw === 'admin') {
         // 첫 관리자 계정 만들기 — 비밀번호에서 작업 열쇠를 만든다
@@ -3123,32 +3205,20 @@ async function doLogin() {
       }
       throw new Error(any ? '없는 아이디입니다. 관리자에게 계정을 요청해 주세요.' : '아이디 또는 비밀번호가 맞지 않습니다.');
     }
-    /* 보안: 서버가 비밀번호를 확인하고 12시간 토큰을 줍니다. 처음 한 번(이번 업데이트 전 계정)만
-       이 기기에서 열쇠가 풀린 것을 확인한 뒤 서버에 등록합니다. */
-    const slot = env.slot || await acctSlot(idRaw);
-    const h = await loginHashFor(slot, pw);
-    let auth = null;
-    try {
-      const st = await gasPost({ action: 'auth_state', uid: slot });
-      if (st.locked) throw new Error('비밀번호를 여러 번 틀어 잠겼습니다.\n' + Math.max(1, Math.ceil((st.lockLeftMs || 0) / 60000)) + '분 뒤에 다시 시도해 주세요.');
-      if (st.has) {
-        const a = await gasPost({ action: 'auth_login', uid: slot, h: h, device: deviceName() });
-        auth = a; setToken(a.token);
-      }
-    } catch (e) {
-      if (/잠겼습니다|맞지 않습니다/.test(e.message || '')) throw e;
-      throw new Error('서버에 연결하지 못했습니다. 인터넷 연결을 확인해 주세요.');
-    }
+    /* 이 기기에서 열쇠가 풀리는지(비밀번호 확인) 먼저 보고, 이번 업데이트 전 계정이면 서버에 등록합니다. */
     let opened;
     try { opened = await openAccount(env, pw); }
-    catch (e) { throw new Error('아이디 또는 비밀번호가 맞지 않습니다.'); }
+    catch (e) {
+      setToken('');
+      throw new Error('아이디 또는 비밀번호가 맞지 않습니다.');
+    }
     if (!auth) {
       try {
-        const a = await gasPost({ action: 'auth_adopt', uid: slot, h: h, device: deviceName() });
+        const a = await gasPost({ action: 'auth_adopt', uid: slot, h: await loginHashFor(slot, pw), device: deviceName() });
         auth = a; setToken(a.token);
+        if (a.mustChange) { openPwChange(slot, idRaw, pw); return; }
       } catch (e) { throw new Error('로그인 정보를 등록하지 못했습니다. 다시 시도해 주세요.'); }
     }
-    if (auth && auth.mustChange) { openPwChange(slot, env, pw); return; }
     state.wk = opened.wk; state.wkRaw = opened.raw;
     state.user = { id: env.id, name: (env.name || env.id), role: env.role || 'editor' };
 

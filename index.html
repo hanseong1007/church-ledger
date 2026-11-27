@@ -2756,30 +2756,90 @@ textarea.inp{height:auto;min-height:64px;padding:10px 12px;line-height:1.5;resiz
   /* =========================================================
      보안: 강제 비밀번호 변경 · 30분 자동 로그아웃
      ========================================================= */
+  /* 포털이 이 기기에 만들어 둔 '앱 비밀번호 봉인'(dkp.seal.v1)도 새 비밀번호로 바꿔 둡니다.
+     그래야 다음에 포털에서 금전출납부를 열 때 옛 비밀번호로 들어가려다 실패하지 않습니다. */
+  function sealB64Enc(buf){
+    var a = new Uint8Array(buf), s = "";
+    for (var i = 0; i < a.length; i++) s += String.fromCharCode(a[i]);
+    return btoa(s);
+  }
+  function sealUpdatePw(appId, userId, pw){
+    try {
+      var raw = localStorage.getItem("dkp.seal.v1");
+      if (!raw) return;
+      var s = JSON.parse(raw);
+      if (!s || !s.iv || !s.ct) return;
+      if (s.exp && s.exp < Date.now()) return;
+      var keyRef = null;
+      new Promise(function (res){
+        var rq = indexedDB.open("dkp-dev", 1);
+        rq.onupgradeneeded = function (){ if (!rq.result.objectStoreNames.contains("k")) rq.result.createObjectStore("k"); };
+        rq.onsuccess = function (){ res(rq.result); };
+        rq.onerror = function (){ res(null); };
+      }).then(function (db){
+        if (!db) return null;
+        return new Promise(function (res){
+          var tx = db.transaction("k", "readonly");
+          var rq = tx.objectStore("k").get("dev");
+          rq.onsuccess = function (){ res((rq.result && rq.result.key) || null); };
+          rq.onerror = function (){ res(null); };
+        });
+      }).then(function (key){
+        keyRef = key;
+        if (!key) return null;
+        var bin = atob(String(s.iv)), iv = new Uint8Array(bin.length);
+        for (var i = 0; i < bin.length; i++) iv[i] = bin.charCodeAt(i);
+        var b2 = atob(String(s.ct)), ct = new Uint8Array(b2.length);
+        for (var j = 0; j < b2.length; j++) ct[j] = b2.charCodeAt(j);
+        return crypto.subtle.decrypt({ name:"AES-GCM", iv:iv }, key, ct);
+      }).then(function (pt){
+        if (!pt || !keyRef) return null;
+        var obj = null;
+        try { obj = JSON.parse(new TextDecoder().decode(pt)); } catch (e) { return null; }
+        if (!obj || !obj.creds) return null;
+        obj.creds[appId] = { id: userId, pw: pw };
+        var iv2 = crypto.getRandomValues(new Uint8Array(12));
+        return crypto.subtle.encrypt({ name:"AES-GCM", iv:iv2 }, keyRef, new TextEncoder().encode(JSON.stringify(obj)))
+          .then(function (out){
+            localStorage.setItem("dkp.seal.v1", JSON.stringify({ v:1, iv:sealB64Enc(iv2), ct:sealB64Enc(out), at:Date.now(), exp:s.exp || 0 }));
+          });
+      }).catch(function (){});
+    } catch (e) {}
+  }
+
+  /* 2026-11-27 복구: 이 칸은 .login-err 이라 'show' 를 붙여야 화면에 보입니다.
+     (예전에는 글자만 넣고 show 를 안 붙여, 틀린 이유가 하나도 보이지 않았습니다.) */
+  function pcError(msg){
+    var box = $("pcErr");
+    if (!box) return;
+    if (!msg){ box.textContent = ""; box.classList.remove("show"); return; }
+    box.textContent = msg; box.classList.add("show");
+  }
+
   function showPwChange(name){
     $("appRoot").hidden = true;
     $("loginScreen").hidden = true;
     $("pwChangeScreen").hidden = false;
     var sub = $("pwChangeSub");
     if (sub) sub.innerHTML = (name ? esc(name) + "님, " : "") + "처음 받은 비밀번호로 로그인했습니다.<br>새 비밀번호를 정하기 전에는 장부를 쓸 수 없습니다.";
-    $("pcErr").textContent = "";
+    pcError("");
     setTimeout(function(){ try { $("pcOld").focus(); } catch(e){} }, 60);
   }
 
   function doPwChange(){
     if (!AUTH || !AUTH.token){ showLogin("다시 로그인해 주세요."); return; }
     var oldPw = $("pcOld").value, n1 = $("pcNew").value, n2 = $("pcNew2").value;
-    var err = $("pcErr");
-    if (!oldPw || !n1){ err.textContent = "비밀번호를 모두 입력해 주세요."; return; }
-    if (n1.length < 6){ err.textContent = "새 비밀번호는 6자 이상으로 정해 주세요."; return; }
-    if (n1 !== n2){ err.textContent = "새 비밀번호가 서로 다릅니다."; return; }
+    if (!oldPw || !n1){ pcError("비밀번호를 모두 입력해 주세요."); return; }
+    if (n1.length < 6){ pcError("새 비밀번호는 6자 이상으로 정해 주세요."); return; }
+    if (n1 !== n2){ pcError("새 비밀번호가 서로 다릅니다."); return; }
     var btn = $("pcBtn");
     if (btn.disabled) return;
     btn.disabled = true; btn.textContent = "바꾸는 중…";
-    err.textContent = "";
+    pcError("");
     syncFetch(null, { action: "change_password", token: AUTH.token, oldPw: oldPw, newPw: n1 }).then(function(d){
       if (d && d.ok === true && d.token){
         storeAuth({ id: d.user.id, name: d.user.name, role: d.user.role, token: d.token, expiresAt: d.expiresAt });
+        sealUpdatePw("ledger", d.user.id, n1);
         $("pcOld").value = $("pcNew").value = $("pcNew2").value = "";
         $("pwChangeScreen").hidden = true;
         enterApp();
@@ -2789,7 +2849,11 @@ textarea.inp{height:auto;min-height:64px;padding:10px 12px;line-height:1.5;resiz
       }
       throw new Error((d && (d.message || d.error)) || "바꾸지 못했습니다");
     }).catch(function(e){
-      err.textContent = (e && e.message) || "바꾸지 못했습니다";
+      var m = (e && e.message) || "바꾸지 못했습니다";
+      if (m === "bad_credentials") m = "지금 쓰는 비밀번호가 맞지 않습니다.";
+      else if (m === "weak_password") m = "새 비밀번호로 쓸 수 없습니다. 다른 비밀번호를 정해 주세요.";
+      else if (/Failed to fetch|NetworkError|Load failed|HTTP /.test(m)) m = "서버에 연결하지 못했습니다. 인터넷 연결을 확인해 주세요.";
+      pcError(m);
     }).then(function(){
       btn.disabled = false; btn.textContent = "비밀번호 바꾸고 시작하기";
     });
