@@ -1474,6 +1474,12 @@
               storeLedgerAuth(r);
               state.ledgerTok = r.token;
               if (r.user && r.user.role === 'admin') state.adminTok = r.token;
+              /* 토큰을 받은 뒤 계정 문서를 다시 맞춘다(처음에는 토큰이 없어 못 읽는다) */
+              return loadDoc({}).then(function () {
+                var fresh = findUser(u.id);
+                if (fresh) { state.user = fresh; }
+                if (state.user && state.user.role === 'admin') renderUsers();
+              });
             }
           }).catch(function () {});
           if (!u.apps) u.apps = [];
