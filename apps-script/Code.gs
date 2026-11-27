@@ -70,7 +70,14 @@ function handle(action, body, p) {
     try { backupIfDue_(t.ss); } catch (eB) {}
 
     if (action === "info") {
-      out = { ok: true, app: "church-ledger", v: 6, time: Date.now() };
+      out = { ok: true, app: "church-ledger", v: 7, time: Date.now() };
+    } else if (action === "verify") {
+      /* 다른 교회 앱(포털 등)이 이 토큰이 살아 있는지 물어볼 때 씁니다. */
+      const vc = readToken_(String((body && body.token) || (p && p.token) || ""));
+      const vu = vc ? findUser_(t, vc.u) : null;
+      out = (vc && vu && vu.active && String(vu.pwHash || "").slice(0, 16) === String(vc.pv || ""))
+        ? { ok: true, user: { id: vu.id, name: vu.name, role: vu.role }, exp: Number(vc.exp) || 0 }
+        : { ok: false, error: "invalid_token" };
     } else if (action === "login") {
       out = login_(t, body, p);
     } else if (action === "logout") {

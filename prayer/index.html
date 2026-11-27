@@ -582,7 +582,7 @@ const LS_WS = 'dp.ws.v1';           // {iv,ct}  workspace (암호화)
 const LS_ACCT = 'dp.acct.';         // 계정 캐시(오프라인 로그인)
 const LS_PREF = 'dp.pref.v1';       // 마지막 아이디 등(평문, 개인정보 아님)
 const SS_SESSION = 'dp.sess.v1';    // 세션 열쇠(탭 닫으면 사라짐)
-const IDLE_LOCK_MS = 20 * 60 * 1000;
+const IDLE_LOCK_MS = 30 * 60 * 1000;
 const SYNC_EVERY_MS = 25000;
 const WS_SALT = 'deoksin-prayer-workspace-v1';
 
@@ -2168,7 +2168,9 @@ const SYNC_URL = window.__SYNC_URL__ || '';
 const SYNC_ON = /^https:\/\/script\.google\.com\//.test(SYNC_URL);
 const WS_SLOT_SEED = 'deoksin-prayer-ws-v1';
 
-async function gasPost(payload) {
+async function gasPost(payloadRaw) {
+  const payload = Object.assign({}, payloadRaw || {});
+  if (authToken && !payload.token) payload.token = authToken;
   const res = await fetch(SYNC_URL, {
     method: 'POST',
     headers: { 'Content-Type': 'text/plain;charset=utf-8' },
@@ -2179,9 +2181,64 @@ async function gasPost(payload) {
   const txt = await res.text();
   let json;
   try { json = JSON.parse(txt); } catch (e) { throw new Error('응답을 읽을 수 없습니다'); }
-  if (!json.ok) throw new Error(json.message || json.error || '동기화 오류');
+  if (!json.ok) {
+    if (json.error === 'unauthorized' && authToken) { try { onSessionLost(); } catch (e) { } }
+    throw new Error(json.message || json.error || '동기화 오류');
+  }
   return json;
 }
+
+/* 보안(2026-11-27): 서버가 확인한 12시간 서명 토큰 */
+let authToken = '';
+function setToken(t) { authToken = String(t || ''); try { if (t) sessionStorage.setItem('dp.token.v1', authToken); else sessionStorage.removeItem('dp.token.v1'); } catch (e) { } }
+function loadToken() { try { authToken = sessionStorage.getItem('dp.token.v1') || ''; } catch (e) { authToken = ''; } return authToken; }
+async function loginHashFor(slot, pw) { return cryptoBox.digestHex(PW_PREFIX + slot + ':' + pw); }
+function deviceName() { try { return (navigator.userAgent || '').slice(0, 60); } catch (e) { return ''; } }
+function onSessionLost() {
+  if (!state.user) return;
+  setToken(''); state.user = null; state.wk = null; state.wkRaw = null;
+  try { sessionStorage.removeItem(SS_SESSION); } catch (e) { }
+  lockMsg('로그인이 만료되었습니다. 다시 로그인해 주세요.');
+  showLock();
+}
+function openPwChange(slot, env, oldPw) {
+  const body = ''
+    + '<div class="field"><label>새 비밀번호 (6자 이상)</label><input id="pcNew" type="password" autocomplete="new-password"></div>'
+    + '<div class="field"><label>새 비밀번호 확인</label><input id="pcNew2" type="password" autocomplete="new-password"></div>'
+    + '<div class="err" id="pcErr" style="color:#c0392b"></div>';
+  const m = modal({ title: '비밀번호를 바꿔 주세요', body: body });
+  m.addBtn('취소', '', () => { doLock(); });
+  m.addBtn('비밀번호 바꾸기', 'primary', async (api) => {
+    const n1 = document.getElementById('pcNew').value, n2 = document.getElementById('pcNew2').value;
+    const err = (t) => { const e = document.getElementById('pcErr'); if (e) e.textContent = t; };
+    if (n1.length < 6) return err('새 비밀번호는 6자 이상으로 정해 주세요.');
+    if (n1 !== n2) return err('두 비밀번호가 다릅니다.');
+    try {
+      const oldH = await loginHashFor(slot, oldPw);
+      const newH = await loginHashFor(slot, n1);
+      const r = await gasPost({ action: 'auth_pw', oldH: oldH, newH: newH });
+      setToken(r.token);
+      api.close();
+      const opened = await openAccount(env, n1);
+      state.wk = opened.wk; state.wkRaw = opened.raw;
+      state.user = { id: env.id, name: env.name || env.id, role: env.role || 'editor' };
+      try {
+        const remote = await wsPull();
+        const local = await loadLocal(state.wk);
+        state.ws = normalizeWorkspace(remote || local || blankWorkspace());
+      } catch (e) { state.ws = blankWorkspace(); }
+      enterApp();
+      toast('비밀번호를 바꿨습니다', 2200);
+    } catch (e) { err(e.message || '바꾸지 못했습니다.'); }
+  });
+}
+
+function onSessionLost() {
+  if (!state.user) return;
+  doLock();
+  lockMsg('로그인이 만료되었습니다. 다시 로그인해 주세요.');
+}
+const PW_PREFIX = 'deoksin-prayer-login:';
 
 async function wsSlot() {
   return 'ws-' + (await cryptoBox.digestHex(WS_SLOT_SEED)).slice(0, 32);
@@ -3023,8 +3080,8 @@ function lockMsg(t) { $('#lockMsg').textContent = t || ''; }
 async function hasAnyAccount() {
   if (!SYNC_ON) return Object.keys(localStorage).some(k => k.startsWith(LS_ACCT));
   try {
-    const r = await gasPost({ action: 'list', prefix: 'acct-' });
-    return !!(r.slots && r.slots.length);
+    const r = await gasPost({ action: 'has_accounts' });
+    return Number(r.count) > 0;
   } catch (e) { return false; }
 }
 
@@ -3047,6 +3104,11 @@ async function doLogin() {
         env = await makeAccount('admin', '관리자', 'admin', pw, raw);
         state.wk = wk; state.wkRaw = raw;
         await acctPush('admin', env);
+        try {
+          const slot0 = await acctSlot('admin');
+          const a0 = await gasPost({ action: 'auth_adopt', uid: slot0, h: await loginHashFor(slot0, pw), device: deviceName() });
+          setToken(a0.token);
+        } catch (e) { }
         let base = await loadLocal(wk);
         if (!base) base = blankWorkspace();
         if (!base.users) base.users = {};
@@ -3061,9 +3123,32 @@ async function doLogin() {
       }
       throw new Error(any ? '없는 아이디입니다. 관리자에게 계정을 요청해 주세요.' : '아이디 또는 비밀번호가 맞지 않습니다.');
     }
+    /* 보안: 서버가 비밀번호를 확인하고 12시간 토큰을 줍니다. 처음 한 번(이번 업데이트 전 계정)만
+       이 기기에서 열쇠가 풀린 것을 확인한 뒤 서버에 등록합니다. */
+    const slot = env.slot || await acctSlot(idRaw);
+    const h = await loginHashFor(slot, pw);
+    let auth = null;
+    try {
+      const st = await gasPost({ action: 'auth_state', uid: slot });
+      if (st.locked) throw new Error('비밀번호를 여러 번 틀어 잠겼습니다.\n' + Math.max(1, Math.ceil((st.lockLeftMs || 0) / 60000)) + '분 뒤에 다시 시도해 주세요.');
+      if (st.has) {
+        const a = await gasPost({ action: 'auth_login', uid: slot, h: h, device: deviceName() });
+        auth = a; setToken(a.token);
+      }
+    } catch (e) {
+      if (/잠겼습니다|맞지 않습니다/.test(e.message || '')) throw e;
+      throw new Error('서버에 연결하지 못했습니다. 인터넷 연결을 확인해 주세요.');
+    }
     let opened;
     try { opened = await openAccount(env, pw); }
     catch (e) { throw new Error('아이디 또는 비밀번호가 맞지 않습니다.'); }
+    if (!auth) {
+      try {
+        const a = await gasPost({ action: 'auth_adopt', uid: slot, h: h, device: deviceName() });
+        auth = a; setToken(a.token);
+      } catch (e) { throw new Error('로그인 정보를 등록하지 못했습니다. 다시 시도해 주세요.'); }
+    }
+    if (auth && auth.mustChange) { openPwChange(slot, env, pw); return; }
     state.wk = opened.wk; state.wkRaw = opened.raw;
     state.user = { id: env.id, name: (env.name || env.id), role: env.role || 'editor' };
 
@@ -3133,6 +3218,7 @@ async function doLogin() {
 
 function doLock() {
   try { sessionStorage.removeItem(SS_SESSION); } catch (e) { }
+  try { setToken(''); } catch (e) { }
   state.wk = null; state.wkRaw = null; state.ws = null; state.user = null;
   $('#app').classList.add('hidden');
   $('#lock').classList.remove('hidden');
@@ -3141,6 +3227,8 @@ function doLock() {
 }
 
 async function tryRestoreSession() {
+  loadToken();
+  if (SYNC_ON && !authToken) return false;   /* 보안: 서버 토큰이 없으면 자동 복원하지 않습니다 */
   let sess;
   try { sess = JSON.parse(sessionStorage.getItem(SS_SESSION) || 'null'); } catch (e) { sess = null; }
   if (!sess || !sess.wk || Date.now() - sess.at > 8 * 3600 * 1000) return false;
