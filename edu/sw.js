@@ -1,7 +1,7 @@
 /* 덕신교회 부서업무 서비스워커
  * /edu/ 화면 파일만 캐시합니다. 구글 시트 동기화(script.google.com)는 손대지 않습니다.
  */
-const VERSION = 'deoksin-edu-v5.0.3';
+const VERSION = 'deoksin-edu-v5.0.4';
 const SHELL = [
   './',
   './index.html',
@@ -12,6 +12,8 @@ const SHELL = [
   './extra.js',
   './school.js',
   './ledger-report.js',
+  './plansheet.js',
+  './talent.js',
   './app.js',
   './jszip.min.js',
   './manifest.json',

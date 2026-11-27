@@ -35,6 +35,7 @@ function screensFor(roleKey) {
   if (P['attendance.stat']) out.push({ key: 'stats', label: '출석통계', icon: '📊' });
   if (P['report.write'] || P['report.review']) out.push({ key: 'report', label: (P['report.review'] && !P['report.write']) ? '주일보고 수신함' : '주일보고', icon: '📋' });
   if (P['plan.read'] || P['plan.write']) out.push({ key: 'plan', label: '월별계획표', icon: '🗓️' });
+  if (P['talent.manage'] || P['talent.read'] || P['talent.self']) out.push({ key: 'talent', label: '달란트', icon: '🎁' });
   if (P['ledger.manage']) out.push({ key: 'ledger', label: '회계', icon: '💰' });
   if (P['notice.read'] || P['notice.write']) out.push({ key: 'notice', label: '알림장', icon: '📌' });
   if (P['feed.read'] || P['feed.write']) out.push({ key: 'feed', label: '부서 피드', icon: '💬' });
@@ -191,6 +192,7 @@ function screenHtml() {
       case 'staff': return staffView();
       case 'schedule': return scheduleView();
       case 'plan': return planView();
+      case 'talent': return roleDef(S.roleKey).base === 'parent' ? parentTalentView() : talentView();
       case 'ledger': return ledgerView();
       case 'stats': return statsView();
       case 'approve': return approveView();
@@ -299,7 +301,9 @@ function homeView() {
   // 빠른 실행
   h += '<div class="sect-title">빠른 실행</div><div class="tile-grid">';
   if (base === 'edu' || base === 'teacher' || base === 'admin') h += '<button class="tile" data-act="go-att"><span class="ic">✅</span><span><b>출석 체크</b><span>' + fmtShort(sun) + ' 주일</span></span></button>';
-  if (can('plan.write') || can('plan.read')) h += '<button class="tile" data-act="nav" data-screen="plan"><span class="ic">🗓️</span><span><b>월별계획표</b><span>계획·행사·공과</span></span></button>';
+  if (can('plan.write') || can('plan.read')) h += '<button class="tile" data-act="nav" data-screen="plan"><span class="ic">🗓️</span><span><b>월별계획표</b><span>계획안·주차 칸</span></span></button>';
+  if (can('talent.manage') || can('talent.read')) h += '<button class="tile" data-act="nav" data-screen="talent"><span class="ic">🎁</span><span><b>달란트</b><span>적립·사용·대장</span></span></button>';
+  if (base === 'parent') h += '<button class="tile" data-act="nav" data-screen="talent"><span class="ic">🎁</span><span><b>우리 아이 달란트</b><span>잔액·내역</span></span></button>';
   if (can('ledger.manage')) h += '<button class="tile" data-act="nav" data-screen="ledger"><span class="ic">💰</span><span><b>회계 관리</b><span>수입·지출·영수증</span></span></button>';
   if (can('attendance.stat')) h += '<button class="tile" data-act="nav" data-screen="stats"><span class="ic">📊</span><span><b>출석통계</b><span>출석률·결석 사유</span></span></button>';
   if (base === 'edu' || base === 'admin') h += '<button class="tile" data-act="go-report"><span class="ic">📋</span><span><b>주일보고 작성</b><span>출석·계획·수입 연계</span></span></button>';
@@ -381,6 +385,8 @@ function setAtt(date, deptId, classId, studentId, status) {
   rec.status = status; rec._del = false; rec.by = S.me.uid; rec.at = Date.now();
   if (status !== 'absent') rec.reason = '';
   touch(rec);
+  /* 출석하면 '출석' 달란트가 저절로 붙고, 결석·인정이면 빠집니다 */
+  try { syncTalentAttendance(date, deptId, studentId, status); } catch (e) { }
   Sync.save();
 }
 function setStaffAtt(date, deptId, uid, status) {
@@ -644,8 +650,27 @@ function reportWriteView() {
   const weekMoney = ledgerOfWeek(dept.id, date);
   const weekIncome = incomeTotal(weekMoney);
   const planLesson = (weekPlan.find(p => p.kind === '공과') || {}).title || '';
+  /* 월별계획안의 그 주 줄 — 말씀·행사·담당자·기도·헌금위원·청소·행사 진행 */
+  const snap = rep.plan || planSnapshotFor(dept.id, date);
+  if (snap) {
+    h += '<div class="card flat" style="border:1.5px solid #ded3f7;background:#faf8ff"><h3>🗓️ 이 주 월별계획안<span class="sp"></span><small>' + esc(snap.date ? fmtShort(snap.date) : '') + ' 주일</small></h3>';
+    h += '<div class="plan-kv">';
+    [['word', '말씀'], ['event', '행사'], ['owner', '담당자'], ['prayer', '기도'], ['offering', '헌금위원'], ['cleaning', '청소']].forEach(x => {
+      if (!snap[x[0]]) return;
+      h += '<div class="kv"><span>' + esc(x[1]) + '</span><b>' + esc(snap[x[0]]) + '</b></div>';
+    });
+    h += '</div>';
+    if (snap.progress) h += '<div class="sect-title" style="margin:8px 0 4px">행사 진행</div><div class="pre muted" style="font-size:12.5px">' + esc(snap.progress) + '</div>';
+    if (rep.status !== 'checked') {
+      h += '<div class="row wrap" style="gap:6px;margin-top:8px">';
+      h += '<button class="btn sm mint" data-act="rep-apply-sheet" data-id="' + esc(rep.id) + '">🗓️ 계획안 값을 보고서에 채우기</button>';
+      if (!rep.plan) h += '<button class="btn sm ghost" data-act="rep-apply-sheet" data-id="' + esc(rep.id) + '" data-stamp="1">표시만 해 두기</button>';
+      h += '</div>';
+    }
+    h += '</div>';
+  }
   if (weekPlan.length) {
-    h += '<div class="card flat" style="border:1.5px solid #ded3f7;background:#faf8ff"><h3>🗓️ 이 주 월별계획 연계<span class="sp"></span><small>' + esc(fmtShort(date)) + ' 주일이 속한 주</small></h3><div class="list">';
+    h += '<div class="card flat" style="border:1.5px solid #ded3f7;background:#faf8ff"><h3>📋 이 주 계획 항목<span class="sp"></span><small>' + esc(fmtShort(date)) + ' 주일이 속한 주</small></h3><div class="list">';
     weekPlan.forEach(p => {
       h += '<div class="item" style="padding:9px 11px;box-shadow:none"><span class="av" style="background:#efe9fd">' + esc(p.date ? fmtShort(p.date) : p.week + '주') + '</span><span class="tx"><b>' + esc(p.title) + '</b><span>' + esc(p.kind || '계획') + (p.detail ? ' · ' + esc(p.detail) : '') + '</span></span></div>';
     });

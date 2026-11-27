@@ -267,6 +267,8 @@ function createReport(deptId, date) {
     counts: { enrolled: c.enrolled, present: c.present, absent: c.absent, excused: c.excused, newcomer: newcomerRowsOf(deptId, date).length, teacherPresent: c.staffPresent, teacherTotal: c.staffTotal },
     at: Date.now(), u: Date.now()
   };
+  /* 이 달 월별계획안의 그 주 줄(말씀·행사·담당자·기도·헌금위원·청소·행사 진행)을 같이 담아 둡니다 */
+  try { applySheetToReport(rep); } catch (e) { }
   S.state.reports.push(rep);
   return rep;
 }
@@ -307,11 +309,13 @@ function reportDetailModal(r) {
     h += '<div class="banner sky" style="margin-top:10px">📩 부서에서 반려를 요청했습니다 · ' + timeAgo(r.reopen.at) + (r.reopen.reason ? '<br>사유: ' + esc(r.reopen.reason) : '') + '<br>아래 반려 사유에 그대로 들어 있습니다. 반려하면 부서가 다시 작성합니다.</div>';
   }
 
-  /* 이 주의 월별계획·수입 내역 */
+  /* 이 주의 월별계획안·수입 내역 */
   const wp = plansOfWeek(r.deptId, r.date);
   const wi = ledgerOfWeek(r.deptId, r.date).filter(e => e.type === 'in');
-  if (wp.length || wi.length) {
+  const snap = r.plan || planSnapshotFor(r.deptId, r.date);
+  if (snap || wp.length || wi.length) {
     h += '<div class="card flat" style="padding:12px;margin-top:12px"><h3>🗓️ 이 주 계획·수입</h3>';
+    if (snap) h += planBlockHtml(snap);
     if (wp.length) {
       h += '<div class="list">' + wp.map(p => '<div class="item" style="padding:8px 10px;box-shadow:none"><span class="av" style="background:#efe9fd">' + esc(fmtShort(p.date)) + '</span><span class="tx"><b>' + esc(p.title) + '</b><span>' + esc(p.kind || '계획') + (p.detail ? ' · ' + esc(p.detail) : '') + '</span></span></div>').join('') + '</div>';
     }
@@ -395,6 +399,7 @@ document.addEventListener('click', async function (ev) {
           if (v === 'none') {
             const rec = attOf(V.date, s.id);
             if (rec) { rec._del = true; rec.status = ''; touch(rec); }
+            try { syncTalentAttendance(V.date, s.deptId, s.id, ''); } catch (e) { }
           } else setAttSilent(V.date, s.deptId, s.classId, s.id, v);
         });
         await Sync.save(); renderApp(); return;
@@ -443,6 +448,15 @@ document.addEventListener('click', async function (ev) {
       case 'print-report': {
         const rep = S.state.reports.find(x => x.id === t.dataset.id);
         if (rep) printReport(rep);
+        return;
+      }
+      case 'rep-apply-sheet': {
+        const rep = S.state.reports.find(x => x.id === t.dataset.id);
+        if (!rep) return;
+        const ok = applySheetToReport(rep, t.dataset.stamp === '1');
+        if (!ok) return toast('이 주일에 해당하는 월별계획안 줄이 없습니다', 'err');
+        await Sync.save(); renderApp();
+        toast('계획안 값을 보고서에 채웠습니다 · 손으로 고칠 수 있습니다', 'ok');
         return;
       }
 
@@ -724,6 +738,7 @@ function setAttSilent(date, deptId, classId, studentId, status) {
     S.state.attendance.push(rec);
   }
   rec.status = status; rec._del = false; rec.by = S.me.uid; rec.at = Date.now(); touch(rec);
+  try { syncTalentAttendance(date, deptId, studentId, status); } catch (e) { }
 }
 
 /* 날짜 입력 */
@@ -820,10 +835,19 @@ function printReport(r) {
   const newR = newcomerRowsOf(r.deptId, r.date);
   const absText = absR.length ? absR.map(x => x.cls + ' ' + x.name + (x.reason ? ' (' + x.reason + ')' : '')).join(', ') : '없음';
   const newText = newR.length ? newR.map(x => x.cls + ' ' + x.name).join(', ') : '없음';
+  const snap = r.plan || planSnapshotFor(r.deptId, r.date);
+  let planRows = '';
+  if (snap) {
+    [['word', '말씀'], ['event', '행사'], ['owner', '담당자'], ['prayer', '기도'], ['offering', '헌금위원'], ['cleaning', '청소']].forEach(x => {
+      if (!snap[x[0]]) return;
+      planRows += '<tr><th>' + esc(x[1]) + '</th><td colspan="7">' + esc(snap[x[0]]) + '</td></tr>';
+    });
+    if (snap.progress) planRows += '<tr><th>행사 진행</th><td colspan="7" class="box">' + esc(snap.progress) + '</td></tr>';
+  }
   const w = window.open('', '_blank');
   if (!w) return toast('팝업이 차단되었습니다', 'err');
   const html = '<!doctype html><html lang="ko"><head><meta charset="utf-8"><title>주일보고</title>' +
-    '<style>@page{size:A4 portrait;margin:14mm}body{font-family:"Malgun Gothic","Apple SD Gothic Neo",sans-serif;padding:18px;color:#222}h1{font-size:19px;text-align:center;margin:0 0 4px}h2{font-size:12px;text-align:center;color:#777;font-weight:600;margin:0 0 16px}table{border-collapse:collapse;width:100%;font-size:12.5px}th,td{border:1px solid #ccc;padding:7px 9px;text-align:left;vertical-align:top}th{background:#f7f3ef;width:104px;font-weight:700}.box{white-space:pre-wrap;min-height:52px}</style></head><body>' +
+    '<style>@page{size:A4 portrait;margin:14mm}body{font-family:"Malgun Gothic","Apple SD Gothic Neo",sans-serif;padding:18px;color:#222}h1{font-size:19px;text-align:center;margin:0 0 4px}h2{font-size:12px;text-align:center;color:#777;font-weight:600;margin:0 0 16px}table{border-collapse:collapse;width:100%;font-size:12.5px}th,td{border:1px solid #ccc;padding:7px 9px;text-align:left;vertical-align:top}th{background:#f7f3ef;width:104px;font-weight:700}.box{white-space:pre-wrap;min-height:52px}h3{font-size:12px;margin:14px 0 6px;color:#555}</style></head><body>' +
     '<h1>' + esc((S.state.settings && S.state.settings.church) || '덕신교회') + ' 주일학교 주일보고</h1>' +
     '<h2>' + esc(fmtDate(r.date)) + ' · ' + esc(dept.name || '') + '</h2>' +
     '<table><tr><th>재적</th><td>' + (cn.enrolled || 0) + '</td><th>출석</th><td>' + (cn.present || 0) + '</td><th>결석</th><td>' + (cn.absent || 0) + '</td><th>신입</th><td>' + newR.length + '</td></tr>' +
@@ -835,6 +859,7 @@ function printReport(r) {
     '<tr><th>특이사항</th><td colspan="7" class="box">' + esc(r.notes || '') + '</td></tr>' +
     '<tr><th>기도제목</th><td colspan="7" class="box">' + esc(r.prayer || '') + '</td></tr>' +
     '<tr><th>작성</th><td colspan="3">' + esc(r.authorName || '') + '</td><th>확인</th><td colspan="3">' + esc(r.checkedByName || '') + '</td></tr></table>' +
+    (planRows ? '<h3>이 주 월별계획안</h3><table>' + planRows + '</table>' : '') +
     '<p style="font-size:10px;color:#999;text-align:center;margin-top:16px">덕신교회 부서업무 · 인쇄 ' + new Date().toLocaleString('ko-KR') + '</p>' +
     '<script>window.onload=function(){setTimeout(function(){window.print();},200)}<\/script></body></html>';
   w.document.open(); w.document.write(html); w.document.close();

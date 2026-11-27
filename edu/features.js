@@ -593,7 +593,7 @@ function planState() {
   if (!V.planMonth) V.planMonth = monthKeyOf((typeof V !== 'undefined' && V.date) || ymd());
   return V.planMonth;
 }
-function planView() {
+function planListView() {
   if (!can('plan.read') && !can('plan.write')) return '<div class="card">' + emptyBox('🔒', '월별계획표를 볼 권한이 없습니다') + '</div>';
   const ym = planState();
   const depts = visibleDepts();
@@ -606,7 +606,8 @@ function planView() {
   const maxW = Math.max(5, ...Object.keys(byWeek).map(Number).filter(n => n > 0));
 
   let h = subHead('월별계획표', '부서별 주차 계획·행사·공과를 적고, 주일보고와 연결됩니다',
-    can('plan.write') ? '<button class="btn primary sm" data-act="new-plan">＋ 계획</button>' : '');
+    '<button class="btn sm" data-act="plan-sheet">🗓️ 계획안 보기</button>' +
+    (can('plan.write') ? '<button class="btn primary sm" data-act="new-plan">＋ 계획</button>' : ''));
   h += '<div class="card flat" style="padding:12px">' + monthBar('planMonth', ym, 'plan-month') +
     '<div class="row wrap" style="gap:6px">' + depts.map(d => '<button class="chip big ' + (d.id === dept.id ? 'coral' : 'gray') + '" data-act="plan-dept" data-id="' + esc(d.id) + '">' + esc((d.emoji || '') + ' ' + d.name) + '</button>').join('') + '</div>';
   if (can('plan.write')) {
@@ -881,6 +882,11 @@ async function importHwpx(file) {
   const ym = planState();
   toast('한글파일을 읽는 중…');
   try {
+    /* ① 한글 계획안 양식(표 7칸)이면 계획안으로 담습니다 */
+    let sheetRes = null;
+    try { sheetRes = await parsePlanSheetHwpx(file); } catch (e) { sheetRes = { ok: false, err: e }; }
+    if (sheetRes && sheetRes.ok) { sheetImportModal(sheetRes, file.name); return; }
+    /* ② 간단한 형식이면 예전처럼 계획 항목으로 */
     const items = await parseHwpxFile(file, ym);
     if (!items.length) return toast('계획으로 옮길 날짜·행사를 찾지 못했습니다', 'err');
     V.hwpxPreview = items.map((it, i) => Object.assign({}, it, { on: true }));

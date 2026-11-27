@@ -89,11 +89,11 @@ const DEFAULT_ROLES = [
 ];
 
 const BASE_PERMS = {
-  admin: { 'attendance.check': 1, 'attendance.stat': 1, 'report.write': 1, 'report.review': 1, 'notice.write': 1, 'notice.read': 1, 'feed.write': 1, 'member.manage': 1, 'child.link': 1, 'staff.manage': 1, 'schedule.manage': 1, 'user.manage': 1, 'dept.manage': 1, 'plan.read': 1, 'plan.write': 1, 'ledger.manage': 1, 'user.approve': 1, 'year.manage': 1 },
-  pastor: { 'attendance.stat': 1, 'report.write': 1, 'report.review': 1, 'notice.read': 1, 'notice.write': 1, 'feed.write': 1, 'plan.read': 1, 'ledger.manage': 1, 'user.approve': 1, 'schedule.manage': 1 },
-  edu: { 'attendance.check': 1, 'attendance.stat': 1, 'report.write': 1, 'notice.write': 1, 'notice.read': 1, 'feed.write': 1, 'member.manage': 1, 'child.link': 1, 'staff.manage': 1, 'schedule.manage': 1, 'plan.read': 1, 'plan.write': 1, 'ledger.manage': 1, 'user.approve': 1, 'year.manage': 1 },
-  teacher: { 'attendance.check': 1, 'attendance.stat': 1, 'notice.write': 1, 'notice.read': 1, 'feed.write': 1, 'member.manage': 1, 'child.link': 1, 'plan.read': 1, 'plan.write': 1, 'user.approve': 1 },
-  parent: { 'attendance.self': 1, 'notice.read': 1, 'feed.read': 1 }
+  admin: { 'attendance.check': 1, 'attendance.stat': 1, 'report.write': 1, 'report.review': 1, 'notice.write': 1, 'notice.read': 1, 'feed.write': 1, 'member.manage': 1, 'child.link': 1, 'staff.manage': 1, 'schedule.manage': 1, 'user.manage': 1, 'dept.manage': 1, 'plan.read': 1, 'plan.write': 1, 'ledger.manage': 1, 'user.approve': 1, 'year.manage': 1, 'talent.manage': 1, 'talent.read': 1 },
+  pastor: { 'attendance.stat': 1, 'report.write': 1, 'report.review': 1, 'notice.read': 1, 'notice.write': 1, 'feed.write': 1, 'plan.read': 1, 'ledger.manage': 1, 'user.approve': 1, 'schedule.manage': 1, 'talent.read': 1 },
+  edu: { 'attendance.check': 1, 'attendance.stat': 1, 'report.write': 1, 'notice.write': 1, 'notice.read': 1, 'feed.write': 1, 'member.manage': 1, 'child.link': 1, 'staff.manage': 1, 'schedule.manage': 1, 'plan.read': 1, 'plan.write': 1, 'ledger.manage': 1, 'user.approve': 1, 'year.manage': 1, 'talent.manage': 1, 'talent.read': 1 },
+  teacher: { 'attendance.check': 1, 'attendance.stat': 1, 'notice.write': 1, 'notice.read': 1, 'feed.write': 1, 'member.manage': 1, 'child.link': 1, 'plan.read': 1, 'plan.write': 1, 'user.approve': 1, 'talent.manage': 1, 'talent.read': 1 },
+  parent: { 'attendance.self': 1, 'notice.read': 1, 'feed.read': 1, 'talent.self': 1 }
 };
 
 /* 역할 계층 — 가입 승인은 '바로 윗단계'가 합니다 (관리자 > 목회자 > 교육부서담당 > 교사 > 학부모) */
@@ -122,6 +122,9 @@ const PERM_LABELS = [
   ['plan.read', '월별계획표 보기'],
   ['plan.write', '월별계획표 작성'],
   ['ledger.manage', '회계 관리'],
+  ['talent.manage', '달란트 적립·사용'],
+  ['talent.read', '달란트 대장 보기'],
+  ['talent.self', '자녀 달란트 보기'],
   ['year.manage', '연도·진급 관리']
 ];
 
@@ -201,7 +204,7 @@ function normalizeDeptRefs(includeMe) {
     const t = canonDeptId(rec.deptId);
     if (t !== rec.deptId) { rec.deptId = t; rec.u = Math.max(Number(rec.u) || 0, now); changed++; }
   };
-  ['classes', 'students', 'attendance', 'reports', 'notices', 'feeds', 'events', 'plans', 'ledger', 'budgets'].forEach(key => {
+  ['classes', 'students', 'attendance', 'reports', 'notices', 'feeds', 'events', 'plans', 'planSheets', 'talents', 'talentRules', 'ledger', 'budgets'].forEach(key => {
     (st[key] || []).forEach(fix);
   });
   /* 반이 옮겨진 학생은 반의 부서를 따라갑니다 */
@@ -229,14 +232,14 @@ function emptyState(seed) {
     roles: seed === false ? [] : JSON.parse(JSON.stringify(DEFAULT_ROLES)),
     departments: seed === false ? [] : JSON.parse(JSON.stringify(DEFAULT_DEPTS)),
     classes: [], students: [], attendance: [], reports: [], notices: [], feeds: [], events: [],
-    plans: [], ledger: [], budgets: [], years: [], requests: [],
+    plans: [], planSheets: [], talents: [], talentRules: [], ledger: [], budgets: [], years: [], requests: [],
     people: {},
     settings: { church: '덕신교회', title: '부서업무', updatedAt: 0 },
     rev: 0
   };
 }
 
-const COLLS = ['roles', 'departments', 'classes', 'students', 'attendance', 'reports', 'notices', 'feeds', 'events', 'plans', 'ledger', 'budgets', 'requests'];
+const COLLS = ['roles', 'departments', 'classes', 'students', 'attendance', 'reports', 'notices', 'feeds', 'events', 'plans', 'planSheets', 'talents', 'talentRules', 'ledger', 'budgets', 'requests'];
 
 /* ---------------- 앱 상태 ---------------- */
 const S = {
@@ -674,7 +677,7 @@ function availableYears() {
   set[new Date().getFullYear()] = 1;
   set[curYear()] = 1;
   (S.state.years || []).forEach(y => { if (!y || y._del) return; const n = Number(y.year || y); if (n) set[n] = 1; });
-  ['students', 'classes', 'plans', 'ledger', 'reports', 'attendance'].forEach(key => {
+  ['students', 'classes', 'plans', 'planSheets', 'talents', 'ledger', 'reports', 'attendance'].forEach(key => {
     (S.state[key] || []).forEach(r => {
       if (!r || r._del) return;
       const y = Number(r.year) || yearOfDate(r.date || r.month);
@@ -694,7 +697,7 @@ function ensureYear(y) {
 }
 function yearHasData(y) {
   y = Number(y);
-  return ['students', 'classes', 'plans', 'ledger', 'reports', 'attendance'].some(key =>
+  return ['students', 'classes', 'plans', 'planSheets', 'talents', 'ledger', 'reports', 'attendance'].some(key =>
     (S.state[key] || []).some(r => r && !r._del && (Number(r.year) || yearOfDate(r.date || r.month)) === y));
 }
 function setYear(y) {
@@ -1135,3 +1138,251 @@ function ledgerIn(deptId, from, to) {
 }
 function incomeTotal(list) { return list.filter(e => e.type === 'in').reduce((s, e) => s + (Number(e.amount) || 0), 0); }
 function expenseTotal(list) { return list.filter(e => e.type === 'out').reduce((s, e) => s + (Number(e.amount) || 0), 0); }
+
+/* ================= 월별계획안 (부서 한 달 계획표 한 장) =================
+   한글 양식 그대로 — 제목 · 교사회의 기도 · 기도해요 · 주차별 표(7칸) · 행사 진행 · 교사(환경 구성·달란트).
+   한 부서의 한 달에 계획안 한 장(sheet)을 두고, 주차 표의 한 줄이 그 주일의 계획입니다. */
+const SHEET_COLS = [
+  ['date', '날짜'], ['word', '말씀'], ['event', '행사'], ['owner', '담당자'],
+  ['prayer', '기도'], ['offering', '헌금위원'], ['cleaning', '청소']
+];
+const SHEET_LABEL = {};
+SHEET_COLS.forEach(c => { SHEET_LABEL[c[0]] = c[1]; });
+
+function sundaysOfMonth(ym) {
+  const p = String(ym || '').split('-');
+  const y = Number(p[0]), m = Number(p[1]);
+  const out = [];
+  if (!y || !m) return out;
+  const d = new Date(y, m - 1, 1);
+  while (d.getMonth() === m - 1) {
+    if (d.getDay() === 0) out.push(ymd(d));
+    d.setDate(d.getDate() + 1);
+  }
+  return out;
+}
+function planSheetId(deptId, ym) { return 'ps-' + String(deptId || '') + '-' + String(ym || ''); }
+function planSheetOf(deptId, ym) {
+  return (S.state.planSheets || []).find(x => x && !x._del && x.id === planSheetId(deptId, ym)) || null;
+}
+function planSheetTitle(deptId, ym) {
+  const d = deptById(deptId) || {};
+  return String(d.name || '부서') + ' ' + Number(String(ym || '').slice(5, 7)) + '월 교육계획';
+}
+function emptySheetWeek(date) {
+  const w = { date: date || '' };
+  SHEET_COLS.forEach(c => { if (c[0] !== 'date') w[c[0]] = ''; });
+  return w;
+}
+function newPlanSheet(deptId, ym) {
+  return {
+    id: planSheetId(deptId, ym), deptId: deptId, month: ym, year: Number(String(ym).slice(0, 4)),
+    title: planSheetTitle(deptId, ym), meeting: '교사회의 기도 – 한마디 기도', prayer: '',
+    weeks: sundaysOfMonth(ym).map(d => emptySheetWeek(d)),
+    progress: '', teacherEnv: '', talentNote: '', note: '', u: 0
+  };
+}
+/* 계획안이 없으면 빈 계획안을 만들어 돌려줍니다(저장은 화면에서) */
+function planSheetDraft(deptId, ym) { return planSheetOf(deptId, ym) || newPlanSheet(deptId, ym); }
+
+/* 그 날짜(주일)의 주차 줄 — 같은 날짜 → 같은 주(일~토) 순서로 찾습니다 */
+function planSheetWeek(sheet, date) {
+  if (!sheet || !date) return null;
+  const ws = sheet.weeks || [];
+  let w = ws.find(x => x && x.date === date);
+  if (w) return w;
+  const r = weekRangeAround(date);
+  w = ws.find(x => x && x.date && x.date >= r.from && x.date <= r.to);
+  return w || null;
+}
+/* 주차 줄의 순번 (0부터) */
+function planSheetWeekIndex(sheet, week) {
+  return ((sheet && sheet.weeks) || []).indexOf(week);
+}
+/* 행사 진행 글에서 그 주에 해당하는 줄만 — 줄 첫머리 날짜(11/1, 11월 1일)로 맞춥니다 */
+function planProgressFor(sheet, date) {
+  if (!sheet || !date) return '';
+  const lines = String(sheet.progress || '').split(/\r?\n/).map(s => s.trim()).filter(Boolean);
+  if (!lines.length) return '';
+  const p = String(date).split('-');
+  const mm = Number(p[1]), dd = Number(p[2]);
+  const hit = lines.filter(l => {
+    const m = l.match(/(\d{1,2})\s*[.\/월\-\s]\s*(\d{1,2})/);
+    if (!m) return false;
+    return Number(m[1]) === mm && Number(m[2]) === dd;
+  });
+  if (hit.length) return hit.join('\n');
+  return '';
+}
+/* 주일보고에 담을 계획 한 줄 (스냅사진) */
+function planSnapshotFor(deptId, date) {
+  const sheet = planSheetOf(deptId, monthKeyOf(date));
+  if (!sheet) return null;
+  const w = planSheetWeek(sheet, date);
+  if (!w) return null;
+  return {
+    sheetId: sheet.id, date: w.date || date,
+    word: w.word || '', event: w.event || '', owner: w.owner || '', prayer: w.prayer || '',
+    offering: w.offering || '', cleaning: w.cleaning || '',
+    progress: planProgressFor(sheet, w.date || date)
+  };
+}
+
+/* ================= 달란트 포상제 =================
+   부서별 기준(출석·가정 공과·암송·전도 …)을 해마다 정하고, 아이마다 적립·사용을 기록합니다.
+   적립 기록은 '그 날 하루 한 장'(id 가 날짜·학생으로 정해짐)이라 여러 기기에서 겹쳐도 하나로 모입니다. */
+const DEFAULT_TALENT_ITEMS = [
+  { key: 'present', label: '출석', points: 3 },
+  { key: 'homework', label: '가정 공과', points: 3 },
+  { key: 'memory', label: '암송', points: 10 },
+  { key: 'evangelism', label: '전도', points: 20 }
+];
+const TALENT_KEY_ALIAS = {
+  '출석': 'present', '가정공과': 'homework', '가정 공과': 'homework', '공과': 'homework',
+  '암송': 'memory', '전도': 'evangelism', '기도': 'prayer', '봉사': 'service', '성경읽기': 'bible'
+};
+function defaultTalentItems() { return DEFAULT_TALENT_ITEMS.map(x => ({ key: x.key, label: x.label, points: x.points })); }
+function talentRuleId(deptId, year) { return 'tr-' + String(deptId || '') + '-' + Number(year); }
+function talentRuleRec(deptId, year) {
+  return (S.state.talentRules || []).find(x => x && !x._del && x.id === talentRuleId(deptId, year)) || null;
+}
+/* 그 부서·그 해의 달란트 기준 (정한 기준 → 그 해 월별계획표의 달란트 → 지난 해 기준 → 기본값) */
+function talentItems(deptId, year) {
+  const y = Number(year) || curYear();
+  const rec = talentRuleRec(deptId, y);
+  if (rec && Array.isArray(rec.items) && rec.items.length) {
+    return rec.items.map(x => ({ key: String(x.key || ''), label: String(x.label || ''), points: Number(x.points) || 0 }));
+  }
+  /* 계획표 '교사' 칸의 달란트 기준을 그대로 씁니다 */
+  const sheets = (S.state.planSheets || []).filter(x => x && !x._del && x.deptId === deptId && (Number(x.year) || yearOfDate(x.month)) === y)
+    .sort((a, b) => String(b.month || '').localeCompare(String(a.month || '')));
+  for (const sh of sheets) {
+    const tl = (sh.talent && sh.talent.length) ? sh.talent : parseTalentText(sh.talentNote || '');
+    if (tl && tl.length) return tl.map(x => ({ key: String(x.key || ''), label: String(x.label || ''), points: Number(x.points) || 0 }));
+  }
+  /* 해가 바뀌었으면 가장 최근 해의 기준을 이어 씁니다 */
+  const prev = (S.state.talentRules || []).filter(x => x && !x._del && x.deptId === deptId && Number(x.year) < y && Array.isArray(x.items) && x.items.length)
+    .sort((a, b) => Number(b.year) - Number(a.year))[0];
+  if (prev) return prev.items.map(x => ({ key: String(x.key || ''), label: String(x.label || ''), points: Number(x.points) || 0 }));
+  return defaultTalentItems();
+}
+function talentItemByKey(deptId, year, key) {
+  return talentItems(deptId, year).find(x => x.key === key) || null;
+}
+function talentItemLabel(deptId, year, key) {
+  const it = talentItemByKey(deptId, year, key);
+  return it ? it.label : key;
+}
+function talentAutoOn() { return !(S.state.settings && S.state.settings.talentAuto === false); }
+
+function talentEarnId(date, studentId) { return 'tl-e:' + String(date || '') + ':' + String(studentId || ''); }
+function talentEarnRec(date, studentId) {
+  return (S.state.talents || []).find(x => x && !x._del && x.id === talentEarnId(date, studentId)) || null;
+}
+/* 그 날 그 아이의 적립 항목 {key:1} 과 점수 */
+function talentDayItems(date, studentId) {
+  const rec = talentEarnRec(date, studentId);
+  return rec ? Object.assign({}, rec.items || {}) : {};
+}
+function talentDayPoints(date, studentId) {
+  const rec = talentEarnRec(date, studentId);
+  return rec ? Number(rec.points) || 0 : 0;
+}
+/* 적립 한 장 저장 — 항목이 모두 꺼지고 보너스도 없으면 기록을 지웁니다 */
+function saveTalentDay(date, deptId, studentId, items, bonus, memo) {
+  S.state.talents = S.state.talents || [];
+  const year = yearOfDate(date) || curYear();
+  const rule = talentItems(deptId, year);
+  const on = {};
+  let pts = 0;
+  rule.forEach(it => {
+    if (items && items[it.key]) { on[it.key] = 1; pts += Number(it.points) || 0; }
+  });
+  const b = Number(bonus) || 0;
+  pts += b;
+  let rec = (S.state.talents || []).find(x => x.id === talentEarnId(date, studentId));
+  const empty = (!Object.keys(on).length && !b);
+  if (empty) {
+    if (rec && !rec._del) { rec._del = true; rec.u = Date.now(); }
+    return null;
+  }
+  if (!rec) {
+    rec = { id: talentEarnId(date, studentId), kind: 'earn', date: date, year: year, deptId: deptId, studentId: studentId, by: S.me ? S.me.uid : '', at: Date.now(), u: 0 };
+    S.state.talents.push(rec);
+  }
+  rec.kind = 'earn'; rec.date = date; rec.year = year; rec.deptId = deptId; rec.studentId = studentId;
+  rec.items = on; rec.bonus = b; rec.points = pts;
+  rec.memo = memo != null ? String(memo) : (rec.memo || '');
+  rec._del = false;
+  rec.by = S.me ? S.me.uid : rec.by; rec.at = Date.now();
+  touch(rec);
+  return rec;
+}
+/* 출석 체크와 달란트를 잇습니다 — 출석이면 '출석' 달란트, 결석·인정이면 뺍니다 */
+function syncTalentAttendance(date, deptId, studentId, status) {
+  if (!talentAutoOn()) return null;
+  const it = talentItems(deptId, yearOfDate(date) || curYear()).find(x => x.key === 'present');
+  if (!it) return null;
+  const items = talentDayItems(date, studentId);
+  const want = status === 'present' || status === 'excused';
+  if (want && !items.present) { items.present = 1; return saveTalentDay(date, deptId, studentId, items, (talentEarnRec(date, studentId) || {}).bonus || 0); }
+  if (!want && items.present) { delete items.present; return saveTalentDay(date, deptId, studentId, items, (talentEarnRec(date, studentId) || {}).bonus || 0); }
+  return null;
+}
+/* 달란트 사용·시상 (차감) */
+function addTalentSpend(date, deptId, studentId, points, memo) {
+  S.state.talents = S.state.talents || [];
+  const p = Math.abs(Number(points) || 0);
+  if (!p) return null;
+  const rec = {
+    id: 'tl-s:' + Crypto.uid(), kind: 'spend', date: date, year: yearOfDate(date) || curYear(),
+    deptId: deptId, studentId: studentId, points: p, memo: String(memo || ''),
+    by: S.me ? S.me.uid : '', at: Date.now(), u: Date.now()
+  };
+  S.state.talents.push(rec);
+  return rec;
+}
+/* 아이의 그 해 적립·사용·잔액 */
+function talentTotals(studentId, year) {
+  const y = Number(year) || curYear();
+  const rows = (S.state.talents || []).filter(x => x && !x._del && x.studentId === studentId && (Number(x.year) || yearOfDate(x.date)) === y);
+  let earn = 0, spend = 0;
+  const byItem = {};
+  rows.forEach(x => {
+    if (x.kind === 'spend') { spend += Number(x.points) || 0; return; }
+    earn += Number(x.points) || 0;
+    Object.keys(x.items || {}).forEach(k => { byItem[k] = (byItem[k] || 0) + 1; });
+  });
+  return { earn: earn, spend: spend, balance: earn - spend, byItem: byItem, count: rows.length };
+}
+function talentRowsOf(studentId, year, opt) {
+  const y = Number(year) || curYear();
+  const all = (S.state.talents || []).filter(x => x && !x._del && x.studentId === studentId && (Number(x.year) || yearOfDate(x.date)) === y);
+  if (opt && opt.deptId) return all.filter(x => x.deptId === opt.deptId);
+  return all;
+}
+function talentMonthTotals(studentId, ym, year) {
+  const rows = talentRowsOf(studentId, year).filter(x => monthKeyOf(x.date) === ym);
+  let earn = 0, spend = 0;
+  rows.forEach(x => { if (x.kind === 'spend') spend += Number(x.points) || 0; else earn += Number(x.points) || 0; });
+  return { earn: earn, spend: spend, net: earn - spend, count: rows.length };
+}
+/* 달란트 기준 글에서 숫자 뽑기 — "달란트 – 출석 3, 가정 공과 3, 암송 10, 전도 20" */
+function parseTalentText(text) {
+  const s = String(text || '');
+  const at = s.search(/달란트/);
+  if (at < 0) return null;
+  const body = s.slice(at).replace(/^달란트\s*[–\-:：]?\s*/, '');
+  const out = [];
+  const re = /([가-힣A-Za-z][가-힣A-Za-z\s]{0,7}?)\s*(\d{1,4})\s*(?:점|개)?/g;
+  let m;
+  while ((m = re.exec(body))) {
+    const label = m[1].replace(/\s+/g, ' ').trim();
+    const pts = Number(m[2]);
+    if (!label || !isFinite(pts)) continue;
+    if (/달란트|합계|계$/.test(label)) continue;
+    const key = TALENT_KEY_ALIAS[label.replace(/\s+/g, '')] || TALENT_KEY_ALIAS[label] || ('x' + out.length + '-' + label.replace(/\s+/g, ''));
+    out.push({ key: key, label: label, points: pts });
+  }
+  return out.length ? out : null;
+}
