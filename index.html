@@ -497,6 +497,28 @@ textarea.inp{height:auto;min-height:64px;padding:10px 12px;line-height:1.5;resiz
   </div>
 </div>
 
+<!-- 처음 받은 비밀번호를 바꾸는 화면 (보안: 바꾸기 전에는 다른 기능을 쓸 수 없습니다) -->
+<div class="login-screen" id="pwChangeScreen" hidden>
+  <div class="login-card">
+    <div class="login-mark">
+      <svg class="svg" width="26" height="26" viewBox="0 0 24 24" aria-hidden="true"><rect x="4.5" y="10.5" width="15" height="9.5" rx="2"/><path d="M8 10.5V8a4 4 0 0 1 8 0v2.5"/></svg>
+    </div>
+    <h1>비밀번호를 바꿔 주세요</h1>
+    <p class="login-sub" id="pwChangeSub">처음 받은 비밀번호로 로그인했습니다.<br>새 비밀번호를 정하기 전에는 장부를 쓸 수 없습니다.</p>
+    <form class="login-form" id="pwChangeForm" autocomplete="on">
+      <label for="pcOld">지금 쓰는 비밀번호</label>
+      <input class="inp" id="pcOld" type="password" autocomplete="current-password" autocapitalize="none" placeholder="지금 비밀번호">
+      <label for="pcNew">새 비밀번호 (6자 이상)</label>
+      <input class="inp" id="pcNew" type="password" autocomplete="new-password" autocapitalize="none" placeholder="새 비밀번호">
+      <label for="pcNew2">새 비밀번호 확인</label>
+      <input class="inp" id="pcNew2" type="password" autocomplete="new-password" autocapitalize="none" placeholder="새 비밀번호 확인">
+      <div class="login-err" id="pcErr" role="alert"></div>
+      <button class="btn primary full" type="submit" id="pcBtn">비밀번호 바꾸고 시작하기</button>
+    </form>
+    <p class="login-foot">바꾸면 다른 기기에서는 다시 로그인해야 합니다.</p>
+  </div>
+</div>
+
 <div id="appRoot" hidden>
 <header class="topbar">
   <div class="topbar-in">
@@ -2473,22 +2495,19 @@ textarea.inp{height:auto;min-height:64px;padding:10px 12px;line-height:1.5;resiz
     });
   }
 
-  // 저장된 비밀번호 해시로 조용히 세션을 다시 받습니다(세션 만료 대비).
+  // 2026-11-27 보안: 비밀번호 해시(authKey)를 대신 보내는 방식은 없앴습니다.
+  // 세션이 끊겼으면 다시 로그인해야 합니다.
   function silentRelogin(){
-    if (!AUTH || !AUTH.id || !AUTH.authKey) return Promise.reject(new Error("unauthorized"));
-    return syncFetch(null, { action: "login", id: AUTH.id, authKey: AUTH.authKey }).then(function(d){
-      if (!d || d.ok !== true) throw new Error((d && (d.message || d.error)) || "다시 로그인하지 못했습니다");
-      storeAuth({ id: d.user.id, name: d.user.name, role: d.user.role,
-        token: d.token, authKey: d.authKey, expiresAt: d.expiresAt });
-      return d;
-    });
+    return Promise.reject(new Error("unauthorized"));
   }
 
-  // 사용자가 직접 누르는 서버 요청 — 세션이 만료됐으면 조용히 다시 받아 한 번 재시도합니다.
+  // 사용자가 직접 누르는 서버 요청 — 세션이 끊겼으면 로그인 화면으로 보냅니다.
   function apiCall(body){
     return syncFetch(null, body).then(function(d){
-      if (d && d.ok !== true && d.error === "unauthorized" && AUTH && AUTH.authKey){
-        return silentRelogin().then(function(){ return syncFetch(null, body); });
+      if (d && d.ok !== true && (d.error === "unauthorized")){
+        onSessionLost();
+      } else if (d && d.ok !== true && d.error === "must_change_password"){
+        showPwChange((AUTH && AUTH.name) || "");
       }
       return d;
     });
@@ -2714,9 +2733,11 @@ textarea.inp{height:auto;min-height:64px;padding:10px 12px;line-height:1.5;resiz
     syncFetch(null, { action: "login", id: id, pw: pw }).then(function(d){
       if (d && d.ok === true && d.user && d.token){
         storeAuth({ id: d.user.id, name: d.user.name, role: d.user.role,
-          token: d.token, authKey: d.authKey, expiresAt: d.expiresAt });
+          token: d.token, expiresAt: d.expiresAt });
         $("loginPw").value = "";
+        if (d.mustChange){ showPwChange(d.user.name); return; }
         enterApp();
+        touchActivity();
         toast(d.user.name + "님, 반갑습니다");
         return;
       }
@@ -2732,6 +2753,71 @@ textarea.inp{height:auto;min-height:64px;padding:10px 12px;line-height:1.5;resiz
     });
   }
 
+  /* =========================================================
+     보안: 강제 비밀번호 변경 · 30분 자동 로그아웃
+     ========================================================= */
+  function showPwChange(name){
+    $("appRoot").hidden = true;
+    $("loginScreen").hidden = true;
+    $("pwChangeScreen").hidden = false;
+    var sub = $("pwChangeSub");
+    if (sub) sub.innerHTML = (name ? esc(name) + "님, " : "") + "처음 받은 비밀번호로 로그인했습니다.<br>새 비밀번호를 정하기 전에는 장부를 쓸 수 없습니다.";
+    $("pcErr").textContent = "";
+    setTimeout(function(){ try { $("pcOld").focus(); } catch(e){} }, 60);
+  }
+
+  function doPwChange(){
+    if (!AUTH || !AUTH.token){ showLogin("다시 로그인해 주세요."); return; }
+    var oldPw = $("pcOld").value, n1 = $("pcNew").value, n2 = $("pcNew2").value;
+    var err = $("pcErr");
+    if (!oldPw || !n1){ err.textContent = "비밀번호를 모두 입력해 주세요."; return; }
+    if (n1.length < 6){ err.textContent = "새 비밀번호는 6자 이상으로 정해 주세요."; return; }
+    if (n1 !== n2){ err.textContent = "새 비밀번호가 서로 다릅니다."; return; }
+    var btn = $("pcBtn");
+    if (btn.disabled) return;
+    btn.disabled = true; btn.textContent = "바꾸는 중…";
+    err.textContent = "";
+    syncFetch(null, { action: "change_password", token: AUTH.token, oldPw: oldPw, newPw: n1 }).then(function(d){
+      if (d && d.ok === true && d.token){
+        storeAuth({ id: d.user.id, name: d.user.name, role: d.user.role, token: d.token, expiresAt: d.expiresAt });
+        $("pcOld").value = $("pcNew").value = $("pcNew2").value = "";
+        $("pwChangeScreen").hidden = true;
+        enterApp();
+        touchActivity();
+        toast("비밀번호를 바꿨습니다");
+        return;
+      }
+      throw new Error((d && (d.message || d.error)) || "바꾸지 못했습니다");
+    }).catch(function(e){
+      err.textContent = (e && e.message) || "바꾸지 못했습니다";
+    }).then(function(){
+      btn.disabled = false; btn.textContent = "비밀번호 바꾸고 시작하기";
+    });
+  }
+
+  var IDLE_MS = 30 * 60 * 1000;   // 30분 미사용 → 자동 로그아웃
+  var lastAct = Date.now();
+  function touchActivity(){ lastAct = Date.now(); }
+  function doIdleLogout(msg){
+    var tok = AUTH && AUTH.token;
+    storeAuth(null);
+    USERS = null;
+    $("appRoot").hidden = true;
+    $("pwChangeScreen").hidden = true;
+    showLogin(msg || "30분 동안 사용하지 않아 자동으로 로그아웃했습니다. 다시 로그인해 주세요.");
+  }
+  function onSessionLost(){
+    if (!AUTH) return;
+    doIdleLogout("로그인이 만료되었습니다. 다시 로그인해 주세요.");
+  }
+  ["click", "keydown", "touchstart", "scroll", "mousemove"].forEach(function(ev){
+    document.addEventListener(ev, function(){ if (CURRENT_USER || (AUTH && AUTH.token)) touchActivity(); }, true);
+  });
+  setInterval(function(){
+    if (!AUTH || !AUTH.token) return;
+    if (Date.now() - lastAct > IDLE_MS) doIdleLogout();
+  }, 20000);
+
   function doLogout(){
     if (!confirm("로그아웃할까요?\n이 기기에서는 다시 비밀번호를 입력해야 장부가 보입니다.")) return;
     var tok = AUTH && AUTH.token;
@@ -2745,6 +2831,7 @@ textarea.inp{height:auto;min-height:64px;padding:10px 12px;line-height:1.5;resiz
   }
 
   $("loginForm").addEventListener("submit", function(ev){ ev.preventDefault(); doLogin(); });
+  $("pwChangeForm").addEventListener("submit", function(ev){ ev.preventDefault(); doPwChange(); });
   $("whoChip").addEventListener("click", function(){ showTab("settings"); });
 
   function bootSession(){
@@ -2753,16 +2840,17 @@ textarea.inp{height:auto;min-height:64px;padding:10px 12px;line-height:1.5;resiz
     syncFetch(null, { action: "me" }).then(function(d){
       if (d && d.ok === true && d.user){
         var keep = { id: d.user.id, name: d.user.name, role: d.user.role,
-          token: AUTH.token, authKey: AUTH.authKey, expiresAt: AUTH.expiresAt };
+          token: AUTH.token, expiresAt: AUTH.expiresAt };
         storeAuth(keep);
+        touchActivity();
+        if (d.mustChange){ showPwChange(d.user.name); return; }
         enterApp();
         return;
       }
       if (d && d.error === "unauthorized"){
-        return silentRelogin().then(enterApp, function(){
-          storeAuth(null);
-          showLogin("로그인이 만료되었습니다. 다시 로그인해 주세요.");
-        });
+        storeAuth(null);
+        showLogin("로그인이 만료되었습니다. 다시 로그인해 주세요.");
+        return;
       }
       enterApp();
     }).catch(function(){
@@ -2795,8 +2883,10 @@ textarea.inp{height:auto;min-height:64px;padding:10px 12px;line-height:1.5;resiz
     return syncFetch(null, { action:"login", id:cred.id, pw:cred.pw }).then(function(d){
       if (d && d.ok === true && d.user && d.token){
         storeAuth({ id:d.user.id, name:d.user.name, role:d.user.role,
-          token:d.token, authKey:d.authKey, expiresAt:d.expiresAt });
+          token:d.token, expiresAt:d.expiresAt });
+        if (d.mustChange){ showPwChange(d.user.name); return true; }
         enterApp();
+        touchActivity();
         return true;
       }
       return false;
