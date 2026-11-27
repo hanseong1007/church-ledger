@@ -2208,6 +2208,8 @@ function openPwChange(slot, idRaw, oldPw) {
     + '<div class="field"><label>새 비밀번호 확인</label><input id="pcNew2" type="password" autocomplete="new-password"></div>'
     + '<div class="err" id="pcErr" style="color:#c0392b"></div>';
   const m = modal({ title: '비밀번호를 바꿔 주세요', body: body });
+  /* 기본 '닫기' 단추는 빼고 취소·변경 두 개만 둔다 */
+  try { const f = m.box.querySelector('.modal-f'); if (f && f.children.length === 1) f.innerHTML = ''; } catch (e) { }
   m.addBtn('취소', '', () => { doLock(); });
   m.addBtn('비밀번호 바꾸기', 'primary', async (api) => {
     const n1 = document.getElementById('pcNew').value, n2 = document.getElementById('pcNew2').value;
