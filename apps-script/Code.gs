@@ -719,7 +719,8 @@ function saveEntry_(t, en, auth) {
   const found = findRow_(list, id);
   let created = false;
   if (found) {
-    t.entries.getRange(found.row, 1, 1, HEAD.length).setValues([vals]);
+    // 2026-11-28: rowValues_ 는 영수증 이어붙임 열까지 13열입니다. 범위도 WIDTH(13)로 써야 합니다.
+    t.entries.getRange(found.row, 1, 1, WIDTH).setValues([vals]);
   } else {
     t.entries.appendRow(vals);
     created = true;
@@ -756,14 +757,14 @@ function bulkImport_(t, body, auth) {
       add.push(vals);
       map[id] = { id: id };
     } else if (Number(en.updatedAt) > Number(have.updatedAt) || !have.row) {
-      if (have && have.row) { t.entries.getRange(have.row, 1, 1, HEAD.length).setValues([vals]); }
+      if (have && have.row) { t.entries.getRange(have.row, 1, 1, WIDTH).setValues([vals]); }
       updated++;
     } else {
       skipped++;
     }
   }
   if (add.length) {
-    t.entries.getRange(t.entries.getLastRow() + 1, 1, add.length, HEAD.length).setValues(add);
+    t.entries.getRange(t.entries.getLastRow() + 1, 1, add.length, WIDTH).setValues(add);
   }
   if (body.settings) { writeSettings_(t.settings, body.settings); }
   return { ok: true, added: add.length, updated: updated, skipped: skipped, settings: readSettings_(t.settings) };

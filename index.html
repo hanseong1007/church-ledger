@@ -2626,6 +2626,28 @@ textarea.inp{height:auto;min-height:64px;padding:10px 12px;line-height:1.5;resiz
     throw new Error(what + " 실패: " + m);
   }
 
+  /* 기록을 한 건씩 올립니다. 중간에 한 건이 실패해도 나머지는 계속 올리고,
+     실패한 건은 다음 동기화에서 다시 시도합니다. */
+  function pushEntriesOneByOne(rows){
+    var i = 0, failed = 0, lastMsg = "";
+    function step(){
+      if (i >= rows.length){
+        if (failed) throw new Error("기록 " + failed + "건을 올리지 못했습니다" + (lastMsg ? " (" + lastMsg + ")" : ""));
+        return true;
+      }
+      var r = rows[i++];
+      setSyncProgress(i, rows.length);
+      return syncFetch(null, { action: "save_entry", entry: r }).then(function(d){
+        if (!d || d.ok !== true){ failed++; lastMsg = (d && (d.message || d.error)) || ""; }
+      }).catch(function(err){ failed++; lastMsg = (err && err.message) || ""; }).then(step);
+    }
+    return Promise.resolve().then(step);
+  }
+  function setSyncProgress(done, total){
+    var txt = $("syncTxt");
+    if (txt) txt.textContent = "☁️ 동기화 중… (" + done + "/" + total + ")";
+  }
+
   function syncNow(force){
     if (!SYNC_URL || !CURRENT_USER) return;
     if (!force && SYNC.retryAt && Date.now() < SYNC.retryAt) return;
@@ -2665,13 +2687,16 @@ textarea.inp{height:auto;min-height:64px;padding:10px 12px;line-height:1.5;resiz
       var needsSettings = settingsSnapshot() !== SYNC.settingsSig;
 
       var chain = Promise.resolve();
+      var pushRows = pushBudget.slice();
       if (push.length){
         chain = chain.then(function(){ return shrinkReceipts(push); }).then(function(list){
-          return syncFetch(null, { action: "bulk_import", entries: list.map(entryToRow).concat(pushBudget) });
-        }).then(function(d){ return assertOk(d, "기록 올리기"); });
-      } else if (pushBudget.length){
-        chain = chain.then(function(){ return syncFetch(null, { action: "bulk_import", entries: pushBudget }); })
-          .then(function(d){ return assertOk(d, "예산 올리기"); });
+          pushRows = list.map(entryToRow).concat(pushBudget);
+        });
+      }
+      if (pushRows.length || push.length){
+        /* 2026-11-28: bulk_import 가 서버에서 열 수 불일치로 거절되어(13열 ↔ 11열),
+           한 건씩 save_entry 로 올립니다. 올라간 기록은 다음 동기화에서 건너뜁니다. */
+        chain = chain.then(function(){ return pushEntriesOneByOne(pushRows); });
       }
       if (needsSettings){
         chain = chain.then(function(){
