@@ -1512,7 +1512,10 @@
       jrm(K_SESS);
     }
     await loadDoc({});
-    if (!state.doc || !state.doc.users.length) { showSetup(); }
+    /* 보안 강화 뒤에는 계정 문서를 읽으려면 금전출납부 로그인(토큰)이 필요합니다.
+       읽지 못했을 때는 '처음 설정'이 아니라 로그인 화면을 보여 줍니다. */
+    if (state.syncErr) { showGate(''); }
+    else if (!state.doc || !state.doc.users.length) { showSetup(); }
     else { showGate(''); }
     document.documentElement.setAttribute('data-ready', '1');
   }
