@@ -2460,7 +2460,7 @@ textarea.inp{height:auto;min-height:64px;padding:10px 12px;line-height:1.5;resiz
     if (s < 3600) return Math.round(s/60) + "분 전";
     return Math.round(s/3600) + "시간 전";
   }
-  function setSyncState(s){
+  function setSyncState(s, msg){
     SYNC.state = s;
     var bar = $("syncBar");
     if (bar) bar.className = "syncbar " + s;
@@ -2468,7 +2468,7 @@ textarea.inp{height:auto;min-height:64px;padding:10px 12px;line-height:1.5;resiz
     if (txt){
       if (s === "syncing") txt.textContent = "☁️ 동기화 중…";
       else if (s === "ok") txt.textContent = "☁️ 동기화 완료 (" + agoText(SYNC.lastAt) + ")";
-      else if (s === "error") txt.textContent = "⚠️ 공유 서버에 연결하지 못했습니다 · 이 기기에 저장됨";
+      else if (s === "error") txt.textContent = "⚠️ " + (msg ? msg + " · " : "공유 서버에 연결하지 못했습니다 · ") + "이 기기에 저장됨";
       else txt.textContent = "공유 데이터 연결을 확인하고 있습니다…";
     }
     var sh = $("shareState"), hint = $("shareHint");
@@ -2494,12 +2494,23 @@ textarea.inp{height:auto;min-height:64px;padding:10px 12px;line-height:1.5;resiz
       if (AUTH && AUTH.token) q += "&token=" + encodeURIComponent(AUTH.token);
       url += "?" + q + "&_t=" + Date.now();
     }
+    var ctrl = (typeof AbortController !== "undefined") ? new AbortController() : null;
+    var timer = null;
+    if (ctrl){
+      opt.signal = ctrl.signal;
+      timer = setTimeout(function(){ try{ ctrl.abort(); }catch(e){} }, 45000);   // 응답이 없으면 끊고 다시 시도합니다
+    }
     return fetch(url, opt).then(function(res){
       if (!res.ok) throw new Error("HTTP " + res.status);
       return res.text();
     }).then(function(t){
+      clearTimeout(timer);
       try { return JSON.parse(t); }
       catch(e){ throw new Error("서버 응답을 해석하지 못했습니다"); }
+    }).catch(function(err){
+      clearTimeout(timer);
+      if (err && err.name === "AbortError") throw new Error("서버 응답이 없습니다(시간 초과)");
+      throw err;
     });
   }
 
@@ -2593,6 +2604,12 @@ textarea.inp{height:auto;min-height:64px;padding:10px 12px;line-height:1.5;resiz
     return changed;
   }
 
+  function assertOk(d, what){
+    if (d && d.ok === true) return d;
+    var m = (d && (d.message || d.error)) || "응답 오류";
+    throw new Error(what + " 실패: " + m);
+  }
+
   function syncNow(){
     if (!SYNC_URL || !CURRENT_USER) return;
     if (SYNC.busy){ SYNC.again = true; return; }
@@ -2634,23 +2651,24 @@ textarea.inp{height:auto;min-height:64px;padding:10px 12px;line-height:1.5;resiz
       if (push.length){
         chain = chain.then(function(){ return shrinkReceipts(push); }).then(function(list){
           return syncFetch(null, { action: "bulk_import", entries: list.map(entryToRow).concat(pushBudget) });
-        });
+        }).then(function(d){ return assertOk(d, "기록 올리기"); });
       } else if (pushBudget.length){
-        chain = chain.then(function(){ return syncFetch(null, { action: "bulk_import", entries: pushBudget }); });
+        chain = chain.then(function(){ return syncFetch(null, { action: "bulk_import", entries: pushBudget }); })
+          .then(function(d){ return assertOk(d, "예산 올리기"); });
       }
       if (needsSettings){
         chain = chain.then(function(){
           return syncFetch(null, { action: "save_settings", settings: {
             org: state.settings.org, author: state.settings.author,
             base: state.settings.base, accounts: state.accounts } });
-        });
+        }).then(function(d){ return assertOk(d, "설정 저장"); });
       }
       removed.forEach(function(id){
         chain = chain.then(function(){
           return syncFetch(null, { action: "save_entry", entry: { id: id, date: todayStr(), type: "income",
             cat: "", memo: "", pay: "", amount: 0, author: "", receiptData: "",
             updatedAt: Date.now(), deleted: true } });
-        });
+        }).then(function(d){ return assertOk(d, "기록 지우기"); });
       });
       return chain;
     }).then(function(){
