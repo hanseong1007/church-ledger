@@ -1064,6 +1064,7 @@ textarea.inp{height:auto;min-height:64px;padding:10px 12px;line-height:1.5;resiz
      ========================================================= */
   var AUTH_KEY = "church-ledger-auth-v1";
   var AUTH = loadAuth();
+  var AUTH_EPOCH = 0;   // 로그인·비밀번호 변경 때마다 올린다 — 옛 토큰으로 보냈던 요청의 늦은 응답을 거른다
   var CURRENT_USER = AUTH ? { id: AUTH.id, name: AUTH.name, role: AUTH.role } : null;
 
   function loadAuth(){
@@ -1077,6 +1078,7 @@ textarea.inp{height:auto;min-height:64px;padding:10px 12px;line-height:1.5;resiz
   }
   function storeAuth(a){
     AUTH = a;
+    AUTH_EPOCH++;
     CURRENT_USER = a ? { id: a.id, name: a.name, role: a.role } : null;
     try{
       if (a) localStorage.setItem(AUTH_KEY, JSON.stringify(a));
@@ -2503,9 +2505,10 @@ textarea.inp{height:auto;min-height:64px;padding:10px 12px;line-height:1.5;resiz
 
   // 사용자가 직접 누르는 서버 요청 — 세션이 끊겼으면 로그인 화면으로 보냅니다.
   function apiCall(body){
+    var epoch0 = AUTH_EPOCH;
     return syncFetch(null, body).then(function(d){
       if (d && d.ok !== true && (d.error === "unauthorized")){
-        onSessionLost();
+        if (epoch0 === AUTH_EPOCH) onSessionLost();
       } else if (d && d.ok !== true && d.error === "must_change_password"){
         showPwChange((AUTH && AUTH.name) || "");
       }
@@ -2585,6 +2588,7 @@ textarea.inp{height:auto;min-height:64px;padding:10px 12px;line-height:1.5;resiz
     if (!SYNC_URL || !CURRENT_USER) return;
     if (SYNC.busy){ SYNC.again = true; return; }
     SYNC.busy = true;
+    var epoch0 = AUTH_EPOCH;
     var removed = [];
     setSyncState("syncing");
     syncFetch("action=sync_all").then(function(d){
@@ -2645,6 +2649,12 @@ textarea.inp{height:auto;min-height:64px;padding:10px 12px;line-height:1.5;resiz
     }).catch(function(err){
       var msg = (err && err.message) || "";
       if (msg === "unauthorized"){
+        /* 비밀번호를 바꾸기 전에 보낸 요청이 늦게 돌아온 경우는 로그아웃시키지 않는다 */
+        if (epoch0 !== AUTH_EPOCH){
+          SYNC.busy = false;
+          setTimeout(syncNow, 300);
+          return;
+        }
         SYNC.relogin = true;
         silentRelogin().then(function(){ SYNC.busy = false; syncNow(); }, function(){
           SYNC.busy = false;
@@ -2816,6 +2826,11 @@ textarea.inp{height:auto;min-height:64px;padding:10px 12px;line-height:1.5;resiz
     box.textContent = msg; box.classList.add("show");
   }
 
+  function pwScreenOpen(){
+    var s = $("pwChangeScreen");
+    return !!(s && !s.hidden);
+  }
+
   function showPwChange(name){
     $("appRoot").hidden = true;
     $("loginScreen").hidden = true;
@@ -2930,9 +2945,9 @@ textarea.inp{height:auto;min-height:64px;padding:10px 12px;line-height:1.5;resiz
   document.addEventListener("visibilitychange", function(){
     if (!document.hidden && CURRENT_USER && Date.now() - SYNC.lastAt > 10000) syncNow();
   });
-  window.addEventListener("online", function(){ if (CURRENT_USER) syncNow(); });
+  window.addEventListener("online", function(){ if (CURRENT_USER && !pwScreenOpen()) syncNow(); });
   setInterval(function(){
-    if (document.hidden || !CURRENT_USER) return;
+    if (document.hidden || !CURRENT_USER || pwScreenOpen()) return;
     if (Date.now() - SYNC.lastAt >= SYNC_EVERY) syncNow();
   }, 5000);
   setInterval(function(){ if (SYNC.state === "ok") setSyncState("ok"); }, 15000);
