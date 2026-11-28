@@ -3274,7 +3274,6 @@ textarea.inp{height:auto;min-height:64px;padding:10px 12px;line-height:1.5;resiz
           '<td class="num">' + won(g.amount) + '</td><td class="num">' + pctText(g.amount, total) + '</td></tr>';
       }
     });
-    h += '</tbody><tfoot>';
     if (withDetail){
       h += '<tr class="total"><td colspan="4" class="ctr">' + esc(label) + ' 계 (' + count + '건)</td>' +
         '<td class="num">' + won(total) + '</td></tr>';
@@ -3282,7 +3281,7 @@ textarea.inp{height:auto;min-height:64px;padding:10px 12px;line-height:1.5;resiz
       h += '<tr class="total"><td class="ctr">계</td><td class="num">' + count + '</td>' +
         '<td class="num">' + won(total) + '</td><td class="num">100%</td></tr>';
     }
-    h += '</tfoot></table>';
+    h += '</tbody></table>';
     return h;
   }
   function printStat(withDetail){
@@ -3331,11 +3330,10 @@ textarea.inp{height:auto;min-height:64px;padding:10px 12px;line-height:1.5;resiz
         '<td class="ctr">' + esc(e.method || "") + '</td>' +
         '<td class="num">' + won(e.amount) + '</td></tr>';
     });
-    body += '</tbody><tfoot>' +
-      '<tr class="total"><td colspan="4" class="ctr">수입 계 (' + rows.filter(function(e){ return e.type === "income"; }).length + '건)</td><td class="num">' + won(incT) + '</td></tr>' +
+    body += '<tr class="total"><td colspan="4" class="ctr">수입 계 (' + rows.filter(function(e){ return e.type === "income"; }).length + '건)</td><td class="num">' + won(incT) + '</td></tr>' +
       '<tr class="total"><td colspan="4" class="ctr">지출 계 (' + rows.filter(function(e){ return e.type === "expense"; }).length + '건)</td><td class="num">' + won(outT) + '</td></tr>' +
       '<tr class="total"><td colspan="4" class="ctr">수지</td><td class="num">' + signedWon(incT - outT) + '</td></tr>' +
-      '</tfoot></table>';
+      '</tbody></table>';
     openPrintDoc(found.account + " 수입·지출 내역", body, false);
   }
   function printYear(){

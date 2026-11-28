@@ -438,19 +438,7 @@ textarea.inp{height:auto;min-height:64px;padding:10px 12px;line-height:1.5;resiz
   .tbl th,.tbl td{padding:1.6mm 2mm;border-color:#bbb}
   .tbl thead th{background:#f0f0f0 !important;-webkit-print-color-adjust:exact;print-color-adjust:exact}
   .tbl tr.tot td{background:#f0f0f0 !important;-webkit-print-color-adjust:exact;print-color-adjust:exact}
-  /* 출납부 표 양식 (번호·날짜·항목·내용·수입·지출·누계) */
-  .ledger-tbl{width:100%;border-collapse:collapse;table-layout:fixed;font-size:9.2pt;font-variant-numeric:tabular-nums}
-  .ledger-tbl thead{display:table-header-group}
-  .ledger-tbl tr{break-inside:avoid;page-break-inside:avoid}
-  .ledger-tbl th,.ledger-tbl td{border:.7pt solid #000;padding:1.3mm 1.5mm;color:#000;white-space:normal;word-break:break-word;vertical-align:middle}
-  .ledger-tbl thead th{background:#ececec !important;-webkit-print-color-adjust:exact;print-color-adjust:exact;font-size:8.6pt;font-weight:800;text-align:center;letter-spacing:.02em}
-  .ledger-tbl td.c{text-align:center}
-  .ledger-tbl td.l{text-align:left}
-  .ledger-tbl td.r{text-align:right}
-  .ledger-tbl td.carry{font-weight:800}
-  .ledger-tbl td.ct{font-weight:800}
-  .ledger-tbl tr.tot td{background:#ececec !important;font-weight:800;border-top:1.2pt solid #000;-webkit-print-color-adjust:exact;print-color-adjust:exact}
-  .ledger-tbl tr.tot td.l{text-align:center}
+  /* 출납부 표 양식 (번호·날짜·구분·항목·내용·수입·지출·누계) — 인쇄 전용 문서에서 씁니다 */
   .bar-t{background:#e2e2e2}
   .bar-f,.bar-f.out{-webkit-print-color-adjust:exact;print-color-adjust:exact;background:#6b6b6b !important}
   .rgrid{grid-template-columns:repeat(4,1fr);gap:3mm}
@@ -620,34 +608,7 @@ textarea.inp{height:auto;min-height:64px;padding:10px 12px;line-height:1.5;resiz
         <svg class="svg" viewBox="0 0 24 24"><path d="M4 5h16v14H4z"/><path d="M4 10h16M9 10v9M15 10v9"/></svg>출납부 표 인쇄
       </button>
     </div>
-    <p class="hint no-print" style="margin-top:8px">출납부 표는 위에서 고른 기간(전체 기간 또는 그 달)을 이월금부터 차례대로 담습니다.</p>
-  </section>
-
-  <!-- ===================== 1-b. 출납부 표 인쇄 (화면에는 보이지 않고 인쇄할 때만 나옵니다) ===================== -->
-  <section class="view" id="view-print-table" aria-label="출납부 표 인쇄">
-    <div class="print-only print-head">
-      <div class="ph-org" id="ptOrg">교회·모임</div>
-      <div class="ph-title">금전출납부</div>
-      <div class="ph-meta"><span id="ptMeta"></span><span>단위: 원</span></div>
-    </div>
-
-    <div class="print-only">
-      <table class="tbl ledger-tbl" id="ptTable">
-        <colgroup>
-          <col style="width:8%"><col style="width:15%"><col style="width:16%"><col style="width:24%">
-          <col style="width:12%"><col style="width:12%"><col style="width:13%">
-        </colgroup>
-        <thead>
-          <tr><th>번호</th><th>날짜</th><th>항목</th><th>내용</th><th>수입</th><th>지출</th><th>누계</th></tr>
-        </thead>
-        <tbody id="ptBody"></tbody>
-      </table>
-    </div>
-
-    <div class="print-only sign">
-      <div>작성자</div><div>확인자</div>
-    </div>
-    <div class="print-only print-note" id="ptNote"></div>
+    <p class="hint no-print" style="margin-top:8px"><b>장부 인쇄</b>는 지금 화면의 장부 전체를 카드 모양으로, <b>출납부 표 인쇄</b>는 위에서 고른 기간(전체 기간 또는 그 달)을 이월금부터 표 양식으로 담습니다.</p>
   </section>
 
   <!-- ===================== 2. 월간 보고서 ===================== -->
@@ -665,6 +626,7 @@ textarea.inp{height:auto;min-height:64px;padding:10px 12px;line-height:1.5;resiz
     </div>
     <div class="btnrow no-print" style="margin-bottom:10px">
       <button class="btn sm line" type="button" id="mToday">이번 달</button>
+      <button class="btn sm line" type="button" id="mPrintTable">출납부 표 인쇄</button>
       <button class="btn sm primary" type="button" id="mPrint">
         <svg class="svg" viewBox="0 0 24 24"><path d="M6 9V3h12v6M6 18H4v-7h16v7h-2M8 14h8v7H8z"/></svg>A4 인쇄 / PDF 저장
       </button>
@@ -1272,6 +1234,9 @@ textarea.inp{height:auto;min-height:64px;padding:10px 12px;line-height:1.5;resiz
     if (name === "stat") renderStat();
     if (name === "item") renderItem();
     if (name === "budget") renderBudget();
+    /* 인쇄용 표시는 화면을 옮길 때 지웁니다 */
+    document.body.classList.remove("print-one");
+    document.querySelectorAll(".view").forEach(function(v){ v.classList.remove("print-this"); });
     window.scrollTo(0,0);
   }
 
@@ -1496,6 +1461,11 @@ textarea.inp{height:auto;min-height:64px;padding:10px 12px;line-height:1.5;resiz
     var d = new Date(); current.my = d.getFullYear(); current.mm = d.getMonth()+1; renderMonth();
   });
   $("mPrint").addEventListener("click", function(){ doPrint("view-month"); });
+  /* 이 달의 출납부 표를 이월금부터 차례대로 인쇄합니다 (장부 탭의 기간 선택과 상관없이) */
+  var mPrintTableBtn = $("mPrintTable");
+  if (mPrintTableBtn) mPrintTableBtn.addEventListener("click", function(){
+    printLedgerTable(current.my + "-" + pad2(current.mm));
+  });
   $("view-month").addEventListener("click", function(ev){
     var b = ev.target.closest("[data-receipt]");
     if (!b) return;
@@ -2218,13 +2188,19 @@ textarea.inp{height:auto;min-height:64px;padding:10px 12px;line-height:1.5;resiz
   /* =========================================================
      인쇄
      ========================================================= */
+  /* 화면 그대로 인쇄하는 버튼(장부·월간·연간)용. 안드로이드 크롬은 인쇄 창이 끝나기 전에
+     afterprint 를 먼저 보내서, 그 신호를 그대로 받으면 인쇄 중에 장부 화면으로 되돌아갔습니다.
+     그래서 누른 직후 잠시(1.5초)는 afterprint 를 무시합니다. */
+  var PRINT_LOCK_UNTIL = 0;
   function doPrint(viewId){
     document.querySelectorAll(".view").forEach(function(v){ v.classList.remove("print-this"); });
     $(viewId).classList.add("print-this");
     document.body.classList.add("print-one");
+    PRINT_LOCK_UNTIL = Date.now() + 1500;
     setTimeout(function(){ window.print(); }, 60);
   }
   function endPrint(){
+    if (Date.now() < PRINT_LOCK_UNTIL) return;
     document.body.classList.remove("print-one");
     document.querySelectorAll(".view").forEach(function(v){ v.classList.remove("print-this"); });
   }
@@ -2235,8 +2211,9 @@ textarea.inp{height:auto;min-height:64px;padding:10px 12px;line-height:1.5;resiz
      출납부 표 (번호 · 날짜 · 항목 · 내용 · 수입 · 지출 · 누계)
      ========================================================= */
   // 지금 고른 기간의 이월금 + 거래를 날짜순으로 계산합니다.
-  function printTableData(){
-    var fm = $("fMonth") ? $("fMonth").value : "";
+  // monthKey 를 주면 그 달(YYYY-MM) 기준으로 계산합니다 (월간 화면에서 그 달 표를 인쇄할 때).
+  function printTableData(monthKey){
+    var fm = (monthKey !== undefined) ? monthKey : ($("fMonth") ? $("fMonth").value : "");
     var rows, carry, carryLabel, carryDate, periodLabel, note;
     if (fm){
       var p = fm.split("-"), y = Number(p[0]), m = Number(p[1]);
@@ -2279,55 +2256,85 @@ textarea.inp{height:auto;min-height:64px;padding:10px 12px;line-height:1.5;resiz
       inSum: inSum, outSum: outSum, endBal: run };
   }
 
-  function renderPrintTable(){
-    var d = printTableData();
-    var org = (state.settings.org || "").trim() || "교회·모임";
-    var author = (state.settings.author || "").trim();
-    $("ptOrg").textContent = org;
-    $("ptMeta").innerHTML = "기간: <b>" + esc(d.periodLabel) + "</b>" +
-      " · 작성자: " + esc(author || "미지정") + " · 출력일: " + todayStr() +
-      " · 기록 " + d.count + "건";
+  /* =========================================================
+     출납부 표 인쇄 (번호 · 날짜 · 구분 · 항목 · 내용 · 수입 · 지출 · 누계)
+     화면 클래스를 바꾸지 않고 인쇄 전용 문서를 새 창에 만들어 인쇄합니다.
+     ========================================================= */
+  var LEDGER_SHEET_CSS =
+    "@page{size:A4;margin:12mm 10mm}" +
+    "body{font-family:'Malgun Gothic','Apple SD Gothic Neo',sans-serif;color:#000;margin:0;-webkit-print-color-adjust:exact;print-color-adjust:exact}" +
+    ".sheet-head{border-bottom:1.4pt solid #000;padding-bottom:2.5mm;margin-bottom:3mm}" +
+    ".sheet-head .org{font-size:9.5pt;font-weight:700;letter-spacing:.04em}" +
+    ".sheet-head h1{font-size:17pt;font-weight:800;margin:1mm 0 1.5mm;letter-spacing:-.3px}" +
+    ".sheet-head .meta{font-size:8.4pt;color:#222;display:flex;gap:5mm;flex-wrap:wrap}" +
+    "table.sheet{width:100%;border-collapse:collapse;table-layout:fixed;font-size:8.6pt;font-variant-numeric:tabular-nums}" +
+    "table.sheet thead{display:table-header-group}" +
+    "table.sheet tr{break-inside:avoid;page-break-inside:avoid}" +
+    "table.sheet th,table.sheet td{border:.6pt solid #000;padding:1.2mm 1.3mm;vertical-align:middle;word-break:break-word;line-height:1.35}" +
+    "table.sheet th{background:#ececec;font-size:8.2pt;font-weight:800;text-align:center;letter-spacing:.02em}" +
+    "table.sheet td.c{text-align:center}table.sheet td.r{text-align:right}table.sheet td.l{text-align:left}" +
+    "table.sheet td.ct{font-weight:800}" +
+    "table.sheet tr.carry td{font-weight:800;background:#f4f4f4}" +
+    "table.sheet tr.tot td{font-weight:800;background:#ececec;border-top:1.1pt solid #000}" +
+    ".sheet-sign{display:flex;gap:14mm;justify-content:flex-end;margin-top:8mm;font-size:9.5pt}" +
+    ".sheet-sign div{border-top:.6pt solid #000;padding-top:1.2mm;min-width:36mm;text-align:center}" +
+    ".sheet-note{font-size:7.6pt;color:#333;margin-top:3mm}" +
+    "p.foot{font-size:7pt;color:#666;text-align:center;margin-top:4mm}";
 
-    var html = '<tr class="carry">' +
-      '<td class="c ct">' + d.carryNo + "</td>" +
-      '<td class="c ct">' + d.carryDate + "</td>" +
-      '<td class="l ct">' + esc(d.carryLabel) + "</td>" +
-      '<td class="l"></td>' +
-      '<td class="r ct">' + won(d.carry) + "</td>" +
-      '<td class="r"></td>' +
-      '<td class="r ct">' + won(d.carry) + "</td> </tr>";
+  function ledgerSheetHtml(d){
+    var org = (state.settings.org || "").trim() || "교회·모임";
+    var h = '<div class="sheet-head"><div class="org">' + esc(org) + '</div><h1>금전출납부</h1>' +
+      '<div class="meta"><span>기간: <b>' + esc(d.periodLabel) + '</b></span>' +
+      '<span>작성자: ' + esc(authorName()) + '</span>' +
+      '<span>출력일: ' + todayStr() + '</span>' +
+      '<span>기록 ' + d.count + '건</span><span>단위: 원</span></div></div>';
+
+    h += '<table class="sheet"><colgroup>' +
+      '<col style="width:6%"><col style="width:11%"><col style="width:6%"><col style="width:14%">' +
+      '<col style="width:24%"><col style="width:13%"><col style="width:13%"><col style="width:13%"></colgroup>' +
+      '<thead><tr><th>번호</th><th>날짜</th><th>구분</th><th>항목</th><th>내용</th><th>수입</th><th>지출</th><th>누계</th></tr></thead><tbody>';
+
+    /* 1번 줄 = 이월금 */
+    h += '<tr class="carry"><td class="c ct">' + d.carryNo + '</td>' +
+      '<td class="c ct">' + esc(d.carryDate) + '</td>' +
+      '<td class="c">—</td>' +
+      '<td class="l ct">' + esc(d.carryLabel) + '</td>' +
+      '<td class="l">이월 잔액</td>' +
+      '<td class="r">' + (d.carry > 0 ? won(d.carry) : "") + '</td>' +
+      '<td class="r">' + (d.carry < 0 ? won(-d.carry) : "") + '</td>' +
+      '<td class="r ct">' + won(d.carry) + '</td></tr>';
 
     d.rows.forEach(function(r){
-      html += "<tr>" +
-        '<td class="c">' + r.no + "</td>" +
-        '<td class="c">' + r.date + "</td>" +
-        '<td class="l">' + esc(r.account || "미지정") + "</td>" +
-        '<td class="l">' + esc(r.memo) + "</td>" +
-        '<td class="r">' + (r.income ? won(r.income) : "") + "</td>" +
-        '<td class="r">' + (r.expense ? won(r.expense) : "") + "</td>" +
-        '<td class="r">' + won(r.bal) + "</td> </tr>";
+      h += '<tr><td class="c">' + r.no + '</td>' +
+        '<td class="c">' + esc(r.date) + '</td>' +
+        '<td class="c">' + (r.income ? "수입" : "지출") + '</td>' +
+        '<td class="l">' + esc(r.account || "미지정") + '</td>' +
+        '<td class="l">' + esc(r.memo) + '</td>' +
+        '<td class="r">' + (r.income ? won(r.income) : "") + '</td>' +
+        '<td class="r">' + (r.expense ? won(r.expense) : "") + '</td>' +
+        '<td class="r">' + won(r.bal) + '</td></tr>';
     });
 
-    html += '<tr class="tot">' +
-      '<td class="l" colspan="4">합계</td>' +
-      '<td class="r">' + won(d.inSum) + "</td>" +
-      '<td class="r">' + won(d.outSum) + "</td>" +
-      '<td class="r">' + won(d.endBal) + "</td> </tr>";
-
-    $("ptBody").innerHTML = html;
-    $("ptNote").textContent = d.note + " 1번 줄은 이월금이며, 합계의 누계 칸은 기말 잔액입니다.";
-    return d;
+    h += '<tr class="tot"><td class="c" colspan="5">합계</td>' +
+      '<td class="r">' + won(d.inSum) + '</td>' +
+      '<td class="r">' + won(d.outSum) + '</td>' +
+      '<td class="r">' + won(d.endBal) + '</td></tr>';
+    h += '</tbody></table>';
+    h += '<div class="sheet-sign"><div>작성자</div><div>확인자</div></div>';
+    h += '<div class="sheet-note">' + esc(d.note) + ' 1번 줄은 이월금이며, 합계의 누계 칸은 기말 잔액입니다.</div>';
+    return h;
   }
 
-  $("btnPrintTable").addEventListener("click", function(){
-    var d = printTableData();
+  function printLedgerTable(monthKey){
+    var d = printTableData(monthKey);
     if (!d.count){
-      toast("이 기간에는 기록이 없습니다. 다른 기간을 골라 보세요");
+      toast("이 기간에는 기록이 없습니다. 위에서 기간(전체 기간 또는 그 달)을 골라 주세요");
       return;
     }
-    renderPrintTable();
-    doPrint("view-print-table");
-  });
+    openPrintDoc("금전출납부 " + d.periodLabel, ledgerSheetHtml(d), false, LEDGER_SHEET_CSS);
+  }
+
+  $("btnPrintTable").addEventListener("click", function(){ printLedgerTable(); });
 
   /* =========================================================
      CSV · JSON
@@ -2446,8 +2453,8 @@ textarea.inp{height:auto;min-height:64px;padding:10px 12px;line-height:1.5;resiz
   var SHEET_URL = "https://docs.google.com/spreadsheets/d/1PLtsH2E1CkALiP8xHLs73hfpouqL01iCrrqO-uqz8lg/edit";
   var RECEIPT_MAX = 42000;      // 시트 한 셀 50,000자 한도 안전선
   var SYNC_EVERY = 20000;       // 20초마다 자동 새로고침
-  var SYNC = { busy:false, applying:false, knownIds:{}, lastAt:0, pushTimer:null, settingsSig:"", state:"init", again:false, relogin:false,
-    lastError:"", lastErrorAt:0, retryAt:0 };
+  var SYNC = { busy:false, applying:false, knownIds:{}, lastAt:0, lastMs:0, pushTimer:null, settingsSig:"", state:"init", again:false, relogin:false,
+    lastError:"", lastErrorAt:0, retryAt:0, tries:0, meChecked:false };
 
   function jsonOf(o){ try { return JSON.stringify(o); } catch(e){ return ""; } }
   function settingsSnapshot(){
@@ -2462,6 +2469,17 @@ textarea.inp{height:auto;min-height:64px;padding:10px 12px;line-height:1.5;resiz
     if (s < 3600) return Math.round(s/60) + "분 전";
     return Math.round(s/3600) + "시간 전";
   }
+  /* 서버·인터넷 문제를 화면에 보기 좋은 우리말로 바꿉니다 */
+  function errText(msg){
+    var m = String(msg || "");
+    if (/Failed to fetch|NetworkError|Load failed|network error/i.test(m)) return "인터넷 연결이 잠깐 끊겼습니다";
+    if (/시간 초과/.test(m)) return "서버 응답이 늦어 시간이 초과되었습니다";
+    if (/HTTP 5\d\d/.test(m)) return "공유 서버가 잠시 바쁩니다";
+    return m;
+  }
+  function isNetError(msg){
+    return /Failed to fetch|NetworkError|Load failed|network error|시간 초과|HTTP 5\d\d/i.test(String(msg || ""));
+  }
   function setSyncState(s, msg){
     SYNC.state = s;
     var bar = $("syncBar");
@@ -2470,21 +2488,23 @@ textarea.inp{height:auto;min-height:64px;padding:10px 12px;line-height:1.5;resiz
     if (txt){
       if (s === "syncing") txt.textContent = "☁️ 동기화 중…";
       else if (s === "ok") txt.textContent = "☁️ 동기화 완료 (" + agoText(SYNC.lastAt) + ")";
-      else if (s === "error") txt.textContent = "⚠️ " + (msg ? msg + " · " : "공유 서버에 연결하지 못했습니다 · ") + "이 기기에 저장됨";
+      else if (s === "error") txt.textContent = "⚠️ " + (msg ? errText(msg) + " · " : "공유 서버에 연결하지 못했습니다 · ") + "이 기기에 저장됨";
       else txt.textContent = "공유 데이터 연결을 확인하고 있습니다…";
     }
     if (s === "error"){
-      SYNC.lastError = msg || "공유 서버에 연결하지 못했습니다";
+      SYNC.lastError = errText(msg || "공유 서버에 연결하지 못했습니다");
       SYNC.lastErrorAt = Date.now();
       SYNC.retryAt = Date.now() + 60000;      // 같은 실패를 1분에 한 번만 다시 시도합니다
     } else if (s === "ok"){
       SYNC.lastError = "";
+      SYNC.tries = 0;
     }
     var sl = $("syncLast");
     if (sl){
       sl.textContent = SYNC.lastError
         ? "마지막 동기화 실패(" + agoText(SYNC.lastErrorAt || Date.now()) + "): " + SYNC.lastError
-        : (SYNC.lastAt ? "마지막 동기화: " + agoText(SYNC.lastAt) + " · 문제 없음" : "");
+        : (SYNC.lastAt ? "마지막 동기화: " + agoText(SYNC.lastAt) + " · 문제 없음" +
+            (SYNC.lastMs ? " (" + (SYNC.lastMs / 1000).toFixed(1) + "초)" : "") : "");
       sl.style.color = SYNC.lastError ? "#b23a32" : "";
     }
     var sh = $("shareState"), hint = $("shareHint");
@@ -2655,9 +2675,13 @@ textarea.inp{height:auto;min-height:64px;padding:10px 12px;line-height:1.5;resiz
     SYNC.busy = true;
     var epoch0 = AUTH_EPOCH;
     var removed = [];
+    var startedAt = Date.now();
     setSyncState("syncing");
     syncFetch("action=sync_all").then(function(d){
-      if (!d || d.ok !== true) throw new Error((d && d.error) || "서버 응답 오류");
+      if (!d || d.ok !== true){
+        if (d && d.error === "must_change_password") throw new Error("must_change_password");
+        throw new Error((d && d.error) || "서버 응답 오류");
+      }
       var localSigBefore = settingsSnapshot();
       SYNC.applying = true;
       try { applyServerData(d, localSigBefore); } finally { SYNC.applying = false; }
@@ -2724,9 +2748,17 @@ textarea.inp{height:auto;min-height:64px;padding:10px 12px;line-height:1.5;resiz
       state.entries.forEach(function(e){ SYNC.knownIds[e.id] = true; });
       SYNC.settingsSig = settingsSnapshot();
       SYNC.lastAt = Date.now();
+      SYNC.lastMs = Date.now() - startedAt;
       setSyncState("ok");
+      /* 처음 한 번 성공한 뒤에만 내 계정 정보를 따로 확인합니다(요청이 겹쳐 느려지는 것을 막습니다) */
+      if (!SYNC.meChecked){ SYNC.meChecked = true; refreshMe(); }
     }).catch(function(err){
       var msg = (err && err.message) || "";
+      if (msg === "must_change_password"){
+        SYNC.busy = false;
+        showPwChange((AUTH && AUTH.name) || "");
+        return;
+      }
       if (msg === "unauthorized"){
         /* 비밀번호를 바꾸기 전에 보낸 요청이 늦게 돌아온 경우는 로그아웃시키지 않는다 */
         if (epoch0 !== AUTH_EPOCH){
@@ -2741,12 +2773,40 @@ textarea.inp{height:auto;min-height:64px;padding:10px 12px;line-height:1.5;resiz
         });
         return;
       }
+      /* 2026-11-28: 인터넷이 잠깐 끊기거나 서버가 느려 시간이 초과된 경우에는,
+         바로 빨간 경고를 띄우지 않고 몇 초 뒤 스스로 두 번 더 시도합니다. */
+      if (isNetError(msg) && SYNC.tries < 2){
+        SYNC.tries++;
+        var n = SYNC.tries;
+        SYNC.busy = false;
+        setSyncState("syncing");
+        var txt = $("syncTxt");
+        if (txt) txt.textContent = "☁️ 연결이 잠깐 끊겼습니다. 다시 시도하는 중… (" + n + "/2)";
+        setTimeout(function(){ syncNow(true); }, 2500 * n);
+        return;
+      }
       setSyncState("error", msg);
     }).then(function(){
       if (SYNC.relogin){ SYNC.relogin = false; return; }
       SYNC.busy = false;
       if (SYNC.again){ SYNC.again = false; setTimeout(syncNow, 200); }
     });
+  }
+
+  /* 내 계정 정보(이름·권한·비밀번호 변경 필요)를 서버에 확인합니다. 화면은 막지 않습니다. */
+  function refreshMe(){
+    if (!AUTH || !AUTH.token) return;
+    var epoch0 = AUTH_EPOCH;
+    syncFetch(null, { action: "me" }).then(function(d){
+      if (epoch0 !== AUTH_EPOCH) return;
+      if (!d || d.ok !== true) return;
+      if (!d.user) return;
+      if (d.user.name !== (AUTH.name || "") || d.user.role !== (AUTH.role || "")){
+        storeAuth({ id: d.user.id, name: d.user.name, role: d.user.role, token: AUTH.token, expiresAt: AUTH.expiresAt });
+        renderAccountCard();
+      }
+      if (d.mustChange) showPwChange(d.user.name);
+    }).catch(function(){});
   }
 
   function schedulePush(){
@@ -2897,21 +2957,26 @@ textarea.inp{height:auto;min-height:64px;padding:10px 12px;line-height:1.5;resiz
     out.sort(function(a, b){ return (b.inc + b.out) - (a.inc + a.out); });
     return out;
   }
-  function itemFormHtml(cat, rows, minRows){
-    var inc = sortAsc(rows.filter(function(e){ return e.type === "income"; }));
-    var out = sortAsc(rows.filter(function(e){ return e.type === "expense"; }));
-    var n = Math.max(minRows || 10, inc.length, out.length);
+  /* 항목 하나의 거래를 날짜 순서로. 화면과 인쇄가 같은 모양(날짜·구분·세부 내역·금액)입니다. */
+  function itemTableHtml(cat, rows){
+    var list = sortAsc(rows);
     var incT = sumBy(rows, "income"), outT = sumBy(rows, "expense");
-    var h = '<table class="tbl form" style="table-layout:fixed;min-width:420px"><colgroup><col style="width:30%"><col style="width:18%"><col style="width:30%"><col style="width:18%"></colgroup><thead>' +
-      '<tr><th colspan="4" style="text-align:center;font-size:13.5px">' + esc(cat || "항목") + '</th></tr>' +
-      '<tr><th colspan="2" style="text-align:center">수입</th><th colspan="2" style="text-align:center">지출</th></tr>' +
-      '<tr><th>내용</th><th>금액</th><th>내용</th><th>금액</th></tr></thead><tbody>';
-    for (var i = 0; i < n; i++){
-      var a = inc[i], b = out[i];
-      h += '<tr><td style="white-space:normal">' + (a ? esc(a.memo || a.date.slice(5)) : "") + '</td><td>' + (a ? won(a.amount) : "") + '</td>' +
-        '<td style="white-space:normal">' + (b ? esc(b.memo || b.date.slice(5)) : "") + '</td><td>' + (b ? won(b.amount) : "") + '</td></tr>';
+    var h = '<table class="tbl" style="min-width:400px"><colgroup><col style="width:24%"><col style="width:15%"><col style="width:35%"><col style="width:26%"></colgroup>' +
+      '<thead><tr><th>날짜</th><th>구분</th><th>세부 내역</th><th>금액</th></tr></thead><tbody>';
+    if (!list.length){
+      h += '<tr><td colspan="4" style="text-align:center;color:var(--muted)">기록 없음</td></tr>';
     }
-    h += '</tbody><tr class="tot"><td>계</td><td>' + won(incT) + '</td><td>계</td><td>' + won(outT) + '</td></tr></table>';
+    list.forEach(function(e){
+      var pos = (e.type === "income") === (e.amount >= 0);
+      h += '<tr><td style="white-space:nowrap">' + e.date + '</td>' +
+        '<td><span class="tag ' + (e.type === "income" ? "in" : "out") + '">' + (e.type === "income" ? "수입" : "지출") + '</span></td>' +
+        '<td style="white-space:normal">' + esc(e.memo || "—") + '</td>' +
+        '<td style="text-align:right;white-space:nowrap"><b class="' + (pos ? "in" : "out") + '">' +
+          (pos ? "+" : "−") + won(Math.abs(e.amount)) + '</b></td></tr>';
+    });
+    h += '<tr class="tot"><td colspan="3">합계 · 수입 ' + won(incT) + ' / 지출 ' + won(outT) + '</td>' +
+      '<td style="text-align:right">' + signedWon(incT - outT) + '</td></tr>';
+    h += '</tbody></table>';
     return h;
   }
 
@@ -2936,8 +3001,8 @@ textarea.inp{height:auto;min-height:64px;padding:10px 12px;line-height:1.5;resiz
       }).join("") + '</select></div></div>';
 
     h += '<div class="card"><div class="card-head"><h2>' + esc(found.account) + '</h2><span class="count">수입 ' + won(found.inc) + ' · 지출 ' + won(found.out) + '</span></div>' +
-      '<div class="tblwrap">' + itemFormHtml(found.account, rows, 10) + '</div>' +
-      '<p class="hint">표의 <b>내용</b> 칸은 기록의 적요(세부 내역)입니다. 인쇄하면 이 2단 표 그대로 A4에 나옵니다.</p>' +
+      '<div class="tblwrap">' + itemTableHtml(found.account, rows) + '</div>' +
+      '<p class="hint">날짜·구분·세부 내역·금액을 건별로 보여 줍니다. 인쇄하면 이 모양 그대로 A4에 나옵니다.</p>' +
       '<div class="btnrow no-print" style="margin-top:10px"><button class="btn sm primary" type="button" data-act="rp-print-item">🖨 이 항목 인쇄</button></div></div>';
 
     h += '<div class="card"><div class="card-head"><h2>항목 목록</h2><span class="count">' + cats.length + '개</span></div>' +
@@ -3152,43 +3217,71 @@ textarea.inp{height:auto;min-height:64px;padding:10px 12px;line-height:1.5;resiz
       "tr.total td{font-weight:800;background:#fafafa}" +
       "table.form tr.grp th{background:#e9e9e9;font-size:9.5pt}" +
       "table.form tr.sub th{background:#f5f5f5}" +
+      "table.form tr.sub td{background:#f5f5f5;font-weight:700}" +
+      "table.detail th{font-size:8.4pt}" +
+      "table.detail td{height:auto;padding:1.3mm 1.6mm;font-size:8.6pt}" +
       "table.form th.title{background:#fff;font-size:11pt;height:8mm}" +
       "p.foot{font-size:7.5pt;color:#999;text-align:center;margin-top:4mm}" +
       "p.hint{font-size:8pt;color:#666;margin:2mm 0 0}";
   }
-  function openPrintDoc(title, body, landscape){
+  /* 2026-11-28: 인쇄는 화면 클래스를 잠깐 바꾸는 방식 대신, 인쇄 전용 문서를 새 창에 만들어 그 창에서 인쇄합니다.
+     (안드로이드 크롬은 인쇄가 끝나기 전에 afterprint 를 보내서, 화면 장부가 인쇄되던 문제가 있었습니다) */
+  function openPrintDoc(title, body, landscape, extraCss){
     var w = window.open("", "_blank");
     if (!w){ toast("팝업이 차단되었습니다. 브라우저의 팝업 허용을 켜 주세요"); return; }
     var js = "<" + "script>window.onload=function(){setTimeout(function(){try{window.print()}catch(e){}},250)}" + "<" + "/script>";
-    var html = '<!doctype html><html lang="ko"><head><meta charset="utf-8"><title>' + esc(title) + '</title><style>' + printCss(landscape) + '</style></head><body>' +
+    var html = '<!doctype html><html lang="ko"><head><meta charset="utf-8"><title>' + esc(title) + '</title><style>' + printCss(landscape) + (extraCss || "") + '</style></head><body>' +
       body + '<p class="foot">' + esc(state.settings.org || "교회·모임") + ' · 인쇄 ' + new Date().toLocaleString("ko-KR") + '</p>' + js + '</body></html>';
     w.document.open(); w.document.write(html); w.document.close();
+    return w;
+  }
+  /* 보고서에 적을 작성자 — 설정에 적어 두지 않았으면 지금 로그인한 사람 이름을 씁니다 */
+  function authorName(){
+    return String(state.settings.author || "").trim() || displayName() || "－";
   }
   function printHead(title){
     return '<h1>' + esc(title) + '</h1><h2>' + esc(state.settings.org || "교회·모임") +
-      "  ·  작성자: " + esc(state.settings.author || "－") + "  ·  출력일: " + todayStr() + '</h2>';
+      "  ·  작성자: " + esc(authorName()) + "  ·  출력일: " + todayStr() + '</h2>';
   }
+  /* 항목별 통계표. withDetail 이면 세부 건마다 날짜·구분·세부 내역과 그 건의 금액을 함께 적습니다. */
   function printCatTable(label, groups, total, withDetail){
     var count = groups.reduce(function(n, g){ return n + g.count; }, 0);
-    var cols = withDetail ? 6 : 4;
-    var h = '<table style="margin-top:4mm"><thead><tr><th colspan="' + cols + '">' + esc(label) + '</th></tr>' +
-      '<tr><th>항목</th><th class="num">건수</th><th class="num">금액</th><th class="num">비중</th>' + (withDetail ? '<th>날짜</th><th>세부 내역</th>' : '') + '</tr></thead><tbody>';
+    var isIn = label === "수입";
+    var cols = withDetail ? 5 : 4;
+    var h = '<table class="form' + (withDetail ? " detail" : "") + '" style="margin-top:4mm"><thead>';
+    h += '<tr><th colspan="' + cols + '">' + esc(label) + '</th></tr>';
+    if (withDetail){
+      h += '<tr><th style="width:20%">항목</th><th style="width:13%">날짜</th><th style="width:8%">구분</th>' +
+        '<th>세부 내역</th><th class="num" style="width:17%">금액</th></tr>';
+    } else {
+      h += '<tr><th>항목</th><th class="num">건수</th><th class="num">금액</th><th class="num">비중</th></tr>';
+    }
+    h += '</thead><tbody>';
     if (!groups.length) h += '<tr><td colspan="' + cols + '" class="ctr">기록 없음</td></tr>';
     groups.forEach(function(g){
       if (withDetail){
-        sortAsc(g.rows).forEach(function(e, i){
-          h += '<tr>' + (i === 0 ? '<td rowspan="' + g.rows.length + '" class="left">' + esc(g.account) + '</td>' +
-            '<td rowspan="' + g.rows.length + '" class="num">' + g.count + '</td>' +
-            '<td rowspan="' + g.rows.length + '" class="num">' + won(g.amount) + '</td>' +
-            '<td rowspan="' + g.rows.length + '" class="num">' + pctText(g.amount, total) + '</td>' : '') +
-            '<td class="ctr">' + e.date + '</td><td>' + esc(e.memo || "-") + '</td></tr>';
+        sortAsc(g.rows).forEach(function(e){
+          h += '<tr><td class="left">' + esc(g.account) + '</td>' +
+            '<td class="ctr">' + e.date + '</td>' +
+            '<td class="ctr">' + (isIn ? "수입" : "지출") + '</td>' +
+            '<td>' + esc(e.memo || "-") + '</td>' +
+            '<td class="num">' + won(e.amount) + '</td></tr>';
         });
+        h += '<tr class="sub"><td colspan="4" class="ctr">' + esc(g.account) + ' 계 · ' + g.count + '건 · ' +
+          pctText(g.amount, total) + '</td><td class="num">' + won(g.amount) + '</td></tr>';
       } else {
-        h += '<tr><td class="left">' + esc(g.account) + '</td><td class="num">' + g.count + '</td><td class="num">' + won(g.amount) + '</td><td class="num">' + pctText(g.amount, total) + '</td></tr>';
+        h += '<tr><td class="left">' + esc(g.account) + '</td><td class="num">' + g.count + '</td>' +
+          '<td class="num">' + won(g.amount) + '</td><td class="num">' + pctText(g.amount, total) + '</td></tr>';
       }
     });
-    h += '</tbody><tfoot><tr class="total"><td class="ctr">계</td><td class="num">' + count + '</td><td class="num">' + won(total) + '</td><td class="num">100%</td>' +
-      (withDetail ? '<td colspan="2"></td>' : '') + '</tr></tfoot></table>';
+    if (withDetail){
+      h += '<tr class="total"><td colspan="4" class="ctr">' + esc(label) + ' 계 (' + count + '건)</td>' +
+        '<td class="num">' + won(total) + '</td></tr>';
+    } else {
+      h += '<tr class="total"><td class="ctr">계</td><td class="num">' + count + '</td>' +
+        '<td class="num">' + won(total) + '</td><td class="num">100%</td></tr>';
+    }
+    h += '</tbody></table>';
     return h;
   }
   function printStat(withDetail){
@@ -3209,29 +3302,39 @@ textarea.inp{height:auto;min-height:64px;padding:10px 12px;line-height:1.5;resiz
       body += '<h2 style="margin:5mm 0 2mm">달별 추이</h2><table><thead><tr><th>월</th><th class="num">수입</th><th class="num">지출</th><th class="num">수지</th></tr></thead><tbody>' + rows +
         '</tbody><tfoot><tr class="total"><td class="ctr">계</td><td class="num">' + won(ti) + '</td><td class="num">' + won(to) + '</td><td class="num">' + signedWon(ti - to) + '</td></tr></tfoot></table>';
     }
-    openPrintDoc("회계 통계", body, false);
+    openPrintDoc("회계 통계", body, !!withDetail);
   }
+  /* 항목별 조회 인쇄 — 날짜 · 구분 · 세부 내역 · 건별 금액과 합계를 한 표로 냅니다. */
   function printItem(){
     var list = reportEntries();
     var cats = itemCats(list);
     var found = null;
     cats.forEach(function(c){ if (c.account === REPORT.itemKey) found = c; });
     if (!found) found = cats[0];
-    if (!found){ toast("인쇄할 항목이 없습니다"); return; }
-    var rows = list.filter(function(e){ return (e.account || "미지정") === found.account; });
-    var inc = sortAsc(rows.filter(function(e){ return e.type === "income"; }));
-    var out = sortAsc(rows.filter(function(e){ return e.type === "expense"; }));
-    var n = Math.max(12, inc.length, out.length);
-    var body = '<h1 style="margin-bottom:3mm">' + esc(found.account) + '</h1><h2>' + esc(reportLabel()) + "  ·  " + esc(state.settings.org || "교회·모임") + '</h2>';
-    body += '<table class="form"><thead><tr class="grp"><th colspan="2">수입</th><th colspan="2">지출</th></tr>' +
-      '<tr class="sub"><th>항목</th><th class="num">금액</th><th>항목</th><th class="num">금액</th></tr></thead><tbody>';
-    for (var i = 0; i < n; i++){
-      var a = inc[i], b = out[i];
-      body += '<tr><td class="left">' + (a ? esc(a.memo || a.date.slice(5)) : "") + '</td><td class="num">' + (a ? won(a.amount) : "") + '</td>' +
-        '<td class="left">' + (b ? esc(b.memo || b.date.slice(5)) : "") + '</td><td class="num">' + (b ? won(b.amount) : "") + '</td></tr>';
-    }
-    body += '</tbody><tfoot><tr class="total"><td class="ctr">계</td><td class="num">' + won(sumBy(rows, "income")) + '</td><td class="ctr">계</td><td class="num">' + won(sumBy(rows, "expense")) + '</td></tr></tfoot></table>';
-    openPrintDoc(found.account, body, false);
+    if (!found){ toast("인쇄할 항목이 없습니다. 이 기간에 기록이 있는지 확인해 주세요"); return; }
+    var rows = sortAsc(list.filter(function(e){ return (e.account || "미지정") === found.account; }));
+    var incT = sumBy(rows, "income"), outT = sumBy(rows, "expense");
+    var body = '<h1 style="margin-bottom:2mm">' + esc(found.account) + ' 수입·지출 내역</h1>' +
+      '<h2>' + esc(state.settings.org || "교회·모임") + '  ·  ' + esc(reportLabel()) +
+      '  ·  작성자: ' + esc(authorName()) + '  ·  출력일: ' + todayStr() + '</h2>' +
+      '<p class="hint">' + rows.length + '건 · 수입 ' + won(incT) + '원 · 지출 ' + won(outT) +
+      '원 · 수지 ' + signedWon(incT - outT) + '원</p>';
+    body += '<table class="detail" style="margin-top:3mm"><thead><tr>' +
+      '<th style="width:13%">날짜</th><th style="width:8%">구분</th><th>세부 내역</th>' +
+      '<th style="width:13%">결제·수단</th><th class="num" style="width:17%">금액</th></tr></thead><tbody>';
+    if (!rows.length) body += '<tr><td colspan="5" class="ctr">기록 없음</td></tr>';
+    rows.forEach(function(e){
+      body += '<tr><td class="ctr">' + e.date + '</td>' +
+        '<td class="ctr">' + (e.type === "income" ? "수입" : "지출") + '</td>' +
+        '<td>' + esc(e.memo || "-") + '</td>' +
+        '<td class="ctr">' + esc(e.method || "") + '</td>' +
+        '<td class="num">' + won(e.amount) + '</td></tr>';
+    });
+    body += '<tr class="total"><td colspan="4" class="ctr">수입 계 (' + rows.filter(function(e){ return e.type === "income"; }).length + '건)</td><td class="num">' + won(incT) + '</td></tr>' +
+      '<tr class="total"><td colspan="4" class="ctr">지출 계 (' + rows.filter(function(e){ return e.type === "expense"; }).length + '건)</td><td class="num">' + won(outT) + '</td></tr>' +
+      '<tr class="total"><td colspan="4" class="ctr">수지</td><td class="num">' + signedWon(incT - outT) + '</td></tr>' +
+      '</tbody></table>';
+    openPrintDoc(found.account + " 수입·지출 내역", body, false);
   }
   function printYear(){
     var y = REPORT.year, ny = y + 1;
@@ -3650,31 +3753,18 @@ textarea.inp{height:auto;min-height:64px;padding:10px 12px;line-height:1.5;resiz
 
   function bootSession(){
     if (!AUTH || !CURRENT_USER){ showLogin(""); return; }
-    // 저장된 세션이 아직 살아 있는지 서버에 확인
-    syncFetch(null, { action: "me" }).then(function(d){
-      if (d && d.ok === true && d.user){
-        var keep = { id: d.user.id, name: d.user.name, role: d.user.role,
-          token: AUTH.token, expiresAt: AUTH.expiresAt };
-        storeAuth(keep);
-        touchActivity();
-        if (d.mustChange){ showPwChange(d.user.name); return; }
-        enterApp();
-        return;
-      }
-      if (d && d.error === "unauthorized"){
-        storeAuth(null);
-        showLogin("로그인이 만료되었습니다. 다시 로그인해 주세요.");
-        return;
-      }
-      enterApp();
-    }).catch(function(){
-      // 서버에 닿지 않아도 이 기기에서 로그인한 적이 있으면 장부를 엽니다(오프라인).
-      enterApp();
-    });
+    /* 2026-11-28: 예전에는 me 와 sync_all 을 동시에 보내 서버에서 두 요청이 줄을 서느라
+       첫 장부가 늦게 떴습니다. 이제는 이 기기에 있던 장부를 바로 보여 주고,
+       서버 확인은 동기화 응답(unauthorized·must_change_password)으로 함께 받습니다. */
+    enterApp();
   }
 
   // 공유 데이터 연결
-  $("btnSync").addEventListener("click", function(){ toast("공유 데이터를 새로 받아옵니다"); syncNow(); });
+  $("btnSync").addEventListener("click", function(){
+    toast("공유 데이터를 새로 받아옵니다");
+    SYNC.retryAt = 0; SYNC.tries = 0;
+    syncNow(true);
+  });
   $("btnSyncNow").addEventListener("click", function(){ toast("공유 데이터를 새로 받아옵니다"); SYNC.retryAt = 0; syncNow(true); });
   $("linkSheet").href = SHEET_URL;
   document.addEventListener("visibilitychange", function(){

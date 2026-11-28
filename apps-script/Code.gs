@@ -29,7 +29,7 @@ const HEAD = ["id", "date", "type", "cat", "memo", "pay", "amount", "author", "r
 const WIDTH = 13;
 const RECEIPT_CHUNK = 45000;
 const USER_HEAD = ["id", "name", "role", "salt", "pwHash", "active", "createdAt", "updatedAt", "mustChange", "fails", "lockUntil", "pwSetAt"];
-const SESS_HEAD = ["token", "id", "pwHash", "createdAt", "expiresAt"];
+const SESS_HEAD = ["token", "id", "pwHash", "createdAt", "expiresAt"]; var SEC_KEY_CACHE_ = null, DATA_KEY_CACHE_ = null; /* 성능: 스크립트 속성 키는 실행마다 한 번만 읽습니다 */
 
 const LOCK_MS = 25000;
 const RECEIPT_MAX = 46000;
@@ -243,7 +243,7 @@ function newToken_() {
 /* ---------- 서명 토큰 (HMAC-SHA256, 12시간) ---------- */
 function secKey_() {
   const props = PropertiesService.getScriptProperties();
-  let k = props.getProperty("SEC_TOKEN_KEY");
+  let k = SEC_KEY_CACHE_ || props.getProperty("SEC_TOKEN_KEY"); SEC_KEY_CACHE_ = k;
   if (!k) {
     const b = [];
     for (let i = 0; i < 32; i++) { b.push(Math.floor(Math.random() * 256)); }
@@ -680,7 +680,7 @@ function rowValues_(en, receipt) {
 /* ---------- 시트 저장 값 암호화 ---------- */
 function dataKey_() {
   const props = PropertiesService.getScriptProperties();
-  let k = props.getProperty("LEDGER_ENC_KEY");
+  let k = DATA_KEY_CACHE_ || props.getProperty("LEDGER_ENC_KEY"); DATA_KEY_CACHE_ = k;
   if (!k) {
     const b = [];
     for (let i = 0; i < 32; i++) { b.push(Math.floor(Math.random() * 256)); }
