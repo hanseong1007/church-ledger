@@ -3758,7 +3758,13 @@ textarea.inp{height:auto;min-height:64px;padding:10px 12px;line-height:1.5;resiz
     if (!AUTH || !CURRENT_USER){ showLogin(""); return; }
     /* 2026-11-28: 예전에는 me 와 sync_all 을 동시에 보내 서버에서 두 요청이 줄을 서느라
        첫 장부가 늦게 떴습니다. 이제는 이 기기에 있던 장부를 바로 보여 주고,
-       서버 확인은 동기화 응답(unauthorized·must_change_password)으로 함께 받습니다. */
+       서버 확인은 동기화 응답(unauthorized·must_change_password)으로 함께 받습니다.
+       단, 토큰 유효기간이 이미 지났으면 서버에 묻기 전에 로그인 화면부터 띄웁니다. */
+    if (AUTH.expiresAt && Number(AUTH.expiresAt) < Date.now()){
+      storeAuth(null);
+      showLogin("로그인이 만료되었습니다. 다시 로그인해 주세요.");
+      return;
+    }
     enterApp();
   }
 
