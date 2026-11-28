@@ -3314,6 +3314,7 @@ textarea.inp{height:auto;min-height:64px;padding:10px 12px;line-height:1.5;resiz
     if (!found){ toast("인쇄할 항목이 없습니다. 이 기간에 기록이 있는지 확인해 주세요"); return; }
     var rows = sortAsc(list.filter(function(e){ return (e.account || "미지정") === found.account; }));
     var incT = sumBy(rows, "income"), outT = sumBy(rows, "expense");
+    var hasPay = rows.some(function(e){ return String(e.method || "").trim() !== ""; });
     var body = '<h1 style="margin-bottom:2mm">' + esc(found.account) + ' 수입·지출 내역</h1>' +
       '<h2>' + esc(state.settings.org || "교회·모임") + '  ·  ' + esc(reportLabel()) +
       '  ·  작성자: ' + esc(authorName()) + '  ·  출력일: ' + todayStr() + '</h2>' +
@@ -3321,18 +3322,20 @@ textarea.inp{height:auto;min-height:64px;padding:10px 12px;line-height:1.5;resiz
       '원 · 수지 ' + signedWon(incT - outT) + '원</p>';
     body += '<table class="detail" style="margin-top:3mm"><thead><tr>' +
       '<th style="width:13%">날짜</th><th style="width:8%">구분</th><th>세부 내역</th>' +
-      '<th style="width:13%">결제·수단</th><th class="num" style="width:17%">금액</th></tr></thead><tbody>';
-    if (!rows.length) body += '<tr><td colspan="5" class="ctr">기록 없음</td></tr>';
+      (hasPay ? '<th style="width:13%">결제·수단</th>' : '') +
+      '<th class="num" style="width:17%">금액</th></tr></thead><tbody>';
+    if (!rows.length) body += '<tr><td colspan="' + (hasPay ? 5 : 4) + '" class="ctr">기록 없음</td></tr>';
     rows.forEach(function(e){
       body += '<tr><td class="ctr">' + e.date + '</td>' +
         '<td class="ctr">' + (e.type === "income" ? "수입" : "지출") + '</td>' +
         '<td>' + esc(e.memo || "-") + '</td>' +
-        '<td class="ctr">' + esc(e.method || "") + '</td>' +
+        (hasPay ? '<td class="ctr">' + esc(e.method || "") + '</td>' : '') +
         '<td class="num">' + won(e.amount) + '</td></tr>';
     });
-    body += '<tr class="total"><td colspan="4" class="ctr">수입 계 (' + rows.filter(function(e){ return e.type === "income"; }).length + '건)</td><td class="num">' + won(incT) + '</td></tr>' +
-      '<tr class="total"><td colspan="4" class="ctr">지출 계 (' + rows.filter(function(e){ return e.type === "expense"; }).length + '건)</td><td class="num">' + won(outT) + '</td></tr>' +
-      '<tr class="total"><td colspan="4" class="ctr">수지</td><td class="num">' + signedWon(incT - outT) + '</td></tr>' +
+    var span = hasPay ? 4 : 3;
+    body += '<tr class="total"><td colspan="' + span + '" class="ctr">수입 계 (' + rows.filter(function(e){ return e.type === "income"; }).length + '건)</td><td class="num">' + won(incT) + '</td></tr>' +
+      '<tr class="total"><td colspan="' + span + '" class="ctr">지출 계 (' + rows.filter(function(e){ return e.type === "expense"; }).length + '건)</td><td class="num">' + won(outT) + '</td></tr>' +
+      '<tr class="total"><td colspan="' + span + '" class="ctr">수지</td><td class="num">' + signedWon(incT - outT) + '</td></tr>' +
       '</tbody></table>';
     openPrintDoc(found.account + " 수입·지출 내역", body, false);
   }
